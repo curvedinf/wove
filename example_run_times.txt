@@ -1,0 +1,38 @@
+--- Timing API Aggregator Example ---
+--- Running API Aggregator Example ---
+Found 20000 item IDs to process.
+All item details fetched.
+
+Total execution time: 0.35 seconds
+Final summary: Successfully aggregated data for 20000 items.
+--- API Aggregator Example Finished ---
+\n
+--- Timing ETL Pipeline Example ---
+--- Running ETL Pipeline Example ---
+-> [E] Extracting source data...
+<- [E] Source data extracted (50000 records).
+-> [T2] Adding metadata (CPU-bound)...
+-> [T1] Transforming user profiles (CPU-bound)...
+<- [T1] User profiles transformed.
+<- [T2] Metadata added.
+-> [L] Loading data into destination...
+<- [L] Loaded 50000 records.
+
+Total execution time: 3.04 seconds
+Final loaded data summary: 50000 records processed.
+--- ETL Pipeline Example Finished ---
+\n
+--- Timing ML Pipeline Example ---
+--- Running ML Pipeline Example ---
+-> [1] Loading raw data...
+<- [1] Raw data loaded (200000 records).
+-> [2b] Engineering statistical features (CPU-bound)...
+-> [2a] Engineering polynomial features (CPU-bound)...
+<- [2a] Polynomial features engineered.
+<- [2b] Statistical features engineered.
+-> [3] Training model with combined features...
+<- [3] Model trained with 200000 poly features and 200000 stat features.
+
+Total execution time: 3.12 seconds
+Final model status: {'status': 'trained', 'poly_feature_count': 200000, 'stat_feature_count': 200000}
+--- ML Pipeline Example Finished ---
