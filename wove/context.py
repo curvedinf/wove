@@ -93,9 +93,7 @@ class WoveContextManager:
                         next_tier_queue.append(dependent)
             tier_build_queue = next_tier_queue
         # 4. Execute tier by tier
-        self.result._definition_order = list(self._tasks.keys())
         all_created_tasks: Set[asyncio.Task[Any]] = set()
-
         try:
             for tier in tiers:
                 # Create asyncio.Task objects for all coroutines in the current tier
@@ -108,46 +106,39 @@ class WoveContextManager:
                     }
                     if not inspect.iscoroutinefunction(task_func):
                         task_func = sync_to_async(task_func)
-
                     coro = task_func(**args)
                     task = asyncio.create_task(coro)
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
-
                 # Wait for tasks in the tier, processing them as they complete
                 pending = set(tier_tasks.keys())
                 while pending:
                     done, pending = await asyncio.wait(
                         pending, return_when=asyncio.FIRST_COMPLETED
                     )
-
                     # Check for exceptions in completed tasks
                     for task in done:
                         if task.exception():
                             # If a task fails, raise its exception.
                             # The main `except` block will handle cancellation.
                             task.result()  # This re-raises the exception
-
                 # If the loop completes, all tasks in the tier succeeded.
                 # Store their results before moving to the next tier.
                 for task, task_name in tier_tasks.items():
-                    self.result._results[task_name] = task.result()
-
+                    self.result._add_result(task_name, task.result())
         except Exception:
             # If any task raises an exception, cancel all other running tasks.
             for task in all_created_tasks:
                 if not task.done():
                     task.cancel()
-
             # Wait for all tasks to acknowledge cancellation to ensure cleanup.
             # return_exceptions=True prevents gather from stopping on the first
             # CancelledError.
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
-
             # Re-raise the original exception.
             raise
-
     def do(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Decorator to register a task with the weave context."""
         self._tasks[func.__name__] = func
+        self.result._definition_order.append(func.__name__)
         return func
