@@ -1,9 +1,9 @@
 import asyncio
 import inspect
 from collections import OrderedDict, deque
-
 from .result import WoveResult
 from .helpers import sync_to_async
+from .vars import current_weave_context
 
 class WoveContextManager:
     """
@@ -12,22 +12,22 @@ class WoveContextManager:
     def __init__(self):
         self._tasks = OrderedDict()
         self._result_container = None
-
-    def __call__(self):
-        # Reset state for a new run
-        self._tasks.clear()
-        return self
+        self._reset_token = None
 
     async def __aenter__(self):
+        self._reset_token = current_weave_context.set(self)
         # The 'as result' variable is initially an empty container
-        self._result_container = WoveResult(list(self._tasks.keys()))
+        self._result_container = WoveResult([])
         return self._result_container
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._reset_token:
+            current_weave_context.reset(self._reset_token)
+
         if exc_type:
             # If an exception occurred inside the block, don't execute
             return
-
+        
         # 1. Build Dependency Graph
         dependencies = {name: set(inspect.signature(task).parameters.keys()) for name, task in self._tasks.items()}
         dependents = {name: set() for name in self._tasks}
@@ -42,7 +42,9 @@ class WoveContextManager:
         
         # 3. Execute in Tiers
         running_tasks = {}
-        final_results = WoveResult(list(self._tasks.keys()))
+        task_keys = list(self._tasks.keys())
+        final_results = WoveResult(task_keys)
+
         while queue or running_tasks:
             # Start all tasks with met dependencies
             while queue:
@@ -77,6 +79,7 @@ class WoveContextManager:
                     for p in pending:
                         p.cancel()
                     raise e
+                
                 del running_tasks[task_name]
 
                 # Decrement in-degree for dependents and add to queue if ready
@@ -86,8 +89,10 @@ class WoveContextManager:
                         queue.append(dependent)
         
         # Transfer final results to the user-facing container
-        for name in self._tasks.keys():
-            self._result_container._set_result(name, final_results[name])
+        self._result_container._definition_order = task_keys
+        for name in task_keys:
+            if name in final_results._results:
+                self._result_container._set_result(name, final_results[name])
 
     def _register_task(self, func):
         """Called by the @do decorator to register a task."""
