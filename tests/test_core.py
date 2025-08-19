@@ -2,8 +2,6 @@ import pytest
 import asyncio
 import time
 from wove import weave, do
-
-
 @pytest.mark.asyncio
 async def test_dependency_execution_order():
     """Tests that tasks execute in the correct dependency order."""
@@ -14,22 +12,17 @@ async def test_dependency_execution_order():
             await asyncio.sleep(0.02)
             execution_order.append("a")
             return "A"
-
         @do
         def task_b(task_a):
             execution_order.append("b")
             return f"B after {task_a}"
-
         @do
         async def task_c(task_b):
             await asyncio.sleep(0.01)
             execution_order.append("c")
             return f"C after {task_b}"
-
     assert execution_order == ["a", "b", "c"]
     assert result['task_c'] == "C after B after A"
-
-
 @pytest.mark.asyncio
 async def test_sync_and_async_tasks():
     """Tests that a mix of sync and async tasks run correctly."""
@@ -38,21 +31,16 @@ async def test_sync_and_async_tasks():
         async def async_task():
             await asyncio.sleep(0.01)
             return "async_done"
-
         @do
         def sync_task():
             time.sleep(0.02)  # blocking sleep
             return "sync_done"
-
         @do
         def final_task(async_task, sync_task):
             return f"{async_task} and {sync_task}"
-
     assert result['async_task'] == "async_done"
     assert result['sync_task'] == "sync_done"
     assert result.final == "async_done and sync_done"
-
-
 @pytest.mark.asyncio
 async def test_concurrent_execution():
     """Tests that independent tasks run concurrently."""
@@ -62,19 +50,15 @@ async def test_concurrent_execution():
         async def task_1():
             await asyncio.sleep(0.1)
             return 1
-
         @do
         async def task_2():
             await asyncio.sleep(0.1)
             return 2
-
     end_time = time.time()
     # If run sequentially, it would take > 0.2s. Concurrently, < 0.2s (but not too much less)
     assert (end_time - start_time) < 0.15
     assert result['task_1'] == 1
     assert result['task_2'] == 2
-
-
 @pytest.mark.asyncio
 async def test_result_access_methods():
     """Tests accessing results via dict, unpacking, and .final property."""
@@ -82,20 +66,16 @@ async def test_result_access_methods():
         @do
         def first():
             return "one"
-
         @do
         def second(first):
             return "two"
-
         @do
         def third(second):
             return "three"
-
     # 1. Dictionary-style access
     assert result['first'] == "one"
     assert result['second'] == "two"
     assert result['third'] == "three"
-
     # 2. Unpacking
     res1, res2, res3 = result
     assert res1 == "one"
@@ -103,8 +83,6 @@ async def test_result_access_methods():
     assert res3 == "three"
     # 3. .final property
     assert result.final == "three"
-
-
 @pytest.mark.asyncio
 async def test_error_handling_and_propagation():
     """
@@ -119,22 +97,17 @@ async def test_error_handling_and_propagation():
                 execution_log.append("successful_task")
                 await asyncio.sleep(0.01)
                 return "success"
-
             @do
             def failing_task():
                 execution_log.append("failing_task")
                 raise ValueError("Task failed")
-
             @do
             def another_task(failing_task):
                 # This should not run because its dependency fails
                 execution_log.append("another_task")
                 return "never runs"
-
     assert "failing_task" in execution_log
     assert "another_task" not in execution_log, "Dependent task should not have run"
-
-
 @pytest.mark.asyncio
 async def test_error_cancels_running_tasks():
     """
@@ -154,10 +127,23 @@ async def test_error_cancels_running_tasks():
                     long_task_was_cancelled = True
                     raise
                 return "should not finish"
-
             @do
             async def failing_task():
                 await long_task_started.wait()
                 raise ValueError("Failing task")
-
     assert long_task_was_cancelled, "The long-running task should have been cancelled"
+
+@pytest.mark.asyncio
+async def test_circular_dependency_detection():
+    """Tests that a circular dependency raises a RuntimeError."""
+    with pytest.raises(RuntimeError, match="Circular dependency detected"):
+        async with weave() as result:
+            @do
+            def task_a(task_c):
+                return "a"
+            @do
+            def task_b(task_a):
+                return "b"
+            @do
+            def task_c(task_b):
+                return "c"
