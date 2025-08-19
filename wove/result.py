@@ -1,15 +1,11 @@
-import asyncio
 from typing import Any, Dict, Iterator, List
 import datetime
-
 LOG_FILE = "/tmp/wove_debug.log"
-
 def _wove_log(message: str):
     """Appends a timestamped message to the wove debug log."""
     with open(LOG_FILE, "a") as f:
         timestamp = datetime.datetime.now().isoformat()
         f.write(f"[{timestamp}] {message}\n")
-
 class WoveResult:
     """
     A container for the results of a weave block.
@@ -23,7 +19,6 @@ class WoveResult:
         _wove_log(f"RESULT: Initializing WoveResult with id: {id(self)}")
         self._results: Dict[str, Any] = {}
         self._definition_order: List[str] = []
-        self._is_complete = asyncio.Event()
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -63,13 +58,3 @@ class WoveResult:
         """Sets a result for a given task key."""
         _wove_log(f"RESULT: Setting item '{key}' in WoveResult with id: {id(self)}")
         self._results[key] = value
-
-    def _mark_complete(self) -> None:
-        """Signals that a new result has been added."""
-        self._is_complete.set()
-
-    async def _wait_for_key(self, key: str) -> None:
-        """Waits until a specific result is available."""
-        while key not in self._results:
-            await self._is_complete.wait()
-            self._is_complete.clear()

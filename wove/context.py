@@ -7,15 +7,12 @@ from .helpers import sync_to_async
 from .result import WoveResult
 from .vars import current_weave_context
 import datetime
-
 LOG_FILE = "/tmp/wove_debug.log"
-
 def _wove_log(message: str):
     """Appends a timestamped message to the wove debug log."""
     with open(LOG_FILE, "a") as f:
         timestamp = datetime.datetime.now().isoformat()
         f.write(f"[{timestamp}] {message}\n")
-
 class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
@@ -73,8 +70,9 @@ class WoveContextManager:
         
         _wove_log(f"Initial tasks: {list(self._tasks.keys())}")
         # 1. Build Dependency Graph
+        all_task_names = set(self._tasks.keys())
         dependencies: Dict[str, Set[str]] = {
-            name: set(inspect.signature(task).parameters.keys())
+            name: set(inspect.signature(task).parameters.keys()) & all_task_names
             for name, task in self._tasks.items()
         }
         _wove_log(f"Dependencies map: {dependencies}")
@@ -101,7 +99,7 @@ class WoveContextManager:
         while sort_queue:
             task_name = sort_queue.popleft()
             sorted_tasks.append(task_name)
-            for dependent in dependents[task_name]:
+            for dependent in dependents.get(task_name, set()):
                 temp_in_degree[dependent] -= 1
                 if temp_in_degree[dependent] == 0:
                     sort_queue.append(dependent)
@@ -109,8 +107,8 @@ class WoveContextManager:
         _wove_log(f"Topological sort order: {sorted_tasks}")
         if len(sorted_tasks) != len(self._tasks):
             unrunnable_tasks = self._tasks.keys() - set(sorted_tasks)
-            msg = ("Circular dependency detected. The following tasks form a cycle "
-                f"or depend on one: {', '.join(sorted(unrunnable_tasks))}")
+            msg = ("Circular dependency detected or missing dependency. Unrunnable tasks: "
+                f"{', '.join(sorted(unrunnable_tasks))}")
             _wove_log(f"ERROR: {msg}")
             raise RuntimeError(msg)
             
@@ -138,7 +136,6 @@ class WoveContextManager:
                 coro: Coroutine[Any, Any, Any] = task_func(**args)
                 running_tasks[task_name] = asyncio.create_task(coro)
                 _wove_log(f"RUNNING: Task '{task_name}' started.")
-
             if not running_tasks:
                 _wove_log("EXECUTION: No more running tasks. Exiting loop.")
                 break
@@ -172,7 +169,7 @@ class WoveContextManager:
                     raise e
                 del running_tasks[task_name]
                 # Decrement in-degree for dependents and add to queue if ready
-                for dependent in dependents[task_name]:
+                for dependent in dependents.get(task_name, set()):
                     in_degree[dependent] -= 1
                     _wove_log(f"DEPS: Met dependency '{task_name}' for '{dependent}'. New in-degree for '{dependent}' is {in_degree[dependent]}.")
                     if in_degree[dependent] == 0:
