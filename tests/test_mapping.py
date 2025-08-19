@@ -91,3 +91,12 @@ async def test_mapped_task_signature_validation():
             @w.do([1, 2, 3])
             def too_many_params(item1, item2, some_dep):
                 return item1 + item2 + some_dep
+
+@pytest.mark.asyncio
+async def test_fundamental_mapping():
+    """Tests that decorating a function with @w.do([1, 2, 3]) executes it for each item."""
+    async with weave() as w:
+        @w.do([1, 2, 3])
+        def process(item):
+            return item * 2
+    assert w.result['process'] == [2, 4, 6]
