@@ -8,10 +8,9 @@ class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
     defined within an `async with weave()` block.
-    It builds a dependency graph of tasks based on their function signatures,
-    sorts them topologically, and executes them with maximum concurrency
-    while respecting dependencies. It handles both `async` and synchronous
-    functions, running the latter in a thread pool.
+    It builds a dependency graph of tasks, sorts them topologically, and executes
+    them with maximum concurrency while respecting dependencies. It handles both
+    `async` and synchronous functions, running the latter in a thread pool.
     """
     def __init__(self) -> None:
         """Initializes the context manager, preparing to collect tasks."""
@@ -108,10 +107,10 @@ class WoveContextManager:
                         next_tier_queue.append(dependent)
             tier_build_queue = next_tier_queue
         # 4. Execute tier by tier
-        all_created_tasks: Set[asyncio.Task[Any]] = set()
+        all_created_tasks: Set[asyncio.Future[Any]] = set()
         try:
             for tier in tiers:
-                tier_tasks: Dict[asyncio.Task[Any], str] = {}
+                tier_tasks: Dict[asyncio.Future[Any], str] = {}
                 for task_name in tier:
                     task_info = self._tasks[task_name]
                     task_func = task_info["func"]
@@ -123,16 +122,20 @@ class WoveContextManager:
                         task_func = sync_to_async(task_func)
                     
                     if task_info["iterable"] is not None:
-                        # Mapped Task: Create a coroutine for each item and gather results.
+                        # Mapped Task: Create a task for each item and gather results.
                         item_param = task_info["item_param"]
-                        map_coros = []
+                        map_sub_tasks = []
                         for item in task_info["iterable"]:
                             map_args = args.copy()
                             map_args[item_param] = item
-                            map_coros.append(task_func(**map_args))
+                            coro = task_func(**map_args)
+                            sub_task = asyncio.create_task(coro)
+                            map_sub_tasks.append(sub_task)
+                            all_created_tasks.add(sub_task)
                         
-                        # asyncio.gather returns a Future, which is awaitable like a Task.
-                        task = asyncio.gather(*map_coros)
+                        # Gather the results of all sub-tasks.
+                        # The returned future will complete when all sub-tasks are done.
+                        task = asyncio.gather(*map_sub_tasks)
                     else:
                         # Normal Task: Create a single task from the coroutine.
                         coro = task_func(**args)
