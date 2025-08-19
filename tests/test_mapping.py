@@ -126,3 +126,33 @@ async def test_async_downstream_task_uses_mapped_results():
             
     assert w.result['sum_squares_async'] == 14
     assert w.result['square_async'] == [1, 4, 9]
+
+@pytest.mark.asyncio
+async def test_error_in_map_cancels_others():
+    """Tests that an exception in one mapped sub-task cancels others."""
+    items = ["ok_long", "fail", "ok"]
+    
+    long_task_started = asyncio.Event()
+    long_task_cancelled = False
+
+    with pytest.raises(ValueError, match="Task failed on item: fail"):
+        async with weave() as w:
+            @w.do(items)
+            async def process_item_with_failure(item):
+                nonlocal long_task_cancelled
+                if item == "ok":
+                    await asyncio.sleep(0.1) # should get cancelled
+                    return "ok"
+                elif item == "fail":
+                    await long_task_started.wait() # Make sure the long one starts
+                    raise ValueError("Task failed on item: fail")
+                elif item == "ok_long":
+                    long_task_started.set()
+                    try:
+                        await asyncio.sleep(0.2) # Long enough to be cancelled
+                    except asyncio.CancelledError:
+                        long_task_cancelled = True
+                        raise
+                    return "long_ok"
+
+    assert long_task_cancelled, "The long-running sub-task should have been cancelled."
