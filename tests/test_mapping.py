@@ -2,7 +2,6 @@ import pytest
 import asyncio
 import time
 from wove import weave
-
 @pytest.mark.asyncio
 async def test_basic_mapping():
     """Tests that a task can be mapped over a simple iterable."""
@@ -13,7 +12,6 @@ async def test_basic_mapping():
             await asyncio.sleep(0.01)
             return item * 2
     assert w.result['process_item'] == [2, 4, 6]
-
 @pytest.mark.asyncio
 async def test_mapping_with_dependency():
     """Tests that a mapped task can depend on another task."""
@@ -26,17 +24,19 @@ async def test_mapping_with_dependency():
         def process_item_with_dep(item, multiplier):
             return item * multiplier
     assert w.result['process_item_with_dep'] == [30, 60]
-
 @pytest.mark.asyncio
 async def test_mapping_over_empty_list():
-    """Tests that mapping over an empty list produces an empty list."""
+    """Tests that mapping over an empty list produces an empty list and does not run the function."""
+    was_called = False
     async with weave() as w:
         @w.do([])
         def process_item(item):
+            nonlocal was_called
+            was_called = True
             # This should never run
             return item * 2
     assert w.result['process_item'] == []
-
+    assert not was_called, "Mapped function should not be called for an empty iterable."
 @pytest.mark.asyncio
 async def test_sync_function_mapping():
     """Tests mapping over an iterable with a synchronous function."""
@@ -52,7 +52,6 @@ async def test_sync_function_mapping():
     # If run in series, would be > 0.03. Concurrently in threads, should be less.
     assert duration < 0.025
     assert w.result['sync_process'] == [True, True, True]
-
 @pytest.mark.asyncio
 async def test_downstream_task_uses_mapped_results():
     """Tests that a subsequent task can use the collected results of a mapped task."""
@@ -67,7 +66,6 @@ async def test_downstream_task_uses_mapped_results():
             
     assert w.result['sum_squares'] == 14 # 1 + 4 + 9
     assert w.result['square'] == [1, 4, 9]
-
 @pytest.mark.asyncio
 async def test_mapped_task_signature_validation():
     """Tests that a mapped task with an incorrect signature raises a TypeError."""
@@ -76,7 +74,6 @@ async def test_mapped_task_signature_validation():
             @w.do([1, 2, 3])
             def no_item_param():
                 return 1
-
     with pytest.raises(TypeError, match="must have exactly one parameter that is not a dependency"):
         async with weave() as w:
             @w.do
@@ -85,7 +82,6 @@ async def test_mapped_task_signature_validation():
             @w.do([1, 2, 3])
             def too_many_params(item1, item2, some_dep):
                 return item1 + item2 + some_dep
-
 @pytest.mark.asyncio
 async def test_fundamental_mapping():
     """Tests that decorating a function with @w.do([1, 2, 3]) executes it for each item."""
@@ -94,7 +90,6 @@ async def test_fundamental_mapping():
         def process(item):
             return item * 2
     assert w.result['process'] == [2, 4, 6]
-
 @pytest.mark.asyncio
 async def test_mapping_with_async_dependency():
     """Tests that a mapped task can depend on a preceding, non-mapped, async task."""
@@ -108,7 +103,6 @@ async def test_mapping_with_async_dependency():
         def process_item_with_dep(item, multiplier):
             return item * multiplier
     assert w.result['process_item_with_dep'] == [30, 60]
-
 @pytest.mark.asyncio
 async def test_async_downstream_task_uses_mapped_results():
     """Tests an async downstream task using async mapped results."""
@@ -126,7 +120,6 @@ async def test_async_downstream_task_uses_mapped_results():
             
     assert w.result['sum_squares_async'] == 14
     assert w.result['square_async'] == [1, 4, 9]
-
 @pytest.mark.asyncio
 async def test_error_in_map_cancels_others():
     """Tests that an exception in one mapped sub-task cancels others."""
@@ -134,7 +127,6 @@ async def test_error_in_map_cancels_others():
     
     long_task_started = asyncio.Event()
     long_task_cancelled = False
-
     with pytest.raises(ValueError, match="Task failed on item: fail"):
         async with weave() as w:
             @w.do(items)
@@ -154,5 +146,4 @@ async def test_error_in_map_cancels_others():
                         long_task_cancelled = True
                         raise
                     return "long_ok"
-
     assert long_task_cancelled, "The long-running sub-task should have been cancelled."
