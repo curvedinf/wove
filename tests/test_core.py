@@ -1,14 +1,13 @@
 import pytest
 import asyncio
 import time
-
 from wove import weave, do
+
 
 @pytest.mark.asyncio
 async def test_dependency_execution_order():
     """Tests that tasks execute in the correct dependency order."""
     execution_order = []
-
     async with weave() as result:
         @do
         async def task_a():
@@ -30,6 +29,7 @@ async def test_dependency_execution_order():
     assert execution_order == ["a", "b", "c"]
     assert result['task_c'] == "C after B after A"
 
+
 @pytest.mark.asyncio
 async def test_sync_and_async_tasks():
     """Tests that a mix of sync and async tasks run correctly."""
@@ -41,9 +41,9 @@ async def test_sync_and_async_tasks():
 
         @do
         def sync_task():
-            time.sleep(0.02) # blocking sleep
+            time.sleep(0.02)  # blocking sleep
             return "sync_done"
-        
+
         @do
         def final_task(async_task, sync_task):
             return f"{async_task} and {sync_task}"
@@ -51,6 +51,7 @@ async def test_sync_and_async_tasks():
     assert result['async_task'] == "async_done"
     assert result['sync_task'] == "sync_done"
     assert result.final == "async_done and sync_done"
+
 
 @pytest.mark.asyncio
 async def test_concurrent_execution():
@@ -61,7 +62,7 @@ async def test_concurrent_execution():
         async def task_1():
             await asyncio.sleep(0.1)
             return 1
-        
+
         @do
         async def task_2():
             await asyncio.sleep(0.1)
@@ -81,11 +82,11 @@ async def test_result_access_methods():
         @do
         def first():
             return "one"
-        
+
         @do
         def second(first):
             return "two"
-            
+
         @do
         def third(second):
             return "three"
@@ -94,32 +95,69 @@ async def test_result_access_methods():
     assert result['first'] == "one"
     assert result['second'] == "two"
     assert result['third'] == "three"
-    
+
     # 2. Unpacking
     res1, res2, res3 = result
     assert res1 == "one"
     assert res2 == "two"
     assert res3 == "three"
-
     # 3. .final property
     assert result.final == "three"
 
 
 @pytest.mark.asyncio
-async def test_error_handling():
-    """Tests that an exception in one task stops execution and propagates."""
+async def test_error_handling_and_propagation():
+    """
+    Tests that an exception in one task stops execution, propagates,
+    and prevents dependent tasks from running.
+    """
+    execution_log = []
     with pytest.raises(ValueError, match="Task failed"):
         async with weave() as result:
             @do
             async def successful_task():
+                execution_log.append("successful_task")
                 await asyncio.sleep(0.01)
                 return "success"
-            
+
             @do
             def failing_task():
+                execution_log.append("failing_task")
                 raise ValueError("Task failed")
 
             @do
             def another_task(failing_task):
-                # This should not run
+                # This should not run because its dependency fails
+                execution_log.append("another_task")
                 return "never runs"
+
+    assert "failing_task" in execution_log
+    assert "another_task" not in execution_log, "Dependent task should not have run"
+
+
+@pytest.mark.asyncio
+async def test_error_cancels_running_tasks():
+    """
+    Tests that an exception in one task cancels other concurrently running tasks.
+    """
+    long_task_started = asyncio.Event()
+    long_task_was_cancelled = False
+    with pytest.raises(ValueError, match="Failing task"):
+        async with weave() as result:
+            @do
+            async def long_running_task():
+                nonlocal long_task_was_cancelled
+                long_task_started.set()
+                try:
+                    await asyncio.sleep(0.2)  # Long enough to get cancelled
+                except asyncio.CancelledError:
+                    long_task_was_cancelled = True
+                    raise
+                return "should not finish"
+
+            @do
+            async def failing_task():
+                await long_task_started.wait()
+                raise ValueError("Failing task")
+
+    assert long_task_was_cancelled, "The long-running task should have been cancelled"
