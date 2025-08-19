@@ -12,7 +12,6 @@ async def test_basic_mapping():
         async def process_item(item):
             await asyncio.sleep(0.01)
             return item * 2
-
     assert w.result['process_item'] == [2, 4, 6]
 
 @pytest.mark.asyncio
@@ -23,11 +22,9 @@ async def test_mapping_with_dependency():
         @w.do
         def multiplier():
             return 3
-
         @w.do(items)
         def process_item_with_dep(item, multiplier):
             return item * multiplier
-
     assert w.result['process_item_with_dep'] == [30, 60]
 
 @pytest.mark.asyncio
@@ -38,7 +35,6 @@ async def test_mapping_over_empty_list():
         def process_item(item):
             # This should never run
             return item * 2
-
     assert w.result['process_item'] == []
 
 @pytest.mark.asyncio
@@ -65,12 +61,11 @@ async def test_downstream_task_uses_mapped_results():
         @w.do(items)
         def square(item):
             return item * item
-
         @w.do
         def sum_squares(square):
             return sum(square)
             
-    assert w.result.final == 14 # 1 + 4 + 9
+    assert w.result['sum_squares'] == 14 # 1 + 4 + 9
     assert w.result['square'] == [1, 4, 9]
 
 @pytest.mark.asyncio
@@ -87,7 +82,6 @@ async def test_mapped_task_signature_validation():
             @w.do
             def some_dep():
                 return 5
-
             @w.do([1, 2, 3])
             def too_many_params(item1, item2, some_dep):
                 return item1 + item2 + some_dep
@@ -114,3 +108,21 @@ async def test_mapping_with_async_dependency():
         def process_item_with_dep(item, multiplier):
             return item * multiplier
     assert w.result['process_item_with_dep'] == [30, 60]
+
+@pytest.mark.asyncio
+async def test_async_downstream_task_uses_mapped_results():
+    """Tests an async downstream task using async mapped results."""
+    items = [1, 2, 3]
+    async with weave() as w:
+        @w.do(items)
+        async def square_async(item):
+            await asyncio.sleep(0.01)
+            return item * item
+        
+        @w.do
+        async def sum_squares_async(square_async):
+            await asyncio.sleep(0.01)
+            return sum(square_async)
+            
+    assert w.result['sum_squares_async'] == 14
+    assert w.result['square_async'] == [1, 4, 9]
