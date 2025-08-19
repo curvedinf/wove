@@ -96,14 +96,30 @@ class WoveContextManager:
                 f"{', '.join(sorted(unrunnable_tasks))}")
             raise RuntimeError(msg)
             
-        # 3. Execute in Tiers
-        running_tasks: Dict[asyncio.Task[Any], str] = {}
+        # 3. Group tasks into execution tiers
+        tiers: List[List[str]] = []
+        tier_build_queue = queue.copy()
+
+        while tier_build_queue:
+            current_tier = list(tier_build_queue)
+            tiers.append(current_tier)
+            
+            next_tier_queue = deque()
+            for task_name in current_tier:
+                for dependent in dependents.get(task_name, set()):
+                    in_degree[dependent] -= 1
+                    if in_degree[dependent] == 0:
+                        next_tier_queue.append(dependent)
+            tier_build_queue = next_tier_queue
+        
+        # 4. Execute tier by tier
         self._result_container._definition_order = list(self._tasks.keys())
         
-        while queue or running_tasks:
-            # Start all tasks with met dependencies
-            while queue:
-                task_name = queue.popleft()
+        for tier in tiers:
+            tasks_to_run: List[Coroutine[Any, Any, Any]] = []
+            task_names_in_tier: List[str] = []
+            
+            for task_name in tier:
                 task_func = self._tasks[task_name]
                 args = {
                     p: self._result_container._results[p]
@@ -112,35 +128,23 @@ class WoveContextManager:
                 
                 if not inspect.iscoroutinefunction(task_func):
                     task_func = sync_to_async(task_func)
-                coro: Coroutine[Any, Any, Any] = task_func(**args)
-                task = asyncio.create_task(coro)
-                running_tasks[task] = task_name
-            if not running_tasks:
-                break
+                
+                coro = task_func(**args)
+                tasks_to_run.append(coro)
+                task_names_in_tier.append(task_name)
             
-            # Wait for the next task to complete
-            done, pending = await asyncio.wait(
-                set(running_tasks.keys()), return_when=asyncio.FIRST_COMPLETED
-            )
-            # Process completed tasks
-            for completed_task in done:
-                task_name = running_tasks[completed_task]
-                try:
-                    result = completed_task.result()
+            try:
+                # Execute all tasks in the current tier concurrently
+                tier_results = await asyncio.gather(*tasks_to_run)
+                
+                # Store results
+                for task_name, result in zip(task_names_in_tier, tier_results):
                     self._result_container._results[task_name] = result
-                except Exception as e:
-                    # If one task fails, cancel the rest and re-raise
-                    for p in pending:
-                        p.cancel()
-                    if pending:
-                        await asyncio.gather(*pending, return_exceptions=True)
-                    raise e
-                del running_tasks[completed_task]
-                # Decrement in-degree for dependents and add to queue if ready
-                for dependent in dependents.get(task_name, set()):
-                    in_degree[dependent] -= 1
-                    if in_degree[dependent] == 0:
-                        queue.append(dependent)
+            except Exception:
+                # asyncio.gather cancels remaining tasks on failure by default.
+                # We just need to re-raise the exception that it propagates.
+                raise
+
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
         self._tasks[func.__name__] = func
