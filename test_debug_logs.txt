@@ -6,7 +6,7 @@ plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 7 items
 
-tests/test_core.py FFFF...                                               [100%]
+tests/test_core.py FFFFFFF                                               [100%]
 
 =================================== FAILURES ===================================
 _______________________ test_dependency_execution_order ________________________
@@ -30,38 +30,13 @@ _______________________ test_dependency_execution_order ________________________
                 await asyncio.sleep(0.01)
                 execution_order.append("c")
                 return f"C after {task_b}"
-        assert execution_order == ["a", "b", "c"]
->       assert result['task_c'] == "C after B after A"
-               ^^^^^^^^^^^^^^^^
+>       assert execution_order == ["a", "b", "c"]
+E       AssertionError: assert [] == ['a', 'b', 'c']
+E         
+E         Right contains 3 more items, first extra item: 'a'
+E         Use -v to get more diff
 
-tests/test_core.py:25: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-self = <wove.result.WoveResult object at 0x7867f174d940>, key = 'task_c'
-
-    def __getitem__(self, key: str) -> Any:
-        """
-        Retrieves a task's result by its name.
-    
-        Args:
-            key: The name of the task.
-    
-        Returns:
-            The result of the specified task.
-        """
->       return self._results[key]
-               ^^^^^^^^^^^^^^^^^^
-E       KeyError: 'task_c'
-
-wove/result.py:29: KeyError
------------------------------ Captured stdout call -----------------------------
-DEBUG: running_tasks before wait: ['task_a']
-DEBUG: done tasks after wait: ['task_a']
-DEBUG: running_tasks before wait: ['task_b']
-DEBUG: done tasks after wait: ['task_b']
-DEBUG: running_tasks before wait: ['task_c']
-DEBUG: done tasks after wait: ['task_c']
-DEBUG: final completed_results: {'task_a': 'A', 'task_b': 'B after A', 'task_c': 'C after B after A'}
+tests/test_core.py:24: AssertionError
 __________________________ test_sync_and_async_tasks ___________________________
 
     @pytest.mark.asyncio
@@ -85,7 +60,7 @@ __________________________ test_sync_and_async_tasks ___________________________
 tests/test_core.py:41: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7867f15dfa10>, key = 'async_task'
+self = <wove.result.WoveResult object at 0x7b2847574f50>, key = 'async_task'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -102,14 +77,6 @@ self = <wove.result.WoveResult object at 0x7867f15dfa10>, key = 'async_task'
 E       KeyError: 'async_task'
 
 wove/result.py:29: KeyError
------------------------------ Captured stdout call -----------------------------
-DEBUG: running_tasks before wait: ['async_task', 'sync_task']
-DEBUG: done tasks after wait: ['async_task']
-DEBUG: running_tasks before wait: ['sync_task']
-DEBUG: done tasks after wait: ['sync_task']
-DEBUG: running_tasks before wait: ['final_task']
-DEBUG: done tasks after wait: ['final_task']
-DEBUG: final completed_results: {'async_task': 'async_done', 'sync_task': 'sync_done', 'final_task': 'async_done and sync_done'}
 __________________________ test_concurrent_execution ___________________________
 
     @pytest.mark.asyncio
@@ -134,7 +101,7 @@ __________________________ test_concurrent_execution ___________________________
 tests/test_core.py:60: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7867f15f3500>, key = 'task_1'
+self = <wove.result.WoveResult object at 0x7b2847575a90>, key = 'task_1'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -151,10 +118,6 @@ self = <wove.result.WoveResult object at 0x7867f15f3500>, key = 'task_1'
 E       KeyError: 'task_1'
 
 wove/result.py:29: KeyError
------------------------------ Captured stdout call -----------------------------
-DEBUG: running_tasks before wait: ['task_1', 'task_2']
-DEBUG: done tasks after wait: ['task_1', 'task_2']
-DEBUG: final completed_results: {'task_1': 1, 'task_2': 2}
 __________________________ test_result_access_methods __________________________
 
     @pytest.mark.asyncio
@@ -177,7 +140,7 @@ __________________________ test_result_access_methods __________________________
 tests/test_core.py:76: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7867f15f0680>, key = 'first'
+self = <wove.result.WoveResult object at 0x7b28475766c0>, key = 'first'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -194,17 +157,47 @@ self = <wove.result.WoveResult object at 0x7867f15f0680>, key = 'first'
 E       KeyError: 'first'
 
 wove/result.py:29: KeyError
------------------------------ Captured stdout call -----------------------------
-DEBUG: running_tasks before wait: ['first']
-DEBUG: done tasks after wait: ['first']
-DEBUG: running_tasks before wait: ['second']
-DEBUG: done tasks after wait: ['second']
-DEBUG: running_tasks before wait: ['third']
-DEBUG: done tasks after wait: ['third']
-DEBUG: final completed_results: {'first': 'one', 'second': 'two', 'third': 'three'}
+_____________________ test_error_handling_and_propagation ______________________
+
+    @pytest.mark.asyncio
+    async def test_error_handling_and_propagation():
+        """
+        Tests that an exception in one task stops execution, propagates,
+        and prevents dependent tasks from running.
+        """
+        execution_log = []
+>       with pytest.raises(ValueError, match="Task failed"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_core.py:93: Failed
+_______________________ test_error_cancels_running_tasks _______________________
+
+    @pytest.mark.asyncio
+    async def test_error_cancels_running_tasks():
+        """
+        Tests that an exception in one task cancels other concurrently running tasks.
+        """
+        long_task_started = asyncio.Event()
+        long_task_was_cancelled = False
+>       with pytest.raises(ValueError, match="Failing task"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_core.py:118: Failed
+______________________ test_circular_dependency_detection ______________________
+
+    @pytest.mark.asyncio
+    async def test_circular_dependency_detection():
+        """Tests that a circular dependency raises a RuntimeError."""
+>       with pytest.raises(RuntimeError, match="Circular dependency detected"):
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests/test_core.py:139: Failed
 =========================== short test summary info ============================
-FAILED tests/test_core.py::test_dependency_execution_order - KeyError: 'task_c'
+FAILED tests/test_core.py::test_dependency_execution_order - AssertionError: ...
 FAILED tests/test_core.py::test_sync_and_async_tasks - KeyError: 'async_task'
 FAILED tests/test_core.py::test_concurrent_execution - KeyError: 'task_1'
 FAILED tests/test_core.py::test_result_access_methods - KeyError: 'first'
-========================= 4 failed, 3 passed in 0.20s ==========================
+FAILED tests/test_core.py::test_error_handling_and_propagation - Failed: DID ...
+FAILED tests/test_core.py::test_error_cancels_running_tasks - Failed: DID NOT...
+FAILED tests/test_core.py::test_circular_dependency_detection - Failed: DID N...
+============================== 7 failed in 0.05s ===============================
