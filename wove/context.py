@@ -65,7 +65,6 @@ class WoveContextManager:
             else:
                 # Normal task
                 dependencies[name] = params & all_task_names
-
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
             for param in params:
@@ -112,24 +111,38 @@ class WoveContextManager:
         all_created_tasks: Set[asyncio.Task[Any]] = set()
         try:
             for tier in tiers:
-                # Create asyncio.Task objects for all coroutines in the current tier
                 tier_tasks: Dict[asyncio.Task[Any], str] = {}
                 for task_name in tier:
                     task_info = self._tasks[task_name]
                     task_func = task_info["func"]
-                    
-                    if task_info["iterable"] is not None:
-                        raise NotImplementedError("Task mapping execution is not yet implemented.")
                     args = {
                         p: self.result._results[p]
                         for p in dependencies[task_name]
                     }
                     if not inspect.iscoroutinefunction(task_func):
                         task_func = sync_to_async(task_func)
-                    coro = task_func(**args)
+                    
+                    if task_info["iterable"] is not None:
+                        # Mapped Task: Create a task for each item and gather results.
+                        item_param = task_info["item_param"]
+                        map_coros = []
+                        for item in task_info["iterable"]:
+                            map_args = args.copy()
+                            map_args[item_param] = item
+                            map_coros.append(task_func(**map_args))
+                        
+                        async def gather_mapped_results():
+                            return await asyncio.gather(*map_coros)
+                        
+                        coro = gather_mapped_results()
+                    else:
+                        # Normal Task: Create a single task.
+                        coro = task_func(**args)
+                    
                     task = asyncio.create_task(coro)
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
+
                 # Wait for tasks in the tier, processing them as they complete
                 pending = set(tier_tasks.keys())
                 while pending:
