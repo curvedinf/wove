@@ -54,6 +54,10 @@ class WoveContextManager:
             # If an exception occurred inside the block, don't execute
             return
         
+        if not self._result_container:
+            # Should not happen in normal usage
+            return
+        
         # 1. Build Dependency Graph
         all_task_names = set(self._tasks.keys())
         dependencies: Dict[str, Set[str]] = {
@@ -94,16 +98,17 @@ class WoveContextManager:
             
         # 3. Execute in Tiers
         running_tasks: Dict[asyncio.Task[Any], str] = {}
-        completed_results: Dict[str, Any] = {}
-        if self._result_container:
-            self._result_container._definition_order = list(self._tasks.keys())
+        self._result_container._definition_order = list(self._tasks.keys())
         
         while queue or running_tasks:
             # Start all tasks with met dependencies
             while queue:
                 task_name = queue.popleft()
                 task_func = self._tasks[task_name]
-                args = {p: completed_results[p] for p in dependencies[task_name]}
+                args = {
+                    p: self._result_container._results[p]
+                    for p in dependencies[task_name]
+                }
                 
                 if not inspect.iscoroutinefunction(task_func):
                     task_func = sync_to_async(task_func)
@@ -124,7 +129,7 @@ class WoveContextManager:
                 task_name = running_tasks[completed_task]
                 try:
                     result = completed_task.result()
-                    completed_results[task_name] = result
+                    self._result_container._results[task_name] = result
                 except Exception as e:
                     # If one task fails, cancel the rest and re-raise
                     for p in pending:
@@ -138,10 +143,9 @@ class WoveContextManager:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-        # 4. Populate final results
-        print(f"DEBUG: final completed_results: {completed_results}")
-        if self._result_container:
-            self._result_container._results = completed_results
+        # 4. Populate final results (now done during execution)
+        print(f"DEBUG: final completed_results: {self._result_container._results}")
+
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
         self._tasks[func.__name__] = func
