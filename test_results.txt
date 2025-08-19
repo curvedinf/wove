@@ -1,0 +1,26 @@
+--- STDOUT ---
+============================= test session starts ==============================
+platform linux -- Python 3.12.5, pytest-8.4.0, pluggy-1.6.0
+rootdir: /home/chase/Projects/wove
+configfile: setup.cfg
+plugins: cov-6.2.1, anyio-4.9.0, django-4.11.1
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+_____________________ ERROR collecting tests/test_core.py ______________________
+ImportError while importing test module '/home/chase/Projects/wove/tests/test_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../.pyenv/versions/3.12.5/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_core.py:4: in <module>
+    from wove import weave, do
+E   ModuleNotFoundError: No module named 'wove'
+=========================== short test summary info ============================
+ERROR tests/test_core.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.07s ===============================
+
+
+--- STDERR ---
