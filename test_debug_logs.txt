@@ -2,104 +2,181 @@
 platform linux -- Python 3.12.5, pytest-8.4.0, pluggy-1.6.0
 rootdir: /home/chase/Projects/wove
 configfile: setup.cfg
-plugins: cov-6.2.1, anyio-4.9.0, django-4.11.1
+plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 7 items
 
-tests/test_core.py FFFFFFF                                               [100%]
+tests/test_core.py FFFF...                                               [100%]
 
 =================================== FAILURES ===================================
 _______________________ test_dependency_execution_order ________________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
+
+    @pytest.mark.asyncio
+    async def test_dependency_execution_order():
+        """Tests that tasks execute in the correct dependency order."""
+        execution_order = []
+        async with weave() as result:
+            @do
+            async def task_a():
+                await asyncio.sleep(0.02)
+                execution_order.append("a")
+                return "A"
+            @do
+            def task_b(task_a):
+                execution_order.append("b")
+                return f"B after {task_a}"
+            @do
+            async def task_c(task_b):
+                await asyncio.sleep(0.01)
+                execution_order.append("c")
+                return f"C after {task_b}"
+        assert execution_order == ["a", "b", "c"]
+>       assert result['task_c'] == "C after B after A"
+               ^^^^^^^^^^^^^^^^
+
+tests/test_core.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7071c6ed28d0>, key = 'task_c'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'task_c'
+
+wove/result.py:29: KeyError
 __________________________ test_sync_and_async_tasks ___________________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
+
+    @pytest.mark.asyncio
+    async def test_sync_and_async_tasks():
+        """Tests that a mix of sync and async tasks run correctly."""
+        async with weave() as result:
+            @do
+            async def async_task():
+                await asyncio.sleep(0.01)
+                return "async_done"
+            @do
+            def sync_task():
+                time.sleep(0.02)  # blocking sleep
+                return "sync_done"
+            @do
+            def final_task(async_task, sync_task):
+                return f"{async_task} and {sync_task}"
+>       assert result['async_task'] == "async_done"
+               ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_core.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7071c6e747a0>, key = 'async_task'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'async_task'
+
+wove/result.py:29: KeyError
 __________________________ test_concurrent_execution ___________________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
+
+    @pytest.mark.asyncio
+    async def test_concurrent_execution():
+        """Tests that independent tasks run concurrently."""
+        start_time = time.time()
+        async with weave() as result:
+            @do
+            async def task_1():
+                await asyncio.sleep(0.1)
+                return 1
+            @do
+            async def task_2():
+                await asyncio.sleep(0.1)
+                return 2
+        end_time = time.time()
+        # If run sequentially, it would take > 0.2s. Concurrently, < 0.2s (but not too much less)
+        assert (end_time - start_time) < 0.15
+>       assert result['task_1'] == 1
+               ^^^^^^^^^^^^^^^^
+
+tests/test_core.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7071c6d7b200>, key = 'task_1'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'task_1'
+
+wove/result.py:29: KeyError
 __________________________ test_result_access_methods __________________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
-_____________________ test_error_handling_and_propagation ______________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
-_______________________ test_error_cancels_running_tasks _______________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
-______________________ test_circular_dependency_detection ______________________
-async def functions are not natively supported.
-You need to install a suitable plugin for your async framework, for example:
-  - anyio
-  - pytest-asyncio
-  - pytest-tornasync
-  - pytest-trio
-  - pytest-twisted
-=============================== warnings summary ===============================
-tests/test_core.py:5
-  /home/chase/Projects/wove/tests/test_core.py:5: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
 
-tests/test_core.py:26
-  /home/chase/Projects/wove/tests/test_core.py:26: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
     @pytest.mark.asyncio
+    async def test_result_access_methods():
+        """Tests accessing results via dict, unpacking, and .final property."""
+        async with weave() as result:
+            @do
+            def first():
+                return "one"
+            @do
+            def second(first):
+                return "two"
+            @do
+            def third(second):
+                return "three"
+        # 1. Dictionary-style access
+>       assert result['first'] == "one"
+               ^^^^^^^^^^^^^^^
 
-tests/test_core.py:44
-  /home/chase/Projects/wove/tests/test_core.py:44: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
+tests/test_core.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-tests/test_core.py:62
-  /home/chase/Projects/wove/tests/test_core.py:62: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
+self = <wove.result.WoveResult object at 0x7071c6d78aa0>, key = 'first'
 
-tests/test_core.py:86
-  /home/chase/Projects/wove/tests/test_core.py:86: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'first'
 
-tests/test_core.py:111
-  /home/chase/Projects/wove/tests/test_core.py:111: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
-
-tests/test_core.py:136
-  /home/chase/Projects/wove/tests/test_core.py:136: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
-    @pytest.mark.asyncio
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+wove/result.py:29: KeyError
 =========================== short test summary info ============================
-FAILED tests/test_core.py::test_dependency_execution_order - Failed: async de...
-FAILED tests/test_core.py::test_sync_and_async_tasks - Failed: async def func...
-FAILED tests/test_core.py::test_concurrent_execution - Failed: async def func...
-FAILED tests/test_core.py::test_result_access_methods - Failed: async def fun...
-FAILED tests/test_core.py::test_error_handling_and_propagation - Failed: asyn...
-FAILED tests/test_core.py::test_error_cancels_running_tasks - Failed: async d...
-FAILED tests/test_core.py::test_circular_dependency_detection - Failed: async...
-======================== 7 failed, 7 warnings in 0.02s =========================
+FAILED tests/test_core.py::test_dependency_execution_order - KeyError: 'task_c'
+FAILED tests/test_core.py::test_sync_and_async_tasks - KeyError: 'async_task'
+FAILED tests/test_core.py::test_concurrent_execution - KeyError: 'task_1'
+FAILED tests/test_core.py::test_result_access_methods - KeyError: 'first'
+========================= 4 failed, 3 passed in 0.20s ==========================
