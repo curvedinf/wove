@@ -131,10 +131,7 @@ class WoveContextManager:
                             map_args[item_param] = item
                             map_coros.append(task_func(**map_args))
                         
-                        async def gather_mapped_results():
-                            return await asyncio.gather(*map_coros)
-                        
-                        coro = gather_mapped_results()
+                        coro = asyncio.gather(*map_coros)
                     else:
                         # Normal Task: Create a single task.
                         coro = task_func(**args)
@@ -142,7 +139,6 @@ class WoveContextManager:
                     task = asyncio.create_task(coro)
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
-
                 # Wait for tasks in the tier, processing them as they complete
                 pending = set(tier_tasks.keys())
                 while pending:
