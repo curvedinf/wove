@@ -91,10 +91,8 @@ class WoveContextManager:
         running_tasks: Dict[str, asyncio.Task[Any]] = {}
         task_keys = list(self._tasks.keys())
         completed_results: Dict[str, Any] = {}
-
         if self._result_container:
             self._result_container._definition_order = task_keys
-
         while queue or running_tasks:
             # Start all tasks with met dependencies
             while queue:
@@ -137,11 +135,7 @@ class WoveContextManager:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-
-        # Final results are now in the container as they are completed.
-        if self._result_container:
-            self._result_container._results = completed_results
-
+        # Final results are now in the container.
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
         self._tasks[func.__name__] = func
