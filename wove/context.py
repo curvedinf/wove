@@ -136,11 +136,9 @@ class WoveContextManager:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-
         # 4. Populate final results
         if self._result_container:
-            for task_name, result in completed_results.items():
-                self._result_container._set_result(task_name, result)
+            self._result_container._results = completed_results
 
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
