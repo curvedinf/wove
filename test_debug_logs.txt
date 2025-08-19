@@ -37,7 +37,7 @@ _______________________ test_dependency_execution_order ________________________
 tests/test_core.py:25: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x77e1a3f58bf0>, key = 'task_c'
+self = <wove.result.WoveResult object at 0x7867f174d940>, key = 'task_c'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -55,12 +55,13 @@ E       KeyError: 'task_c'
 
 wove/result.py:29: KeyError
 ----------------------------- Captured stdout call -----------------------------
-DEBUG: Awaiting tasks: ['task_a']
-DEBUG: Done tasks: ['task_a']
-DEBUG: Awaiting tasks: ['task_b']
-DEBUG: Done tasks: ['task_b']
-DEBUG: Awaiting tasks: ['task_c']
-DEBUG: Done tasks: ['task_c']
+DEBUG: running_tasks before wait: ['task_a']
+DEBUG: done tasks after wait: ['task_a']
+DEBUG: running_tasks before wait: ['task_b']
+DEBUG: done tasks after wait: ['task_b']
+DEBUG: running_tasks before wait: ['task_c']
+DEBUG: done tasks after wait: ['task_c']
+DEBUG: final completed_results: {'task_a': 'A', 'task_b': 'B after A', 'task_c': 'C after B after A'}
 __________________________ test_sync_and_async_tasks ___________________________
 
     @pytest.mark.asyncio
@@ -84,7 +85,7 @@ __________________________ test_sync_and_async_tasks ___________________________
 tests/test_core.py:41: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x77e1a3d778f0>, key = 'async_task'
+self = <wove.result.WoveResult object at 0x7867f15dfa10>, key = 'async_task'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -102,12 +103,13 @@ E       KeyError: 'async_task'
 
 wove/result.py:29: KeyError
 ----------------------------- Captured stdout call -----------------------------
-DEBUG: Awaiting tasks: ['async_task', 'sync_task']
-DEBUG: Done tasks: ['async_task']
-DEBUG: Awaiting tasks: ['sync_task']
-DEBUG: Done tasks: ['sync_task']
-DEBUG: Awaiting tasks: ['final_task']
-DEBUG: Done tasks: ['final_task']
+DEBUG: running_tasks before wait: ['async_task', 'sync_task']
+DEBUG: done tasks after wait: ['async_task']
+DEBUG: running_tasks before wait: ['sync_task']
+DEBUG: done tasks after wait: ['sync_task']
+DEBUG: running_tasks before wait: ['final_task']
+DEBUG: done tasks after wait: ['final_task']
+DEBUG: final completed_results: {'async_task': 'async_done', 'sync_task': 'sync_done', 'final_task': 'async_done and sync_done'}
 __________________________ test_concurrent_execution ___________________________
 
     @pytest.mark.asyncio
@@ -132,7 +134,7 @@ __________________________ test_concurrent_execution ___________________________
 tests/test_core.py:60: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x77e1a3d8b590>, key = 'task_1'
+self = <wove.result.WoveResult object at 0x7867f15f3500>, key = 'task_1'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -150,8 +152,9 @@ E       KeyError: 'task_1'
 
 wove/result.py:29: KeyError
 ----------------------------- Captured stdout call -----------------------------
-DEBUG: Awaiting tasks: ['task_1', 'task_2']
-DEBUG: Done tasks: ['task_1', 'task_2']
+DEBUG: running_tasks before wait: ['task_1', 'task_2']
+DEBUG: done tasks after wait: ['task_1', 'task_2']
+DEBUG: final completed_results: {'task_1': 1, 'task_2': 2}
 __________________________ test_result_access_methods __________________________
 
     @pytest.mark.asyncio
@@ -174,7 +177,7 @@ __________________________ test_result_access_methods __________________________
 tests/test_core.py:76: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x77e1a3d88710>, key = 'first'
+self = <wove.result.WoveResult object at 0x7867f15f0680>, key = 'first'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -192,12 +195,13 @@ E       KeyError: 'first'
 
 wove/result.py:29: KeyError
 ----------------------------- Captured stdout call -----------------------------
-DEBUG: Awaiting tasks: ['first']
-DEBUG: Done tasks: ['first']
-DEBUG: Awaiting tasks: ['second']
-DEBUG: Done tasks: ['second']
-DEBUG: Awaiting tasks: ['third']
-DEBUG: Done tasks: ['third']
+DEBUG: running_tasks before wait: ['first']
+DEBUG: done tasks after wait: ['first']
+DEBUG: running_tasks before wait: ['second']
+DEBUG: done tasks after wait: ['second']
+DEBUG: running_tasks before wait: ['third']
+DEBUG: done tasks after wait: ['third']
+DEBUG: final completed_results: {'first': 'one', 'second': 'two', 'third': 'three'}
 =========================== short test summary info ============================
 FAILED tests/test_core.py::test_dependency_execution_order - KeyError: 'task_c'
 FAILED tests/test_core.py::test_sync_and_async_tasks - KeyError: 'async_task'
