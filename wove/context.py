@@ -114,11 +114,9 @@ class WoveContextManager:
                 break
             
             # Wait for the next task to complete
-            print(f"DEBUG: Awaiting tasks: {[name for name in running_tasks.values()]}") # Temporary debug print
             done, pending = await asyncio.wait(
                 set(running_tasks.keys()), return_when=asyncio.FIRST_COMPLETED
             )
-            print(f"DEBUG: Done tasks: {[running_tasks[t] for t in done]}") # Temporary debug print
             # Process completed tasks
             for completed_task in done:
                 task_name = running_tasks[completed_task]
