@@ -1,14 +1,9 @@
 from typing import Any, Dict, Iterator, List
-import datetime
-LOG_FILE = "/tmp/wove_debug.log"
-def _wove_log(message: str):
-    """Appends a timestamped message to the wove debug log."""
-    with open(LOG_FILE, "a") as f:
-        timestamp = datetime.datetime.now().isoformat()
-        f.write(f"[{timestamp}] {message}\n")
+
 class WoveResult:
     """
     A container for the results of a weave block.
+
     Supports dictionary-style access by task name, unpacking in definition order,
     and a `.final` shortcut to the last-defined task's result.
     """
@@ -16,19 +11,19 @@ class WoveResult:
         """
         Initializes the result container.
         """
-        _wove_log(f"RESULT: Initializing WoveResult with id: {id(self)}")
         self._results: Dict[str, Any] = {}
         self._definition_order: List[str] = []
 
     def __getitem__(self, key: str) -> Any:
         """
         Retrieves a task's result by its name.
+
         Args:
             key: The name of the task.
+
         Returns:
             The result of the specified task.
         """
-        _wove_log(f"RESULT: Getting item '{key}' from WoveResult with id: {id(self)}. Available keys: {list(self._results.keys())}")
         return self._results[key]
 
     def __iter__(self) -> Iterator[Any]:
@@ -47,6 +42,7 @@ class WoveResult:
     def final(self) -> Any:
         """
         Returns the result of the last task defined in the weave block.
+
         Returns:
             The result of the final task, or None if no tasks were defined.
         """
@@ -56,5 +52,4 @@ class WoveResult:
 
     def _set_result(self, key: str, value: Any) -> None:
         """Sets a result for a given task key."""
-        _wove_log(f"RESULT: Setting item '{key}' in WoveResult with id: {id(self)}")
         self._results[key] = value
