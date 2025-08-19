@@ -12,31 +12,42 @@ import asyncio
 import time
 from wove import weave
 
+# A simple CPU-bound function to simulate work
+def cpu_intensive_task(iterations):
+    """Performs a meaningless but CPU-intensive calculation."""
+    result = 0
+    for i in range(iterations):
+        result += (i * i) % 1000
+    return result
+
 async def run_etl_pipeline_example():
     """
     Runs the ETL pipeline example.
     """
     print("--- Running ETL Pipeline Example ---")
     start_time = time.time()
+    num_records = 50000
 
     async with weave() as w:
         # 1. EXTRACT: Fetch the raw data source.
         @w.do
         async def extract_source_data():
             print("-> [E] Extracting source data...")
-            await asyncio.sleep(0.05)
-            print("<- [E] Source data extracted.")
+            await asyncio.sleep(0.05)  # Simulate quick I/O
+            print(f"<- [E] Source data extracted ({num_records} records).")
             return [
-                {"id": 1, "name": "Alice", "email": "alice@example.com"},
-                {"id": 2, "name": "Bob", "email": "bob@example.com"},
+                {"id": i, "name": f"User {i}", "email": f"user{i}@example.com"}
+                for i in range(num_records)
             ]
 
         # 2. TRANSFORM (Fan-out): These two tasks depend on `extract_source_data`
-        # and will run concurrently after it completes.
+        # and will run concurrently. These are now SYNC, CPU-bound functions.
+        # Wove will run them in a thread pool.
         @w.do
-        async def transform_user_profiles(extract_source_data):
-            print("-> [T1] Transforming user profiles...")
-            await asyncio.sleep(0.1)
+        def transform_user_profiles(extract_source_data):
+            print("-> [T1] Transforming user profiles (CPU-bound)...")
+            # Simulate heavy computation instead of I/O wait
+            cpu_intensive_task(20_000_000)
             transformed = [
                 {**user, "name": user["name"].upper()}
                 for user in extract_source_data
@@ -45,9 +56,10 @@ async def run_etl_pipeline_example():
             return transformed
 
         @w.do
-        async def transform_add_metadata(extract_source_data):
-            print("-> [T2] Adding metadata...")
-            await asyncio.sleep(0.15) # Simulate a longer I/O task
+        def transform_add_metadata(extract_source_data):
+            print("-> [T2] Adding metadata (CPU-bound)...")
+            # Simulate a longer CPU task
+            cpu_intensive_task(30_000_000)
             metadata = {user["id"]: {"status": "active"} for user in extract_source_data}
             print("<- [T2] Metadata added.")
             return metadata
@@ -73,16 +85,16 @@ async def run_etl_pipeline_example():
     
     # Verification
     final_result = w.result.final
-    assert len(final_result) == 2
-    assert final_result[0]["name"] == "ALICE"
+    assert len(final_result) == num_records
+    assert final_result[0]["name"] == "USER 0"
     assert final_result[0]["metadata"]["status"] == "active"
-    assert final_result[1]["name"] == "BOB"
-
+    assert final_result[1]["name"] == "USER 1"
+    
     print(f"\nTotal execution time: {duration:.2f} seconds")
-    # Because T1 and T2 run in parallel, total time is ~ sleep(E) + max(sleep(T1), sleep(T2))
-    # Expected: ~0.05s + ~0.15s = ~0.20s
-    assert duration < 0.25 
-    print(f"Final loaded data: {w.result.final}")
+    # Because T1 and T2 are CPU-bound and run in separate threads, the total time
+    # will be dictated by the GIL and thread scheduling. The goal is to be
+    # significantly longer than the original example.
+    print(f"Final loaded data summary: {len(w.result.final)} records processed.")
     print("--- ETL Pipeline Example Finished ---")
 
 if __name__ == "__main__":
