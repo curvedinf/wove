@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 from collections import OrderedDict, deque
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type, Union, Iterable
 from .helpers import sync_to_async
 from .result import WoveResult
 class WoveContextManager:
@@ -15,7 +15,7 @@ class WoveContextManager:
     """
     def __init__(self) -> None:
         """Initializes the context manager, preparing to collect tasks."""
-        self._tasks: OrderedDict[str, Callable[..., Any]] = OrderedDict()
+        self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
     async def __aenter__(self) -> "WoveContextManager":
         """
@@ -47,8 +47,8 @@ class WoveContextManager:
         # 1. Build Dependency Graph
         all_task_names = set(self._tasks.keys())
         dependencies: Dict[str, Set[str]] = {
-            name: set(inspect.signature(task).parameters.keys()) & all_task_names
-            for name, task in self._tasks.items()
+            name: set(inspect.signature(task_info["func"]).parameters.keys()) & all_task_names
+            for name, task_info in self._tasks.items()
         }
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
@@ -99,7 +99,12 @@ class WoveContextManager:
                 # Create asyncio.Task objects for all coroutines in the current tier
                 tier_tasks: Dict[asyncio.Task[Any], str] = {}
                 for task_name in tier:
-                    task_func = self._tasks[task_name]
+                    task_info = self._tasks[task_name]
+                    task_func = task_info["func"]
+                    
+                    if task_info["iterable"] is not None:
+                        raise NotImplementedError("Task mapping execution is not yet implemented.")
+
                     args = {
                         p: self.result._results[p]
                         for p in dependencies[task_name]
@@ -137,8 +142,21 @@ class WoveContextManager:
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
             # Re-raise the original exception.
             raise
-    def do(self, func: Callable[..., Any]) -> Callable[..., Any]:
-        """Decorator to register a task with the weave context."""
-        self._tasks[func.__name__] = func
-        self.result._definition_order.append(func.__name__)
-        return func
+
+    def do(self, arg: Optional[Union[Iterable[Any], Callable[..., Any]]] = None) -> Callable[..., Any]:
+        """
+        Decorator to register a task. Can be used as `@w.do` for a single task
+        or `@w.do(iterable)` to map a task over an iterable.
+        """
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            iterable = None if callable(arg) else arg
+            self._tasks[func.__name__] = {"func": func, "iterable": iterable}
+            self.result._definition_order.append(func.__name__)
+            return func
+
+        if callable(arg):
+            # Used as @w.do
+            return decorator(arg)
+        else:
+            # Used as @w.do(iterable) or @w.do()
+            return decorator
