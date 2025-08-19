@@ -100,29 +100,22 @@ async def run_error_example():
 #     asyncio.run(run_error_example())
 ```
 ### Task Mapping for Parallelism
-
 `wove` can automatically run a task concurrently for each item in an iterable. This is a powerful feature for batch processing, such as making multiple API calls or running database queries in parallel.
-
 To use mapping, pass an iterable (like a list or range) to the `@w.do` decorator: `@w.do(items_to_process)`.
-
 ```python
 import asyncio
 from wove import weave
-
 async def run_mapping_example():
     user_ids = [1, 2, 3]
-
     async def fetch_user_profile(user_id):
         """Simulates fetching a user profile from an API."""
         print(f"Fetching profile for user {user_id}...")
         await asyncio.sleep(0.1)
         return {"id": user_id, "name": f"User {user_id}"}
-
     async with weave() as w:
         @w.do
         def site_config():
             return {"api_version": "v3"}
-
         # The `process_user` task will run 3 times, once for each ID.
         # It depends on `site_config`, which is passed to every call.
         # The `user_id` parameter receives the item from the iterable.
@@ -131,34 +124,27 @@ async def run_mapping_example():
             profile = await fetch_user_profile(user_id)
             print(f"Processing profile for {profile['name']} with API {site_config['api_version']}")
             return {"processed_name": profile['name'].upper()}
-
         @w.do
         def summarize_results(process_user):
             # `process_user` is now a list of results.
             names = [result['processed_name'] for result in process_user]
             return f"Processed users: {', '.join(names)}"
-
     # The result of a mapped task is a list of the results from each run.
     assert w.result['process_user'] == [
         {'processed_name': 'USER 1'},
         {'processed_name': 'USER 2'},
         {'processed_name': 'USER 3'}
     ]
-
     print(f"Summary: {w.result.final}")
-
 # To run this example:
 # if __name__ == "__main__":
 #     asyncio.run(run_mapping_example())
 ```
-
 **Key Points:**
-
 *   **Signature**: The mapped function must have exactly one parameter that is not a dependency on another task. `wove` uses this parameter to pass in items from the iterable. In the example above, `user_id` is the item parameter.
 *   **Dependencies**: All other parameters are treated as dependencies. The results of dependency tasks (like `site_config`) are passed to *every* concurrent execution of the mapped function.
 *   **Results**: The result of the mapped task (e.g., `w.result['process_user']`) is a list containing the return value from each individual execution, in the same order as the input iterable.
 *   **Downstream Tasks**: A task that depends on a mapped task will receive the entire list of results.
-
 ### Complex Dependency Chains
 `wove` can handle arbitrarily complex dependency graphs, not just simple linear or one-to-many patterns. The following example demonstrates a "diamond" dependency, where two tasks run concurrently and their results are combined by a final task.
 ```python
@@ -191,3 +177,8 @@ async def run_diamond_example():
 # if __name__ == "__main__":
 #     asyncio.run(run_diamond_example())
 ```
+## More Examples
+The `examples/` directory contains more detailed scripts demonstrating common patterns:
+*   **`etl_pipeline.py`**: Showcases a "fan-out, fan-in" dependency graph. A single data extraction task is followed by multiple concurrent transformation tasks, whose results are then combined by a final loading task. This is a common pattern for parallel data processing.
+*   **`ml_pipeline.py`**: Demonstrates a "diamond" dependency graph for a machine learning workflow. A data loading task feeds into two parallel feature engineering tasks, which are then combined by a final model training task.
+*   **`api_aggregator.py`**: Uses task mapping to concurrently fetch details for a list of items from a simulated API. This pattern is ideal for batch processing records or aggregating data from multiple endpoints.
