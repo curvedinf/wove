@@ -123,7 +123,7 @@ class WoveContextManager:
                         task_func = sync_to_async(task_func)
                     
                     if task_info["iterable"] is not None:
-                        # Mapped Task: Create a task for each item and gather results.
+                        # Mapped Task: Create a coroutine for each item and gather results.
                         item_param = task_info["item_param"]
                         map_coros = []
                         for item in task_info["iterable"]:
@@ -131,12 +131,13 @@ class WoveContextManager:
                             map_args[item_param] = item
                             map_coros.append(task_func(**map_args))
                         
-                        coro = asyncio.gather(*map_coros)
+                        # asyncio.gather returns a Future, which is awaitable like a Task.
+                        task = asyncio.gather(*map_coros)
                     else:
-                        # Normal Task: Create a single task.
+                        # Normal Task: Create a single task from the coroutine.
                         coro = task_func(**args)
+                        task = asyncio.create_task(coro)
                     
-                    task = asyncio.create_task(coro)
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
                 # Wait for tasks in the tier, processing them as they complete
