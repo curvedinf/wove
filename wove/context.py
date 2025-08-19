@@ -133,8 +133,7 @@ class WoveContextManager:
                             map_sub_tasks.append(sub_task)
                             all_created_tasks.add(sub_task)
                         
-                        # Gather the results of all sub-tasks.
-                        # The returned future will complete when all sub-tasks are done.
+                        # For mapped tasks, we gather the sub-tasks. The result is a Future.
                         task = asyncio.gather(*map_sub_tasks)
                     else:
                         # Normal Task: Create a single task from the coroutine.
@@ -143,6 +142,7 @@ class WoveContextManager:
                     
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
+
                 # Wait for tasks in the tier, processing them as they complete
                 pending = set(tier_tasks.keys())
                 while pending:
