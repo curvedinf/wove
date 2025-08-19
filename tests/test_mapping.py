@@ -100,3 +100,17 @@ async def test_fundamental_mapping():
         def process(item):
             return item * 2
     assert w.result['process'] == [2, 4, 6]
+
+@pytest.mark.asyncio
+async def test_mapping_with_async_dependency():
+    """Tests that a mapped task can depend on a preceding, non-mapped, async task."""
+    items = [10, 20]
+    async with weave() as w:
+        @w.do
+        async def multiplier():
+            await asyncio.sleep(0.01)
+            return 3
+        @w.do(items)
+        def process_item_with_dep(item, multiplier):
+            return item * multiplier
+    assert w.result['process_item_with_dep'] == [30, 60]
