@@ -10,7 +10,6 @@ class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
     defined within an `async with weave()` block.
-
     It builds a dependency graph of tasks based on their function signatures,
     sorts them topologically, and executes them with maximum concurrency
     while respecting dependencies. It handles both `async` and synchronous
@@ -24,14 +23,13 @@ class WoveContextManager:
     async def __aenter__(self) -> WoveResult:
         """
         Enters the asynchronous context and prepares for task registration.
-
         Returns:
             An empty WoveResult container that will be populated with task
             results upon exiting the context.
         """
         self._reset_token = current_weave_context.set(self)
         # The 'as result' variable is initially an empty container
-        self._result_container = WoveResult([])
+        self._result_container = WoveResult()
         return self._result_container
     async def __aexit__(
         self,
@@ -42,11 +40,9 @@ class WoveContextManager:
         """
         Exits the context, executes all registered tasks, and populates the
         result container.
-
         If an exception is raised within the `async with` block, task execution
         is skipped. If a task raises an exception during execution, all other
         running tasks are cancelled, and the exception is propagated.
-
         Args:
             exc_type: The type of exception raised in the block, if any.
             exc_val: The exception instance raised, if any.
