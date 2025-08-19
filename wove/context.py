@@ -119,11 +119,9 @@ class WoveContextManager:
                 break
             
             # Wait for the next task to complete
-            print(f"DEBUG: running_tasks before wait: {[v for v in running_tasks.values()]}")
             done, pending = await asyncio.wait(
                 set(running_tasks.keys()), return_when=asyncio.FIRST_COMPLETED
             )
-            print(f"DEBUG: done tasks after wait: {[running_tasks[t] for t in done]}")
             # Process completed tasks
             for completed_task in done:
                 task_name = running_tasks[completed_task]
@@ -143,9 +141,6 @@ class WoveContextManager:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-        # 4. Populate final results (now done during execution)
-        print(f"DEBUG: final completed_results: {self._result_container._results}")
-
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
         self._tasks[func.__name__] = func

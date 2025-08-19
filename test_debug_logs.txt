@@ -60,7 +60,7 @@ __________________________ test_sync_and_async_tasks ___________________________
 tests/test_core.py:41: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7b2847574f50>, key = 'async_task'
+self = <wove.result.WoveResult object at 0x744815a32990>, key = 'async_task'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -101,7 +101,7 @@ __________________________ test_concurrent_execution ___________________________
 tests/test_core.py:60: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7b2847575a90>, key = 'task_1'
+self = <wove.result.WoveResult object at 0x744815a336e0>, key = 'task_1'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -140,7 +140,7 @@ __________________________ test_result_access_methods __________________________
 tests/test_core.py:76: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x7b28475766c0>, key = 'first'
+self = <wove.result.WoveResult object at 0x744815bf6d50>, key = 'first'
 
     def __getitem__(self, key: str) -> Any:
         """
