@@ -1,0 +1,182 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.5, pytest-8.4.0, pluggy-1.6.0
+rootdir: /home/chase/Projects/wove
+configfile: setup.cfg
+plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 7 items
+
+tests/test_core.py FFFF...                                               [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_dependency_execution_order ________________________
+
+    @pytest.mark.asyncio
+    async def test_dependency_execution_order():
+        """Tests that tasks execute in the correct dependency order."""
+        execution_order = []
+        async with weave() as result:
+            @do
+            async def task_a():
+                await asyncio.sleep(0.02)
+                execution_order.append("a")
+                return "A"
+            @do
+            def task_b(task_a):
+                execution_order.append("b")
+                return f"B after {task_a}"
+            @do
+            async def task_c(task_b):
+                await asyncio.sleep(0.01)
+                execution_order.append("c")
+                return f"C after {task_b}"
+        assert execution_order == ["a", "b", "c"]
+>       assert result['task_c'] == "C after B after A"
+               ^^^^^^^^^^^^^^^^
+
+tests/test_core.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7de23e815d00>, key = 'task_c'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'task_c'
+
+wove/result.py:29: KeyError
+__________________________ test_sync_and_async_tasks ___________________________
+
+    @pytest.mark.asyncio
+    async def test_sync_and_async_tasks():
+        """Tests that a mix of sync and async tasks run correctly."""
+        async with weave() as result:
+            @do
+            async def async_task():
+                await asyncio.sleep(0.01)
+                return "async_done"
+            @do
+            def sync_task():
+                time.sleep(0.02)  # blocking sleep
+                return "sync_done"
+            @do
+            def final_task(async_task, sync_task):
+                return f"{async_task} and {sync_task}"
+>       assert result['async_task'] == "async_done"
+               ^^^^^^^^^^^^^^^^^^^^
+
+tests/test_core.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7de23e8176b0>, key = 'async_task'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'async_task'
+
+wove/result.py:29: KeyError
+__________________________ test_concurrent_execution ___________________________
+
+    @pytest.mark.asyncio
+    async def test_concurrent_execution():
+        """Tests that independent tasks run concurrently."""
+        start_time = time.time()
+        async with weave() as result:
+            @do
+            async def task_1():
+                await asyncio.sleep(0.1)
+                return 1
+            @do
+            async def task_2():
+                await asyncio.sleep(0.1)
+                return 2
+        end_time = time.time()
+        # If run sequentially, it would take > 0.2s. Concurrently, < 0.2s (but not too much less)
+        assert (end_time - start_time) < 0.15
+>       assert result['task_1'] == 1
+               ^^^^^^^^^^^^^^^^
+
+tests/test_core.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7de23e953650>, key = 'task_1'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'task_1'
+
+wove/result.py:29: KeyError
+__________________________ test_result_access_methods __________________________
+
+    @pytest.mark.asyncio
+    async def test_result_access_methods():
+        """Tests accessing results via dict, unpacking, and .final property."""
+        async with weave() as result:
+            @do
+            def first():
+                return "one"
+            @do
+            def second(first):
+                return "two"
+            @do
+            def third(second):
+                return "three"
+        # 1. Dictionary-style access
+>       assert result['first'] == "one"
+               ^^^^^^^^^^^^^^^
+
+tests/test_core.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <wove.result.WoveResult object at 0x7de23e898530>, key = 'first'
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Retrieves a task's result by its name.
+    
+        Args:
+            key: The name of the task.
+    
+        Returns:
+            The result of the specified task.
+        """
+>       return self._results[key]
+               ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'first'
+
+wove/result.py:29: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_core.py::test_dependency_execution_order - KeyError: 'task_c'
+FAILED tests/test_core.py::test_sync_and_async_tasks - KeyError: 'async_task'
+FAILED tests/test_core.py::test_concurrent_execution - KeyError: 'task_1'
+FAILED tests/test_core.py::test_result_access_methods - KeyError: 'first'
+========================= 4 failed, 3 passed in 0.20s ==========================
