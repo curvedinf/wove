@@ -6,12 +6,10 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type
 from .helpers import sync_to_async
 from .result import WoveResult
 from .vars import current_weave_context
-
 class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
     defined within an `async with weave()` block.
-
     It builds a dependency graph of tasks based on their function signatures,
     sorts them topologically, and executes them with maximum concurrency
     while respecting dependencies. It handles both `async` and synchronous
@@ -22,11 +20,9 @@ class WoveContextManager:
         self._tasks: OrderedDict[str, Callable[..., Any]] = OrderedDict()
         self._result_container: Optional[WoveResult] = None
         self._reset_token: Optional[Token[Any]] = None
-
     async def __aenter__(self) -> WoveResult:
         """
         Enters the asynchronous context and prepares for task registration.
-
         Returns:
             An empty WoveResult container that will be populated with task
             results upon exiting the context.
@@ -35,7 +31,6 @@ class WoveContextManager:
         # The 'as result' variable is initially an empty container
         self._result_container = WoveResult()
         return self._result_container
-
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -45,20 +40,20 @@ class WoveContextManager:
         """
         Exits the context, executes all registered tasks, and populates the
         result container.
-
         If an exception is raised within the `async with` block, task execution
         is skipped. If a task raises an exception during execution, all other
         running tasks are cancelled, and the exception is propagated.
-
         Args:
             exc_type: The type of exception raised in the block, if any.
             exc_val: The exception instance raised, if any.
             exc_tb: The traceback for the exception, if any.
         """
+        print("--- [WOVE DEBUG] Starting Wove __aexit__ ---")
         if self._reset_token:
             current_weave_context.reset(self._reset_token)
         if exc_type:
             # If an exception occurred inside the block, don't execute
+            print(f"--- [WOVE DEBUG] Exception occurred inside 'with' block: {exc_val}. Skipping task execution.")
             return
         
         # 1. Build Dependency Graph
@@ -67,6 +62,8 @@ class WoveContextManager:
             name: set(inspect.signature(task).parameters.keys()) & all_task_names
             for name, task in self._tasks.items()
         }
+        print(f"--- [WOVE DEBUG] Registered tasks: {list(self._tasks.keys())}")
+        print(f"--- [WOVE DEBUG] Dependency graph: {dependencies}")
         
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
@@ -94,10 +91,14 @@ class WoveContextManager:
                 if temp_in_degree[dependent] == 0:
                     sort_queue.append(dependent)
         
+        print(f"--- [WOVE DEBUG] Initial execution queue (in-degree 0): {list(queue)}")
+        print(f"--- [WOVE DEBUG] Topological sort order: {sorted_tasks}")
+
         if len(sorted_tasks) != len(self._tasks):
             unrunnable_tasks = self._tasks.keys() - set(sorted_tasks)
             msg = ("Circular dependency detected or missing dependency. Unrunnable tasks: "
                 f"{', '.join(sorted(unrunnable_tasks))}")
+            print(f"--- [WOVE DEBUG] ERROR: {msg}")
             raise RuntimeError(msg)
             
         # 3. Execute in Tiers
@@ -107,6 +108,7 @@ class WoveContextManager:
         if self._result_container:
             self._result_container._definition_order = task_keys
         
+        print("--- [WOVE DEBUG] Starting task execution loop ---")
         while queue or running_tasks:
             # Start all tasks with met dependencies
             while queue:
@@ -115,13 +117,14 @@ class WoveContextManager:
                 # Gather arguments from already completed tasks
                 args = {p: completed_results[p] for p in dependencies[task_name]}
                 
+                print(f"--- [WOVE DEBUG] Starting task '{task_name}' with args: {list(args.keys())}")
                 # Wrap synchronous functions to run in a thread pool
                 if not inspect.iscoroutinefunction(task_func):
                     task_func = sync_to_async(task_func)
                 coro: Coroutine[Any, Any, Any] = task_func(**args)
                 running_tasks[task_name] = asyncio.create_task(coro)
-
             if not running_tasks:
+                print("--- [WOVE DEBUG] No tasks left to run and none are running. Exiting loop.")
                 break
             
             # Wait for the next task to complete
@@ -137,10 +140,13 @@ class WoveContextManager:
                 try:
                     result = completed_task.result()
                     completed_results[task_name] = result
+                    print(f"--- [WOVE DEBUG] Task '{task_name}' completed successfully.")
                     if self._result_container:
                         self._result_container._set_result(task_name, result)
+                        print(f"--- [WOVE DEBUG] Result for '{task_name}' stored in container.")
                 except Exception as e:
                     # If one task fails, cancel the rest and re-raise
+                    print(f"--- [WOVE DEBUG] Task '{task_name}' failed with exception: {e}")
                     for p in pending:
                         p.cancel()
                     if pending:
@@ -152,8 +158,12 @@ class WoveContextManager:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-        # Final results are now in the container.
+                        print(f"--- [WOVE DEBUG] Dependency '{task_name}' met for '{dependent}'. Queuing '{dependent}'.")
 
+        print("--- [WOVE DEBUG] Wove execution finished ---")
+        if self._result_container:
+            print(f"--- [WOVE DEBUG] Final results in container: {self._result_container._results}")
+        # Final results are now in the container.
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
         self._tasks[func.__name__] = func
