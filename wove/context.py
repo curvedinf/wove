@@ -114,9 +114,11 @@ class WoveContextManager:
                 break
             
             # Wait for the next task to complete
+            print(f"DEBUG: running_tasks before wait: {[v for v in running_tasks.values()]}")
             done, pending = await asyncio.wait(
                 set(running_tasks.keys()), return_when=asyncio.FIRST_COMPLETED
             )
+            print(f"DEBUG: done tasks after wait: {[running_tasks[t] for t in done]}")
             # Process completed tasks
             for completed_task in done:
                 task_name = running_tasks[completed_task]
@@ -137,6 +139,7 @@ class WoveContextManager:
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
         # 4. Populate final results
+        print(f"DEBUG: final completed_results: {completed_results}")
         if self._result_container:
             self._result_container._results = completed_results
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
