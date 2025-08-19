@@ -24,3 +24,8 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/curvedinf/wove"
 "Bug Tracker" = "https://github.com/curvedinf/wove/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest-asyncio",
+]
