@@ -46,10 +46,26 @@ class WoveContextManager:
             return
         # 1. Build Dependency Graph
         all_task_names = set(self._tasks.keys())
-        dependencies: Dict[str, Set[str]] = {
-            name: set(inspect.signature(task_info["func"]).parameters.keys()) & all_task_names
-            for name, task_info in self._tasks.items()
-        }
+        dependencies: Dict[str, Set[str]] = {}
+        for name, task_info in self._tasks.items():
+            params = set(inspect.signature(task_info["func"]).parameters.keys())
+            if task_info["iterable"] is not None:
+                # Mapped task: find the single parameter that isn't another task.
+                non_dependency_params = params - all_task_names
+                if len(non_dependency_params) != 1:
+                    msg = (
+                        f"Mapped task '{name}' must have exactly one parameter "
+                        "that is not a dependency (to receive items from the iterable). "
+                        f"Found {len(non_dependency_params)}: {', '.join(sorted(non_dependency_params))}"
+                    )
+                    raise TypeError(msg)
+                item_param_name = non_dependency_params.pop()
+                task_info["item_param"] = item_param_name
+                dependencies[name] = params & all_task_names
+            else:
+                # Normal task
+                dependencies[name] = params & all_task_names
+
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
             for param in params:
@@ -104,7 +120,6 @@ class WoveContextManager:
                     
                     if task_info["iterable"] is not None:
                         raise NotImplementedError("Task mapping execution is not yet implemented.")
-
                     args = {
                         p: self.result._results[p]
                         for p in dependencies[task_name]
@@ -142,7 +157,6 @@ class WoveContextManager:
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
             # Re-raise the original exception.
             raise
-
     def do(self, arg: Optional[Union[Iterable[Any], Callable[..., Any]]] = None) -> Callable[..., Any]:
         """
         Decorator to register a task. Can be used as `@w.do` for a single task
@@ -153,7 +167,6 @@ class WoveContextManager:
             self._tasks[func.__name__] = {"func": func, "iterable": iterable}
             self.result._definition_order.append(func.__name__)
             return func
-
         if callable(arg):
             # Used as @w.do
             return decorator(arg)
