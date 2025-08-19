@@ -48,12 +48,10 @@ class WoveContextManager:
             exc_val: The exception instance raised, if any.
             exc_tb: The traceback for the exception, if any.
         """
-        print("--- [WOVE DEBUG] Starting Wove __aexit__ ---")
         if self._reset_token:
             current_weave_context.reset(self._reset_token)
         if exc_type:
             # If an exception occurred inside the block, don't execute
-            print(f"--- [WOVE DEBUG] Exception occurred inside 'with' block: {exc_val}. Skipping task execution.")
             return
         
         # 1. Build Dependency Graph
@@ -62,8 +60,6 @@ class WoveContextManager:
             name: set(inspect.signature(task).parameters.keys()) & all_task_names
             for name, task in self._tasks.items()
         }
-        print(f"--- [WOVE DEBUG] Registered tasks: {list(self._tasks.keys())}")
-        print(f"--- [WOVE DEBUG] Dependency graph: {dependencies}")
         
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
@@ -80,7 +76,6 @@ class WoveContextManager:
         )
         
         sorted_tasks: List[str] = []
-        # We use a copy of in_degree for the sort to not affect the execution logic
         temp_in_degree = in_degree.copy()
         sort_queue = queue.copy()
         while sort_queue:
@@ -91,78 +86,58 @@ class WoveContextManager:
                 if temp_in_degree[dependent] == 0:
                     sort_queue.append(dependent)
         
-        print(f"--- [WOVE DEBUG] Initial execution queue (in-degree 0): {list(queue)}")
-        print(f"--- [WOVE DEBUG] Topological sort order: {sorted_tasks}")
-
         if len(sorted_tasks) != len(self._tasks):
             unrunnable_tasks = self._tasks.keys() - set(sorted_tasks)
             msg = ("Circular dependency detected or missing dependency. Unrunnable tasks: "
                 f"{', '.join(sorted(unrunnable_tasks))}")
-            print(f"--- [WOVE DEBUG] ERROR: {msg}")
             raise RuntimeError(msg)
             
         # 3. Execute in Tiers
-        running_tasks: Dict[str, asyncio.Task[Any]] = {}
-        task_keys = list(self._tasks.keys())
+        running_tasks: Dict[asyncio.Task[Any], str] = {}
         completed_results: Dict[str, Any] = {}
         if self._result_container:
-            self._result_container._definition_order = task_keys
+            self._result_container._definition_order = list(self._tasks.keys())
         
-        print("--- [WOVE DEBUG] Starting task execution loop ---")
         while queue or running_tasks:
             # Start all tasks with met dependencies
             while queue:
                 task_name = queue.popleft()
                 task_func = self._tasks[task_name]
-                # Gather arguments from already completed tasks
                 args = {p: completed_results[p] for p in dependencies[task_name]}
                 
-                print(f"--- [WOVE DEBUG] Starting task '{task_name}' with args: {list(args.keys())}")
-                # Wrap synchronous functions to run in a thread pool
                 if not inspect.iscoroutinefunction(task_func):
                     task_func = sync_to_async(task_func)
                 coro: Coroutine[Any, Any, Any] = task_func(**args)
-                running_tasks[task_name] = asyncio.create_task(coro)
+                task = asyncio.create_task(coro)
+                running_tasks[task] = task_name
             if not running_tasks:
-                print("--- [WOVE DEBUG] No tasks left to run and none are running. Exiting loop.")
                 break
             
             # Wait for the next task to complete
             done, pending = await asyncio.wait(
-                running_tasks.values(), return_when=asyncio.FIRST_COMPLETED
+                running_tasks.keys(), return_when=asyncio.FIRST_COMPLETED
             )
             # Process completed tasks
             for completed_task in done:
-                # Find the name of the completed task
-                task_name = next(
-                    name for name, task in running_tasks.items() if task == completed_task
-                )
+                task_name = running_tasks[completed_task]
                 try:
                     result = completed_task.result()
                     completed_results[task_name] = result
-                    print(f"--- [WOVE DEBUG] Task '{task_name}' completed successfully.")
                     if self._result_container:
                         self._result_container._set_result(task_name, result)
-                        print(f"--- [WOVE DEBUG] Result for '{task_name}' stored in container.")
                 except Exception as e:
                     # If one task fails, cancel the rest and re-raise
-                    print(f"--- [WOVE DEBUG] Task '{task_name}' failed with exception: {e}")
                     for p in pending:
                         p.cancel()
                     if pending:
                         await asyncio.gather(*pending, return_exceptions=True)
                     raise e
-                del running_tasks[task_name]
+                del running_tasks[completed_task]
                 # Decrement in-degree for dependents and add to queue if ready
                 for dependent in dependents.get(task_name, set()):
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-                        print(f"--- [WOVE DEBUG] Dependency '{task_name}' met for '{dependent}'. Queuing '{dependent}'.")
-
-        print("--- [WOVE DEBUG] Wove execution finished ---")
-        if self._result_container:
-            print(f"--- [WOVE DEBUG] Final results in container: {self._result_container._results}")
         # Final results are now in the container.
     def _register_task(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Called by the @do decorator to register a task."""
