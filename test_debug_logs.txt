@@ -37,7 +37,7 @@ _______________________ test_dependency_execution_order ________________________
 tests/test_core.py:25: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x71d3c266d400>, key = 'task_c'
+self = <wove.result.WoveResult object at 0x72ec2c6bad20>, key = 'task_c'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -77,7 +77,7 @@ __________________________ test_sync_and_async_tasks ___________________________
 tests/test_core.py:41: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x71d3c24e3e30>, key = 'async_task'
+self = <wove.result.WoveResult object at 0x72ec2b6d3ad0>, key = 'async_task'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -118,7 +118,7 @@ __________________________ test_concurrent_execution ___________________________
 tests/test_core.py:60: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x71d3c266d8b0>, key = 'task_1'
+self = <wove.result.WoveResult object at 0x72ec2b6e78f0>, key = 'task_1'
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -157,7 +157,7 @@ __________________________ test_result_access_methods __________________________
 tests/test_core.py:76: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.result.WoveResult object at 0x71d3c25646e0>, key = 'first'
+self = <wove.result.WoveResult object at 0x72ec2b6e4b30>, key = 'first'
 
     def __getitem__(self, key: str) -> Any:
         """
