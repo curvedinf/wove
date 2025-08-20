@@ -104,6 +104,78 @@ A full, runnable example can be found in `examples/dynamic_workflow.py`. It show
 *   **Iterable Mapping**: `merge` can execute a function concurrently for each item in an iterable.
 *   **Recursion Guard**: `merge` raises a `RecursionError` if the call depth exceeds 100.
 **Important Note**: Unlike `@w.do`, `merge` does **not** perform automatic dependency injection. You must pass all required arguments, often using `functools.partial` or a `lambda`.
+### Debugging and Introspection
+`wove` provides a powerful debugging mode and programmatic access to its execution plan, allowing you to inspect the dependency graph and performance of your tasks.
+To enable the debug mode, simply pass `debug=True` to the `weave` context manager. This will print a detailed report to your console before the tasks are executed.
+```python
+import asyncio
+from wove import weave
+
+async def main():
+    async with weave(debug=True) as w:
+        @w.do
+        async def task_a():
+            return "A"
+        @w.do
+        def task_b(task_a):
+            return "B"
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+The debug report provides a clear, color-coded overview of the detected tasks, their connections, and the exact execution plan. This is invaluable for understanding how `wove` will orchestrate your functions.
+Here is an example of the output:
+```text
+--- Wove Debug Report ---
+
+Detected Tasks (2):
+  • task_a
+  • task_b
+
+Dependency Graph:
+  • task_a
+    - Dependencies: None
+    - Dependents:   task_b
+  • task_b
+    - Dependencies: task_a
+    - Dependents:   None
+
+Execution Plan:
+  Tier 1
+    - task_a (async)
+  Tier 2
+    - task_b (sync)
+
+--- Starting Execution ---
+```
+For more advanced use cases, you can access the execution plan and task timings directly from the context manager instance after the `async with` block completes.
+*   **`w.execution_plan`**: A dictionary containing the complete dependency graph (`dependencies`, `dependents`), the execution `tiers`, and the topologically `sorted_tasks`.
+    ```python
+    async with weave() as w:
+        @w.do
+        def task_a(): pass
+        @w.do
+        def task_b(task_a): pass
+
+    plan = w.execution_plan
+    print(plan["tiers"])  # Output: [['task_a'], ['task_b']]
+    ```
+*   **`w.result.timings`**: A dictionary mapping each task's name to its execution duration in seconds. This is extremely useful for identifying performance bottlenecks.
+    ```python
+    import asyncio
+    from wove import weave
+    
+    async def main():
+        async with weave() as w:
+            @w.do
+            async def slow_task():
+                await asyncio.sleep(0.1)
+
+        print(f"slow_task took: {w.result.timings['slow_task']:.2f}s")
+        # Output: slow_task took: 0.10s
+        
+    asyncio.run(main())
+    ```
 ### Complex Dependency Chains
 `wove` can handle arbitrarily complex dependency graphs, not just simple linear or one-to-many patterns. The following example demonstrates a "diamond" dependency, where two tasks run concurrently and their results are combined by a final task.
 ```python
@@ -136,4 +208,3 @@ The `examples/` directory contains more detailed scripts demonstrating common pa
 *   **`example.py`**: A complete Django-style view that fetches a primary resource and its related data concurrently, and uses `merge` for conditional logic.
 *   **`file_processor.py`**: A complex pipeline showing nested parallelism. It uses task mapping (`@w.do(iterable)`) to process files concurrently, and within each file task, it uses `merge(callable, iterable)` to process words in parallel.
 *   **`ml_pipeline.py`**: Demonstrates a "diamond" dependency graph for a machine learning workflow, parallelizing feature engineering tasks.
-
