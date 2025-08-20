@@ -4,9 +4,50 @@ rootdir: /home/chase/Projects/wove
 configfile: setup.cfg
 plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 17 items
+collected 24 items
 
-tests/test_core.py .......                                               [ 41%]
-tests/test_mapping.py ..........                                         [100%]
+tests/test_core.py .......                                               [ 29%]
+tests/test_mapping.py ..........                                         [ 70%]
+tests/test_merge.py ......F                                              [100%]
 
-============================== 17 passed in 0.24s ==============================
+=================================== FAILURES ===================================
+____________________ test_merge_recursive_call_raises_error ____________________
+
+    @pytest.mark.asyncio
+    async def test_merge_recursive_call_raises_error():
+        """
+        Tests that `merge` detects and prevents deep recursion.
+        """
+        async def recursive_func(count=0):
+            # The implementation stops at > 100, so we recurse past that.
+            await merge(lambda: recursive_func(count + 1))
+>       async with weave() as w:
+
+tests/test_merge.py:114: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+wove/context.py:166: in __aexit__
+    task.result()  # This re-raises the exception
+    ^^^^^^^^^^^^^
+wove/context.py:118: in _context_wrapper
+    return await target_coro
+           ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @w.do
+    async def main_task():
+        # We expect a RecursionError because the call stack in _merge will exceed 100
+>       with pytest.raises(RecursionError, match="Merge call depth exceeded 100"):
+E       Failed: DID NOT RAISE <class 'RecursionError'>
+
+tests/test_merge.py:118: Failed
+=============================== warnings summary ===============================
+tests/test_merge.py::test_merge_recursive_call_raises_error
+  /home/chase/.pyenv/versions/3.12.5/lib/python3.12/asyncio/base_events.py:1987: RuntimeWarning: coroutine 'test_merge_recursive_call_raises_error.<locals>.recursive_func' was never awaited
+    handle = None  # Needed to break cycles when an exception occurs.
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_merge.py::test_merge_recursive_call_raises_error - Failed: ...
+=================== 1 failed, 23 passed, 1 warning in 0.34s ====================
