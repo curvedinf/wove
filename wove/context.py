@@ -198,7 +198,6 @@ class WoveContextManager:
         else:
             callable_name = "anonymous_callable"
         self._call_stack.append(callable_name)
-
         try:
             # Wrap sync functions to be awaitable
             if not inspect.iscoroutinefunction(func):
@@ -211,6 +210,8 @@ class WoveContextManager:
             else:
                 # Single call. Assumes func takes no arguments.
                 result = await func()
+                if inspect.isawaitable(result):
+                    result = await result
                 return result
         finally:
             self._call_stack.pop()

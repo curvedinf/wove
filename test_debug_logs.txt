@@ -8,34 +8,6 @@ collected 24 items
 
 tests/test_core.py .......                                               [ 29%]
 tests/test_mapping.py ..........                                         [ 70%]
-tests/test_merge.py ......F                                              [100%]
+tests/test_merge.py .......                                              [100%]
 
-=================================== FAILURES ===================================
-____________________ test_merge_recursive_call_raises_error ____________________
-
-    @pytest.mark.asyncio
-    async def test_merge_recursive_call_raises_error():
-        """
-        Tests that `merge` detects and prevents deep recursion.
-        """
-        async def recursive_func(count=0):
-            # The implementation stops at > 100, so we recurse past that.
-            await merge(lambda: recursive_func(count + 1))
-    
-        # The exception is propagated when the `weave` context manager exits,
-        # so the `raises` block must wrap it.
->       with pytest.raises(RecursionError, match="Merge call depth exceeded 100"):
-E       Failed: DID NOT RAISE <class 'RecursionError'>
-
-tests/test_merge.py:118: Failed
-=============================== warnings summary ===============================
-tests/test_merge.py::test_merge_recursive_call_raises_error
-  /home/chase/.pyenv/versions/3.12.5/lib/python3.12/asyncio/base_events.py:1987: RuntimeWarning: coroutine 'test_merge_recursive_call_raises_error.<locals>.recursive_func' was never awaited
-    handle = None  # Needed to break cycles when an exception occurs.
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED tests/test_merge.py::test_merge_recursive_call_raises_error - Failed: ...
-=================== 1 failed, 23 passed, 1 warning in 0.33s ====================
+============================== 24 passed in 0.31s ==============================
