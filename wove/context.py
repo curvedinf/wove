@@ -3,6 +3,7 @@ import inspect
 import functools
 import time
 from collections import OrderedDict, deque
+from concurrent.futures import ThreadPoolExecutor
 from typing import (
     Any,
     Callable,
@@ -17,29 +18,48 @@ from typing import (
 )
 from .helpers import sync_to_async
 from .result import WoveResult
-from .vars import merge_context
+from .vars import merge_context, executor_context
+
+
 class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
     defined within an `async with weave()` block.
+
     It builds a dependency graph of tasks, sorts them topologically, and executes
     them with maximum concurrency while respecting dependencies. It handles both
     `async` and synchronous functions, running the latter in a thread pool.
     """
-    def __init__(self, debug: bool = False) -> None:
-        """Initializes the context manager, preparing to collect tasks."""
+
+    def __init__(self, debug: bool = False, max_workers: Optional[int] = None) -> None:
+        """
+        Initializes the context manager.
+
+        Args:
+            debug: If True, prints a detailed execution plan.
+            max_workers: The maximum number of threads for running sync tasks.
+                If None, a default value is chosen by ThreadPoolExecutor.
+        """
         self._debug = debug
+        self._max_workers = max_workers
+        self._executor: Optional[ThreadPoolExecutor] = None
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
         self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
+
     async def __aenter__(self) -> "WoveContextManager":
         """
-        Enters the asynchronous context and prepares for task registration.
+        Enters the asynchronous context, creates a dedicated thread pool,
+        and prepares for task registration.
+
         Returns:
             The context manager instance itself.
         """
+        self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
+        self._executor_token = executor_context.set(self._executor)
         return self
+
     def _build_graph_and_plan(self) -> None:
         """
         Builds the dependency graph, sorts it topologically, and creates an
@@ -122,6 +142,7 @@ class WoveContextManager:
             "tiers": tiers,
             "sorted_tasks": sorted_tasks,
         }
+
     def _print_debug_report(self) -> None:
         """Prints a color-coded debug report of the execution plan."""
         if not self.execution_plan:
@@ -178,6 +199,7 @@ class WoveContextManager:
                         map_str = f" {C_GREY}[mapped over an iterable]{C_RESET}"
                 print(f"    {C_CYAN}- {task_name}{C_RESET} {type_str}{map_str}")
         print(f"\n{C_BLUE_B}--- Starting Execution ---{C_RESET}")
+
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -185,123 +207,135 @@ class WoveContextManager:
         exc_tb: Optional[Any],
     ) -> None:
         """
-        Exits the context, executes all registered tasks, and populates the
-        result container.
+        Exits the context, executes all registered tasks, populates the
+        result container, and shuts down the dedicated thread pool.
+
         If an exception is raised within the `async with` block, task execution
         is skipped. If a task raises an exception during execution, all other
         running tasks are cancelled, and the exception is propagated.
+
         Args:
             exc_type: The type of exception raised in the block, if any.
             exc_val: The exception instance raised, if any.
             exc_tb: The traceback for the exception, if any.
         """
-        if exc_type:
-            # If an exception occurred inside the block, don't execute
-            return
-        self._build_graph_and_plan()
-        if self._debug:
-            self._print_debug_report()
-        # Extract plan details for execution
-        tiers = self.execution_plan["tiers"]
-        dependencies = self.execution_plan["dependencies"]
-        # 4. Execute tier by tier
-        all_created_tasks: Set[asyncio.Future[Any]] = set()
-        async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
-            """Sets the merge_context and runs the given coroutine."""
-            token = merge_context.set(self._merge)
-            try:
-                return await target_coro
-            finally:
-                merge_context.reset(token)
-        async def _time_wrapper(
-            awaitable: Coroutine[Any, Any, Any], task_name: str
-        ) -> Any:
-            """Wraps an awaitable to measure its execution time."""
-            start_time = time.monotonic()
-            try:
-                return await awaitable
-            finally:
-                duration = time.monotonic() - start_time
-                self.result._add_timing(task_name, duration)
         try:
-            for tier in tiers:
-                tier_tasks: Dict[asyncio.Future[Any], str] = {}
-                for task_name in tier:
-                    task_info = self._tasks[task_name]
-                    task_func = task_info["func"]
-                    args = {p: self.result._results[p] for p in dependencies[task_name]}
-                    if not inspect.iscoroutinefunction(task_func):
-                        task_func = sync_to_async(task_func)
-                    if task_info["map_source"] is not None:
-                        # Mapped Task: Create a task for each item and gather results.
-                        item_param = task_info["item_param"]
-                        map_sub_tasks = []
-                        map_source_value = task_info["map_source"]
-                        iterable = None
-                        if isinstance(map_source_value, str):
-                            # The map source is the name of another task. Resolve its result.
-                            iterable = self.result._results[map_source_value]
-                            # The result of the source task is used for iteration,
-                            # not as a direct keyword argument.
-                            if map_source_value in args:
-                                del args[map_source_value]
-                            try:
-                                iter(iterable)
-                            except TypeError:
-                                raise TypeError(
-                                    f"Task '{task_name}' is mapped over the result of "
-                                    f"task '{map_source_value}', but its result of type "
-                                    f"'{type(iterable).__name__}' is not iterable."
-                                )
+            if exc_type:
+                # If an exception occurred inside the block, don't execute
+                return
+            self._build_graph_and_plan()
+            if self._debug:
+                self._print_debug_report()
+            # Extract plan details for execution
+            tiers = self.execution_plan["tiers"]
+            dependencies = self.execution_plan["dependencies"]
+            # 4. Execute tier by tier
+            all_created_tasks: Set[asyncio.Future[Any]] = set()
+
+            async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
+                """Sets the merge_context and runs the given coroutine."""
+                token = merge_context.set(self._merge)
+                try:
+                    return await target_coro
+                finally:
+                    merge_context.reset(token)
+
+            async def _time_wrapper(
+                awaitable: Coroutine[Any, Any, Any], task_name: str
+            ) -> Any:
+                """Wraps an awaitable to measure its execution time."""
+                start_time = time.monotonic()
+                try:
+                    return await awaitable
+                finally:
+                    duration = time.monotonic() - start_time
+                    self.result._add_timing(task_name, duration)
+
+            try:
+                for tier in tiers:
+                    tier_tasks: Dict[asyncio.Future[Any], str] = {}
+                    for task_name in tier:
+                        task_info = self._tasks[task_name]
+                        task_func = task_info["func"]
+                        args = {p: self.result._results[p] for p in dependencies[task_name]}
+                        if not inspect.iscoroutinefunction(task_func):
+                            task_func = sync_to_async(task_func)
+                        if task_info["map_source"] is not None:
+                            # Mapped Task: Create a task for each item and gather results.
+                            item_param = task_info["item_param"]
+                            map_sub_tasks = []
+                            map_source_value = task_info["map_source"]
+                            iterable = None
+                            if isinstance(map_source_value, str):
+                                # The map source is the name of another task. Resolve its result.
+                                iterable = self.result._results[map_source_value]
+                                # The result of the source task is used for iteration,
+                                # not as a direct keyword argument.
+                                if map_source_value in args:
+                                    del args[map_source_value]
+                                try:
+                                    iter(iterable)
+                                except TypeError:
+                                    raise TypeError(
+                                        f"Task '{task_name}' is mapped over the result of "
+                                        f"task '{map_source_value}', but its result of type "
+                                        f"'{type(iterable).__name__}' is not iterable."
+                                    )
+                            else:
+                                # The map source is a static iterable.
+                                iterable = map_source_value
+                            for item in iterable:
+                                map_args = args.copy()
+                                map_args[item_param] = item
+                                coro = task_func(**map_args)
+                                sub_task = asyncio.create_task(_context_wrapper(coro))
+                                map_sub_tasks.append(sub_task)
+                                all_created_tasks.add(sub_task)
+                            # For mapped tasks, we gather the sub-tasks. The result is a Future.
+                            gathered_awaitable = asyncio.gather(*map_sub_tasks)
+                            timed_awaitable = _time_wrapper(gathered_awaitable, task_name)
+                            task = asyncio.create_task(timed_awaitable)
                         else:
-                            # The map source is a static iterable.
-                            iterable = map_source_value
-                        for item in iterable:
-                            map_args = args.copy()
-                            map_args[item_param] = item
-                            coro = task_func(**map_args)
-                            sub_task = asyncio.create_task(_context_wrapper(coro))
-                            map_sub_tasks.append(sub_task)
-                            all_created_tasks.add(sub_task)
-                        # For mapped tasks, we gather the sub-tasks. The result is a Future.
-                        gathered_awaitable = asyncio.gather(*map_sub_tasks)
-                        timed_awaitable = _time_wrapper(gathered_awaitable, task_name)
-                        task = asyncio.create_task(timed_awaitable)
-                    else:
-                        # Normal Task: Create a single task from the coroutine.
-                        coro = task_func(**args)
-                        context_coro = _context_wrapper(coro)
-                        timed_awaitable = _time_wrapper(context_coro, task_name)
-                        task = asyncio.create_task(timed_awaitable)
-                    tier_tasks[task] = task_name
-                    all_created_tasks.add(task)
-                # Wait for tasks in the tier, processing them as they complete
-                pending = set(tier_tasks.keys())
-                while pending:
-                    done, pending = await asyncio.wait(
-                        pending, return_when=asyncio.FIRST_COMPLETED
-                    )
-                    # Check for exceptions in completed tasks
-                    for task in done:
-                        if task.exception():
-                            # If a task fails, raise its exception.
-                            # The main `except` block will handle cancellation.
-                            task.result()  # This re-raises the exception
-                # If the loop completes, all tasks in the tier succeeded.
-                # Store their results before moving to the next tier.
-                for task, task_name in tier_tasks.items():
-                    self.result._add_result(task_name, task.result())
-        except Exception:
-            # If any task raises an exception, cancel all other running tasks.
-            for task in all_created_tasks:
-                if not task.done():
-                    task.cancel()
-            # Wait for all tasks to acknowledge cancellation to ensure cleanup.
-            # return_exceptions=True prevents gather from stopping on the first
-            # CancelledError.
-            await asyncio.gather(*all_created_tasks, return_exceptions=True)
-            # Re-raise the original exception.
-            raise
+                            # Normal Task: Create a single task from the coroutine.
+                            coro = task_func(**args)
+                            context_coro = _context_wrapper(coro)
+                            timed_awaitable = _time_wrapper(context_coro, task_name)
+                            task = asyncio.create_task(timed_awaitable)
+                        tier_tasks[task] = task_name
+                        all_created_tasks.add(task)
+                    # Wait for tasks in the tier, processing them as they complete
+                    pending = set(tier_tasks.keys())
+                    while pending:
+                        done, pending = await asyncio.wait(
+                            pending, return_when=asyncio.FIRST_COMPLETED
+                        )
+                        # Check for exceptions in completed tasks
+                        for task in done:
+                            if task.exception():
+                                # If a task fails, raise its exception.
+                                # The main `except` block will handle cancellation.
+                                task.result()  # This re-raises the exception
+                    # If the loop completes, all tasks in the tier succeeded.
+                    # Store their results before moving to the next tier.
+                    for task, task_name in tier_tasks.items():
+                        self.result._add_result(task_name, task.result())
+            except Exception:
+                # If any task raises an exception, cancel all other running tasks.
+                for task in all_created_tasks:
+                    if not task.done():
+                        task.cancel()
+                # Wait for all tasks to acknowledge cancellation to ensure cleanup.
+                # return_exceptions=True prevents gather from stopping on the first
+                # CancelledError.
+                await asyncio.gather(*all_created_tasks, return_exceptions=True)
+                # Re-raise the original exception.
+                raise
+        finally:
+            # Safely shut down the dedicated executor.
+            if self._executor:
+                executor_context.reset(self._executor_token)
+                self._executor.shutdown(wait=True)
+
     async def _merge(
         self, func: Callable[..., Any], iterable: Optional[Iterable[Any]] = None
     ) -> Any:
@@ -317,7 +351,7 @@ class WoveContextManager:
         # Safely get a name for the callable, handling partials and other callables without __name__.
         if isinstance(func, functools.partial):
             callable_name = func.func.__name__
-        elif hasattr(func, "__name__"): 
+        elif hasattr(func, "__name__"):
             callable_name = func.__name__
         else:
             callable_name = "anonymous_callable"
@@ -339,6 +373,7 @@ class WoveContextManager:
                 return result
         finally:
             self._call_stack.pop()
+
     def do(
         self, arg: Optional[Union[Iterable[Any], Callable[..., Any], str]] = None
     ) -> Callable[..., Any]:
@@ -347,11 +382,13 @@ class WoveContextManager:
         `@w.do(iterable)` to map a task over a static iterable, or
         `@w.do("task_name")` to map a task over the result of another task.
         """
+
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             map_source = None if callable(arg) else arg
             self._tasks[func.__name__] = {"func": func, "map_source": map_source}
             self.result._definition_order.append(func.__name__)
             return func
+
         if callable(arg):
             # Used as @w.do
             return decorator(arg)
