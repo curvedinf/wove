@@ -16,6 +16,7 @@ class WoveContextManager:
         """Initializes the context manager, preparing to collect tasks."""
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
+        self._call_stack: List[str] = []
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context and prepares for task registration.
@@ -142,7 +143,6 @@ class WoveContextManager:
                     
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
-
                 # Wait for tasks in the tier, processing them as they complete
                 pending = set(tier_tasks.keys())
                 while pending:
@@ -170,6 +170,36 @@ class WoveContextManager:
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
             # Re-raise the original exception.
             raise
+
+    async def _merge(self, func: Callable[..., Any], iterable: Optional[Iterable[Any]] = None) -> Any:
+        """
+        Dynamically executes a callable from within a task, handling recursion
+        and concurrency.
+        """
+        if len(self._call_stack) > 100:
+            raise RecursionError(
+                "Merge call depth exceeded 100. A circular `merge` "
+                "dependency is likely."
+            )
+
+        self._call_stack.append(func.__name__)
+        try:
+            # Wrap sync functions to be awaitable
+            if not inspect.iscoroutinefunction(func):
+                func = sync_to_async(func)
+
+            if iterable is not None:
+                # Mapped/iterable call. Assumes func takes one argument.
+                sub_tasks = [asyncio.create_task(func(item)) for item in iterable]
+                results = await asyncio.gather(*sub_tasks)
+                return results
+            else:
+                # Single call. Assumes func takes no arguments.
+                result = await func()
+                return result
+        finally:
+            self._call_stack.pop()
+
     def do(self, arg: Optional[Union[Iterable[Any], Callable[..., Any]]] = None) -> Callable[..., Any]:
         """
         Decorator to register a task. Can be used as `@w.do` for a single task
