@@ -3,7 +3,7 @@ import inspect
 import functools
 import time
 from collections import OrderedDict, deque
-from typing (
+from typing import (
     Any,
     Callable,
     Coroutine,
@@ -22,7 +22,6 @@ class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
     defined within an `async with weave()` block.
-
     It builds a dependency graph of tasks, sorts them topologically, and executes
     them with maximum concurrency while respecting dependencies. It handles both
     `async` and synchronous functions, running the latter in a thread pool.
@@ -37,7 +36,6 @@ class WoveContextManager:
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context and prepares for task registration.
-
         Returns:
             The context manager instance itself.
         """
@@ -189,11 +187,9 @@ class WoveContextManager:
         """
         Exits the context, executes all registered tasks, and populates the
         result container.
-
         If an exception is raised within the `async with` block, task execution
         is skipped. If a task raises an exception during execution, all other
         running tasks are cancelled, and the exception is propagated.
-
         Args:
             exc_type: The type of exception raised in the block, if any.
             exc_val: The exception instance raised, if any.
@@ -245,6 +241,14 @@ class WoveContextManager:
                         if isinstance(map_source_value, str):
                             # The map source is the name of another task. Resolve its result.
                             iterable = self.result._results[map_source_value]
+                            try:
+                                iter(iterable)
+                            except TypeError:
+                                raise TypeError(
+                                    f"Task '{task_name}' is mapped over the result of "
+                                    f"task '{map_source_value}', but its result of type "
+                                    f"'{type(iterable).__name__}' is not iterable."
+                                )
                         else:
                             # The map source is a static iterable.
                             iterable = map_source_value
