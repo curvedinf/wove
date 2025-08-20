@@ -48,7 +48,9 @@ Here are all three of Wove's tools:
 -   `weave()`: An `async` context manager that creates the execution environment for your tasks. It is used in an 
     `async with` block. When the weave block ends, all tasks will be executed in the order of their dependency graph.
     The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that
-    contains the result of the last task.
+    contains the result of the last task. It can take an optional `debug` argument to print a detailed report to the 
+    console before executing the tasks, and an optional `max_threads` argument to set the maximum number of threads
+    that Wove will use to run tasks in parallel.
 -   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can optionally be 
     passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed
     a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of
