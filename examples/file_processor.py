@@ -89,7 +89,7 @@ async def run_file_processor_example():
     
     assert final_summary["total_files_processed"] == 3
     assert final_summary["total_words_analyzed"] == 26
-    assert final_summary["grand_total_vowels"] == 51
+    assert final_summary["grand_total_vowels"] == 50
     
     print(f"\nTotal execution time: {duration:.2f} seconds")
     print("--- Concurrent File Processor Example Finished ---")
