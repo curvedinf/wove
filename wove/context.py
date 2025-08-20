@@ -14,10 +14,12 @@ class WoveContextManager:
     them with maximum concurrency while respecting dependencies. It handles both
     `async` and synchronous functions, running the latter in a thread pool.
     """
-    def __init__(self) -> None:
+    def __init__(self, debug: bool = False) -> None:
         """Initializes the context manager, preparing to collect tasks."""
+        self._debug = debug
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
+        self.execution_plan = None
         self._call_stack: List[str] = []
     async def __aenter__(self) -> "WoveContextManager":
         """
