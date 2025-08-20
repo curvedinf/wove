@@ -1,5 +1,5 @@
 # Wove
-Beautiful Python async orchestration.
+Beautiful Python async.
 
 ## Core Concepts
 Wove is made from sensical philosophies that make async code feel more Pythonic.
