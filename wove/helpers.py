@@ -7,7 +7,7 @@ from .vars import executor_context
 R = TypeVar("R")
 
 
-def def sync_to_async(func: Callable[..., R]) -> Callable[..., Coroutine[Any, Any, R]]:
+def sync_to_async(func: Callable[..., R]) -> Callable[..., Coroutine[Any, Any, R]]:
     """
     Wraps a synchronous function to run in an executor.
 
