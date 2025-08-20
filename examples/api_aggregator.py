@@ -14,41 +14,36 @@ import time
 import requests
 from wove import weave
 
-
-def fetch_post_details(post_id: int):
-    """
-    Fetches post details from the JSONPlaceholder API.
-    This is a synchronous, I/O-bound function. Wove will run it in a
-    thread pool to avoid blocking the event loop.
-    """
-    url = f"https://jsonplaceholder.typicode.com/posts/{post_id}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching post {post_id}: {e}")
-        return None
-
-
 async def run_api_aggregator_example():
     """
     Runs the API aggregation example.
     """
     print("--- Running API Aggregator Example ---")
-    # We will fetch posts with IDs from 1 to 20 from a public API.
-    post_ids = list(range(1, 21))
+    # We will fetch posts with IDs from 1 to 100 from a public API.
+    post_ids = list(range(1, 101))
     print(f"Found {len(post_ids)} post IDs to process.")
     start_time = time.time()
     async with weave() as w:
         # This is the mapped task. `wove` will run `processed_post`
         # concurrently for each ID in `post_ids`.
-        # Because `fetch_post_details` is a regular (sync) function,
+        # Because `processed_post` is a regular (sync) function,
         # Wove automatically runs it in a thread pool.
         @w.do(post_ids)
         def processed_post(post_id):
-            # The `post_id` parameter receives a value from the `post_ids` iterable.
-            return fetch_post_details(post_id)
+            """
+            Fetches post details from the JSONPlaceholder API.
+            This is a synchronous, I/O-bound function. Wove will run it in a
+            thread pool to avoid blocking the event loop.
+            The `post_id` parameter receives a value from the `post_ids` iterable.
+            """
+            url = f"https://jsonplaceholder.typicode.com/posts/{post_id}"
+            try:
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+                return response.json()
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching post {post_id}: {e}")
+                return None
 
         # This final task depends on the mapped task. It receives a list
         # containing all the results from the `processed_post` executions.
