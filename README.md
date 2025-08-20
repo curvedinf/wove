@@ -1,35 +1,74 @@
 # Wove
-Stop wrestling with `asyncio`. Start orchestrating.
+Beautiful python async orchestration.
 
-Python's `asyncio` is powerful, but it often leads to a tangle of `create_task`, `gather`, and manual result handling. Your business logic gets lost in boilerplate.
+## Free your code from async boilerplate
 
-Wove frees your code by letting you write simple, clean functions that look synchronous and read top-to-bottom. It automatically discovers their dependencies and executes them with maximum concurrency. It is orchestration without the ceremony.
+Wove lets you write async code that reads top-to-bottom like normal Python code. It automatically discovers 
+which pieces of code can be run in parallel and which need to be run sequentially then executes them with maximum 
+concurrency. It is orchestration without the ceremony.
 
--   **Why Wove?** Unlike `asyncio.gather`, which needs you to manually build a list of awaitables, Wove infers the execution graph directly from your function signatures. Unlike heavy frameworks like Celery or Airflow, Wove is a zero-dependency, lightweight library for in-process concurrency, perfect for I/O-bound work like API calls and database queries in a single request or script.
 
-## Installation
-This project is not yet on PyPI. To install locally for development:
-```bash
-pip install -e .
-```
+Asyncio is a powerful tool, but bogs you down in boilerplate. Unlike `asyncio.gather`, which needs you to manually 
+build a list of awaitables, Wove infers the execution graph directly from your function signatures. Unlike 
+heavy frameworks like Celery or Airflow, Wove is a zero-dependency, lightweight library for in-process concurrency, 
+perfect for I/O-bound work like API calls and database queries in a single request or script.
+
 ## Core Concepts
-Wove is built on a few simple principles to make async code feel more Pythonic.
+Wove is made from sensical philosophies that make async code feel more Pythonic.
 
 -   **Looks Like Normal Python**: You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in a logical order, but `wove` intelligently determines the optimal *execution* order.
 -   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures (e.g., `def task_b(task_a): ...`) and runs independent tasks concurrently.
+-   **Normal Python Data**: Wove's task data looks like normal python variables because it is, but it creates inherent multithreaded data safety in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
 -   **Sync & Async Transparency**: Mix `async def` and `def` functions freely. `wove` automatically runs synchronous functions in a background thread pool to avoid blocking the event loop.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library.
 
+## Installation
+Download wove with pip:
+```bash
+pip install wove
+```
+
 ## The Basics
-Wove introduces three main tools to manage your workflow:
+Wove defines only three tools to manage all of your async needs, but you can do a lot with just two of them:
+
+```python
+import asyncio
+from wove import weave
+
+async def main():
+    async with weave() as w:
+        @w.do
+        async def magic_number():
+            return 42
+        @w.do
+        async def important_text():
+            return "The meaning of life"
+        @w.do
+        async def put_together(important_text, magic_number):
+            return f"{important_text} is {magic_number}!"
+    print(w.result.final)
+asyncio.run(main())
+
+>> The meaning of life is 42!
+```
+
+In the example above, magic_number and important_text are called in parallel. The magic doesn't stop there.
+
+## The Wove API
+
+Here are all three of Wove's tools:
 
 -   `weave()`: An `async` context manager that creates the execution environment for your tasks.
 -   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block.
 -   `merge()`: A function to dynamically call and `await` other functions from *inside* a running task.
 
-Here they are in action:
+
+## More Spice
+
+Here is a more complex example that uses extra-powerful Wove features:
+
 ```python
 import asyncio
 import time
@@ -85,24 +124,94 @@ async def run_example():
 if __name__ == "__main__":
     asyncio.run(run_example())
 ```
+
+
 ## Advanced Features
 
--   **Task Mapping**: For simple parallel processing over an iterable, `@w.do(iterable)` is a powerful shortcut. The decorated function will be executed concurrently for each item.
-    ```python
-    ids = [1, 2, 3]
-    async with weave() as w:
-        @w.do(ids)
-        async def fetch_user(user_id):
-            # This runs 3 times in parallel
-            ... # e.g. return await get_user_from_db(user_id)
-    # w.result['fetch_user'] will be a list of 3 user objects
-    ```
--   **Error Handling**: If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original exception from the `async with weave()` block. This ensures predictable state and allows you to use standard `try...except` blocks.
+### Task Mapping
+In the style of map-reduce, iterables can be mapped to tasks with `@w.do(iterable)` and `merge(function, iterable)`. 
+The mapped function will be executed concurrently for each item in the iterable. All task results are consolidated in
+the results object which can be accessed like a collection.
+```python
+ids = [1, 2, 3]
+async with weave() as w:
+    @w.do(ids)
+    async def username(user_id):
+        return f"User {user_id}"
 
--   **Debugging & Introspection**: Need to see what's going on under the hood?
-    -   `async with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
-    -   `w.execution_plan`: After the block, this dictionary contains the full dependency graph and execution tiers.
-    -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds, perfect for finding bottlenecks.
+    @w.do
+    async def collect_usernames(username):
+        return {i: u for i, u in enumerate(username)}
+
+print(w.result.final)
+>> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
+
+print(w.result['username'])
+>> ['User 1', 'User 2', 'User 3']
+
+print(w.result['collect_usernames'])
+>> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
+
+print(w.result[0])
+>> ['User 1', 'User 2', 'User 3']
+
+print(w.result[1])
+>> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
+
+print(w.result[-1])
+>> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
+```
+
+### Complex Task Graphs
+Wove can handle complex task graphs with nested `weave` blocks, `@w.do` decorators, and `merge` functions. Before a 
+`weave` block is executed, wove builds a dependency graph from the function signatures and creates a plan to execute
+the tasks in the correct order such that tasks run as concurrently and as soon as possible.
+
+In addition to typical map-reduce patterns, you can also implement diamond graphs and other complex task graphs. A 
+"diamond" dependency graph is one where multiple concurrent tasks depend on a single upstream task, and a final
+downstream task depends on all of them.
+```python
+import asyncio
+from wove import weave
+async def main():
+    async with weave() as w:
+        @w.do
+        async def fetch_user_id():
+            return 123
+        @w.do
+        async def fetch_user_profile(fetch_user_id):
+            print(f"-> Fetching profile for user {fetch_user_id}...")
+            await asyncio.sleep(0.1)
+            return {"name": "Alice"}
+        @w.do
+        async def fetch_user_orders(fetch_user_id):
+            print(f"-> Fetching orders for user {fetch_user_id}...")
+            await asyncio.sleep(0.1)
+            return [{"order_id": 1, "total": 100}, {"order_id": 2, "total": 50}]
+        @w.do
+        def generate_report(fetch_user_profile, fetch_user_orders):
+            name = fetch_user_profile["name"]
+            total_spent = sum(order["total"] for order in fetch_user_orders)
+            return f"Report for {name}: Total spent: ${total_spent}"
+    print(w.result.final)
+asyncio.run(main())
+# Expected output (the first two lines may be swapped):
+# -> Fetching profile for user 123...
+# -> Fetching orders for user 123...
+# Report for Alice: Total spent: $150
+```
+
+### Error Handling
+
+If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original 
+exception from the `async with weave()` block. This ensures predictable state and allows you to use standard 
+`try...except` blocks.
+
+### Debugging & Introspection
+Need to see what's going on under the hood?
+-   `async with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
+-   `w.execution_plan`: After the block, this dictionary contains the full dependency graph and execution tiers.
+-   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
 
 ## More Examples
-For more advanced use cases, including API aggregation, ETL pipelines, and complex conditional workflows, see the runnable scripts in the `examples/` directory.
+See the runnable scripts in the `examples/` directory for additional advanced examples.
