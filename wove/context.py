@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import functools
+import time
 from collections import OrderedDict, deque
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type, Union, Iterable
 from .helpers import sync_to_async
@@ -102,12 +103,10 @@ class WoveContextManager:
             "tiers": tiers,
             "sorted_tasks": sorted_tasks,
         }
-
     def _print_debug_report(self) -> None:
         """Prints a color-coded debug report of the execution plan."""
         if not self.execution_plan:
             return
-
         # ANSI Color Codes
         C_BLUE_B = "\x1b[1;34m"
         C_BOLD = "\x1b[1m"
@@ -117,15 +116,12 @@ class WoveContextManager:
         C_GREY = "\x1b[37m"
         C_GREEN_B = "\x1b[1;32m"
         C_RESET = "\x1b[0m"
-
         print(f'\n{C_BLUE_B}--- Wove Debug Report ---{C_RESET}')
-
         # 1. Detected Tasks
         task_names = list(self._tasks.keys())
         print(f'\n{C_BOLD}Detected Tasks ({len(task_names)}):{C_RESET}')
         for name in task_names:
             print(f'  • {name}')
-
         # 2. Dependency Graph
         dependencies = self.execution_plan["dependencies"]
         dependents = self.execution_plan["dependents"]
@@ -137,11 +133,9 @@ class WoveContextManager:
             
             dents = sorted(dependents.get(name, set()))
             dents_str = ", ".join(dents) if dents else "None"
-
             print(f'  {C_CYAN}• {name}{C_RESET}')
             print(f'    - Dependencies: {deps_str}')
             print(f'    - Dependents:   {dents_str}')
-
         # 3. Execution Plan
         tiers = self.execution_plan["tiers"]
         print(f'\n{C_BOLD}Execution Plan:{C_RESET}')
@@ -166,7 +160,6 @@ class WoveContextManager:
                 print(f'    {C_CYAN}- {task_name}{C_RESET} {type_str}{map_str}')
         
         print(f'\n{C_BLUE_B}--- Starting Execution ---{C_RESET}')
-
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -190,7 +183,6 @@ class WoveContextManager:
         self._build_graph_and_plan()
         if self._debug:
             self._print_debug_report()
-
         # Extract plan details for execution
         tiers = self.execution_plan["tiers"]
         dependencies = self.execution_plan["dependencies"]
@@ -203,6 +195,18 @@ class WoveContextManager:
                 return await target_coro
             finally:
                 merge_context.reset(token)
+
+        async def _time_wrapper(
+            awaitable: Coroutine[Any, Any, Any], task_name: str
+        ) -> Any:
+            """Wraps an awaitable to measure its execution time."""
+            start_time = time.monotonic()
+            try:
+                return await awaitable
+            finally:
+                duration = time.monotonic() - start_time
+                self.result._add_timing(task_name, duration)
+
         try:
             for tier in tiers:
                 tier_tasks: Dict[asyncio.Future[Any], str] = {}
@@ -229,11 +233,15 @@ class WoveContextManager:
                             all_created_tasks.add(sub_task)
                         
                         # For mapped tasks, we gather the sub-tasks. The result is a Future.
-                        task = asyncio.gather(*map_sub_tasks)
+                        gathered_awaitable = asyncio.gather(*map_sub_tasks)
+                        timed_awaitable = _time_wrapper(gathered_awaitable, task_name)
+                        task = asyncio.create_task(timed_awaitable)
                     else:
                         # Normal Task: Create a single task from the coroutine.
                         coro = task_func(**args)
-                        task = asyncio.create_task(_context_wrapper(coro))
+                        context_coro = _context_wrapper(coro)
+                        timed_awaitable = _time_wrapper(context_coro, task_name)
+                        task = asyncio.create_task(timed_awaitable)
                     
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
