@@ -268,3 +268,27 @@ async def test_mapping_over_non_iterable_task_result():
             @w.do("source_task_non_iterable")
             def mapped_task_on_non_iterable(item):
                 return item * 2
+
+@pytest.mark.asyncio
+async def test_chained_dynamic_mapping():
+    """Tests that a mapped task can be chained over the result of another mapped task."""
+    async with weave() as w:
+        @w.do
+        async def task_a():
+            """Generates the initial iterable."""
+            return [1, 2]
+
+        @w.do("task_a")
+        def task_b(item):
+            """First level of mapping."""
+            return item * 10
+
+        @w.do("task_b")
+        async def task_c(item):
+            """Second level of mapping, depends on the result of task_b."""
+            await asyncio.sleep(0.01)
+            return item + 1
+
+    assert w.result["task_a"] == [1, 2]
+    assert w.result["task_b"] == [10, 20]
+    assert w.result["task_c"] == [11, 21]

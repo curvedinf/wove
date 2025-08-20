@@ -19,8 +19,8 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-Wove defines only three tools to manage all of your async needs, but you can do a lot with just two of them. The core
-of Wove's functionality is the `weave` context manager. It is used within an `async with` block to define a list of
+Wove defines only three tools to manage all of your async needs. The core
+of Wove's functionality is the `weave` context manager. It is used with an `async with` block to define a list of
 tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks
 are executed immediately based on a dependency graph that Wove builds from the function signatures.
 ```python
