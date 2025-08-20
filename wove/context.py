@@ -313,7 +313,7 @@ class WoveContextManager:
         # Safely get a name for the callable, handling partials and other callables without __name__.
         if isinstance(func, functools.partial):
             callable_name = func.func.__name__
-        elif hasattr(func, "__name__"):
+        elif hasattr(func, "__name__"): 
             callable_name = func.__name__
         else:
             callable_name = "anonymous_callable"
