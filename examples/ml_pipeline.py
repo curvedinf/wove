@@ -23,7 +23,7 @@ async def run_ml_pipeline_example():
     """
     print("--- Running ML Pipeline Example ---")
     start_time = time.time()
-    num_records = 500_000
+    num_records = 50_000_000
 
     async with weave() as w:
         # 1. LOAD: Fetch the raw dataset.
