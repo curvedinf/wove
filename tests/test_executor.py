@@ -22,8 +22,8 @@ async def test_serial_execution_with_max_workers_1():
     # With max_workers=1, tasks should run one after the other.
     # Total time should be at least 0.1 + 0.1 = 0.2 seconds.
     assert duration >= 0.2
-    assert w.result.task_1 == 1
-    assert w.result.task_2 == 2
+    assert w.result['task_1'] == 1
+    assert w.result['task_2'] == 2
 
 @pytest.mark.asyncio
 async def test_parallel_execution_with_more_workers():
@@ -45,8 +45,8 @@ async def test_parallel_execution_with_more_workers():
     # With parallel execution, total time should be slightly more than 0.1s,
     # but significantly less than 0.2s.
     assert duration < 0.15
-    assert w.result.task_1 == 1
-    assert w.result.task_2 == 2
+    assert w.result['task_1'] == 1
+    assert w.result['task_2'] == 2
 
 @pytest.mark.asyncio
 async def test_default_executor_is_parallel():
@@ -66,5 +66,5 @@ async def test_default_executor_is_parallel():
     duration = time.monotonic() - start_time
     # Default behavior of ThreadPoolExecutor should be parallel.
     assert duration < 0.15
-    assert w.result.task_1 == 1
-    assert w.result.task_2 == 2
+    assert w.result['task_1'] == 1
+    assert w.result['task_2'] == 2
