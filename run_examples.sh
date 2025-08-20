@@ -19,3 +19,6 @@ time python examples/ml_pipeline.py
 echo "\n"
 echo "--- Timing File Processor Example ---"
 time python examples/file_processor.py
+echo "\n"
+echo "--- Timing Debug Example ---"
+time python examples/debug_example.py
