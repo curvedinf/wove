@@ -4,6 +4,7 @@ from collections import OrderedDict, deque
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type, Union, Iterable
 from .helpers import sync_to_async
 from .result import WoveResult
+from .vars import merge_context
 class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
@@ -109,6 +110,15 @@ class WoveContextManager:
             tier_build_queue = next_tier_queue
         # 4. Execute tier by tier
         all_created_tasks: Set[asyncio.Future[Any]] = set()
+
+        async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
+            """Sets the merge_context and runs the given coroutine."""
+            token = merge_context.set(self._merge)
+            try:
+                return await target_coro
+            finally:
+                merge_context.reset(token)
+
         try:
             for tier in tiers:
                 tier_tasks: Dict[asyncio.Future[Any], str] = {}
@@ -130,7 +140,7 @@ class WoveContextManager:
                             map_args = args.copy()
                             map_args[item_param] = item
                             coro = task_func(**map_args)
-                            sub_task = asyncio.create_task(coro)
+                            sub_task = asyncio.create_task(_context_wrapper(coro))
                             map_sub_tasks.append(sub_task)
                             all_created_tasks.add(sub_task)
                         
@@ -139,7 +149,7 @@ class WoveContextManager:
                     else:
                         # Normal Task: Create a single task from the coroutine.
                         coro = task_func(**args)
-                        task = asyncio.create_task(coro)
+                        task = asyncio.create_task(_context_wrapper(coro))
                     
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
@@ -170,7 +180,6 @@ class WoveContextManager:
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
             # Re-raise the original exception.
             raise
-
     async def _merge(self, func: Callable[..., Any], iterable: Optional[Iterable[Any]] = None) -> Any:
         """
         Dynamically executes a callable from within a task, handling recursion
@@ -181,13 +190,11 @@ class WoveContextManager:
                 "Merge call depth exceeded 100. A circular `merge` "
                 "dependency is likely."
             )
-
         self._call_stack.append(func.__name__)
         try:
             # Wrap sync functions to be awaitable
             if not inspect.iscoroutinefunction(func):
                 func = sync_to_async(func)
-
             if iterable is not None:
                 # Mapped/iterable call. Assumes func takes one argument.
                 sub_tasks = [asyncio.create_task(func(item)) for item in iterable]
@@ -199,7 +206,6 @@ class WoveContextManager:
                 return result
         finally:
             self._call_stack.pop()
-
     def do(self, arg: Optional[Union[Iterable[Any], Callable[..., Any]]] = None) -> Callable[..., Any]:
         """
         Decorator to register a task. Can be used as `@w.do` for a single task
