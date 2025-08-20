@@ -1,5 +1,8 @@
 # Wove
 Beautiful python async orchestration.
+
+## Free your code from async boilerplate
+
 Wove provides a simple context manager (`weave`) and decorator (`@w.do`) to run async and sync functions concurrently, automatically managing dependencies between them. It's particularly useful for I/O-bound tasks, like making database queries or calling external APIs in a web request.
 ## Installation
 This project is not yet on PyPI. To install locally for development:
