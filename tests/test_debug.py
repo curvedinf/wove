@@ -123,3 +123,44 @@ async def test_debug_report_essentials(capsys):
     assert "--- Wove Debug Report ---" in output
     assert "Dependency Graph:" in output
     assert "Execution Plan:" in output
+
+@pytest.mark.asyncio
+async def test_programmatic_access_to_execution_plan():
+    """
+    Tests that the execution_plan is available on the context manager
+    after the block exits.
+    """
+    async with weave() as w:
+        @w.do
+        def task_a(): pass
+        @w.do
+        def task_b(task_a): pass
+    plan = w.execution_plan
+    assert plan is not None
+    assert "dependencies" in plan
+    assert "dependents" in plan
+    assert "tiers" in plan
+    assert "sorted_tasks" in plan
+    assert plan["dependencies"] == {"task_a": set(), "task_b": {"task_a"}}
+    assert plan["dependents"] == {"task_a": {"task_b"}, "task_b": set()}
+    assert plan["tiers"] == [["task_a"], ["task_b"]]
+    assert plan["sorted_tasks"] == ["task_a", "task_b"]
+
+
+@pytest.mark.asyncio
+async def test_task_timings_are_recorded():
+    """
+    Tests that task execution times are recorded in w.result.timings.
+    """
+    async with weave() as w:
+        @w.do
+        async def task_a():
+            await asyncio.sleep(0.02)
+        @w.do
+        def task_b():
+            time.sleep(0.03)
+    timings = w.result.timings
+    assert "task_a" in timings
+    assert "task_b" in timings
+    assert timings["task_a"] >= 0.02
+    assert timings["task_b"] >= 0.03
