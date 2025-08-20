@@ -241,6 +241,10 @@ class WoveContextManager:
                         if isinstance(map_source_value, str):
                             # The map source is the name of another task. Resolve its result.
                             iterable = self.result._results[map_source_value]
+                            # The result of the source task is used for iteration,
+                            # not as a direct keyword argument.
+                            if map_source_value in args:
+                                del args[map_source_value]
                             try:
                                 iter(iterable)
                             except TypeError:
