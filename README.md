@@ -19,7 +19,7 @@ Wove is made from sensical philosophies that make async code feel more Pythonic.
 -   **Looks Like Normal Python**: You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in a logical order, but `wove` intelligently determines the optimal *execution* order.
 -   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures (e.g., `def task_b(task_a): ...`) and runs independent tasks concurrently.
--   **Normal Python Data**: Wove's task data looks like normal python variables because it is, but it creates inherent multithreaded data safety in the same way as map-reduce.
+-   **Normal Python Data**: Wove's task data looks like normal python variables because it is, and it creates inherent multithreaded data safety in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
 -   **Sync & Async Transparency**: Mix `async def` and `def` functions freely. `wove` automatically runs synchronous functions in a background thread pool to avoid blocking the event loop.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library.
@@ -135,12 +135,14 @@ the results object which can be accessed like a collection.
 ```python
 ids = [1, 2, 3]
 async with weave() as w:
+    # For each id, fetch its username. All "username" tasks will run concurrently.
     @w.do(ids)
     async def username(user_id):
         return f"User {user_id}"
-
+    
+    # Collect the usernames into a map.
     @w.do
-    async def collect_usernames(username):
+    async def collect(username):
         return {i: u for i, u in enumerate(username)}
 
 print(w.result.final)
@@ -149,16 +151,7 @@ print(w.result.final)
 print(w.result['username'])
 >> ['User 1', 'User 2', 'User 3']
 
-print(w.result['collect_usernames'])
->> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
-
-print(w.result[0])
->> ['User 1', 'User 2', 'User 3']
-
-print(w.result[1])
->> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
-
-print(w.result[-1])
+print(w.result['collect'])
 >> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
 ```
 
