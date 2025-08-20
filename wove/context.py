@@ -50,8 +50,20 @@ class WoveContextManager:
         dependencies: Dict[str, Set[str]] = {}
         for name, task_info in self._tasks.items():
             params = set(inspect.signature(task_info["func"]).parameters.keys())
+            # All tasks find dependencies from their function signature.
+            task_dependencies = params & all_task_names
             if task_info["map_source"] is not None:
-                # Mapped task: find the single parameter that isn't another task.
+                # If map source is a task name (a string), it's a dependency.
+                if isinstance(task_info["map_source"], str):
+                    map_source_name = task_info["map_source"]
+                    if map_source_name not in all_task_names:
+                        raise NameError(
+                            f"Mapped task '{name}' depends on '{map_source_name}', "
+                            "but no task with that name was found."
+                        )
+                    task_dependencies.add(map_source_name)
+                # For any mapped task, we must identify the parameter that will
+                # receive items from the iterable. There must be exactly one.
                 non_dependency_params = params - all_task_names
                 if len(non_dependency_params) != 1:
                     msg = (
@@ -60,12 +72,8 @@ class WoveContextManager:
                         f"Found {len(non_dependency_params)}: {', '.join(sorted(non_dependency_params))}"
                     )
                     raise TypeError(msg)
-                item_param_name = non_dependency_params.pop()
-                task_info["item_param"] = item_param_name
-                dependencies[name] = params & all_task_names
-            else:
-                # Normal task
-                dependencies[name] = params & all_task_names
+                task_info["item_param"] = non_dependency_params.pop()
+            dependencies[name] = task_dependencies
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
         for name, params in dependencies.items():
             for param in params:
