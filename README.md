@@ -3,7 +3,6 @@ Beautiful Python async.
 ## What is Wove For?
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
 asyncio, but with a drastically improved user experience.
-
 Improvements compared to asyncio include:
 -   **Looks Like Normal Python**: Parallelism and execution order are implicit. You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
@@ -60,55 +59,91 @@ Here are all three of Wove's tools:
     passed in can be any function inside or outside the weave block, async or sync. Sync functions will be run in a
     background thread pool to avoid blocking the event loop.
 ## More Spice
-Here is a more complex example that uses extra-powerful Wove features:
+Here is a more complex example that showcases Wove's core features working together: static and dynamic task mapping, the `merge` function for dynamic calls, and a diamond-shaped dependency graph.
 ```python
 import asyncio
 import time
 from wove import weave, merge
-# A function we can call dynamically. Wove will run this sync
-# function in a thread pool to avoid blocking.
-def process_data(item: int):
+
+# A function to be called dynamically with `merge`.
+# Wove runs this sync function in a thread pool.
+def analyze_item(item: int):
     """A simple synchronous, CPU-bound-style function."""
-    print(f"  -> Processing item {item}...")
-    time.sleep(0.1) # Simulate work
-    return item * item
-async def run_example():
-    """Demonstrates weave, @w.do, and merge."""
+    print(f"    -> Analyzing item {item}...")
+    time.sleep(0.05) # Simulate work
+    return {"item": item, "is_even": item % 2 == 0}
+
+async def main():
+    """Demonstrates Wove's core features in a single example."""
     async with weave() as w:
-        # 1. @w.do registers a task. This one runs immediately.
+        # 1. STATIC MAPPING: Maps `process_extra` over a predefined list.
+        #    This task runs concurrently with `source_data`.
+        @w.do([100, 200])
+        def process_extra(item):
+            print(f"-> Processing extra item {item}...")
+            return item / 10
+
+        # 2. SOURCE TASK: The top of our "diamond" dependency graph.
         @w.do
-        async def initial_data():
-            print("-> Fetching initial data...")
-            await asyncio.sleep(0.1)
+        async def source_data():
+            print("-> Fetching source data...")
+            await asyncio.sleep(0.01)
             return [1, 2, 3]
-        # 2. This task depends on `initial_data`. It waits for the
-        #    result before running.
+
+        # 3. DYNAMIC MAPPING (Side A): Maps over the result of `source_data`.
+        @w.do("source_data")
+        def squares(item):
+            print(f"  -> Squaring {item}...")
+            return item * item
+
+        # 4. DYNAMIC MAPPING (Side B): Also maps over `source_data` and runs
+        #    concurrently with the `squares` task.
+        @w.do("source_data")
+        def cubes(item):
+            print(f"  -> Cubing {item}...")
+            return item * item * item
+
+        # 5. MERGE: Depends on `squares` results and uses `merge` to run
+        #    a dynamic, concurrent analysis on them.
         @w.do
-        async def dynamic_processing(initial_data):
-            print(f"-> Concurrently processing {len(initial_data)} items...")
-            # `merge` dynamically calls `process_data` for each item
-            # in the list, running them all in parallel.
-            results = await merge(process_data, initial_data)
+        async def analysis(squares):
+            print(f"-> Analyzing squared numbers: {squares}")
+            # `merge` calls `analyze_item` for each number in parallel.
+            results = await merge(analyze_item, squares)
             return results
-        # 3. This final task depends on the merged results.
+
+        # 6. FINAL TASK (Bottom of Diamond): Depends on multiple upstream tasks,
+        #    collecting all results into a final report.
         @w.do
-        def summarize(dynamic_processing):
-            print("-> Summarizing results...")
-            total = sum(dynamic_processing)
-            return f"Sum of squares: {total}"
-    # Results are available after the block exits via w.result
-    print(f"\nFinal Summary: {w.result.final}")
-    # Expected output:
-    # -> Fetching initial data...
-    # -> Concurrently processing 3 items...
-    #   -> Processing item 1...
-    #   -> Processing item 2...
-    #   -> Processing item 3...
-    # -> Summarizing results...
-    #
-    # Final Summary: Sum of squares: 14
-if __name__ == "__main__":
-    asyncio.run(run_example())
+        def final_report(process_extra, cubes, analysis):
+            print("-> Generating final report...")
+            return {
+                "extra_results": process_extra,
+                "cubed_results": cubes,
+                "analysis": analysis,
+            }
+
+    # Results are available after the block exits.
+    print(f"\nFinal Report: {w.result.final}")
+
+asyncio.run(main())
+# Expected output (order of concurrent tasks may vary):
+# -> Processing extra item 100...
+# -> Fetching source data...
+# -> Processing extra item 200...
+#   -> Squaring 1...
+#   -> Cubing 1...
+#   -> Squaring 2...
+#   -> Cubing 2...
+#   -> Squaring 3...
+#   -> Cubing 3...
+# -> Analyzing squared numbers: [1, 4, 9]
+#     -> Analyzing item 1...
+#     -> Analyzing item 4...
+#     -> Analyzing item 9...
+# -> Generating final report...
+#
+# Final Report: {'extra_results': [10.0, 20.0], 'cubed_results': [1, 8, 27], 'analysis': [{'item': 1, 'is_even': False}, {'item': 4, 'is_even': True}, {'item': 9, 'is_even': False}]}
 ```
 ## Advanced Features
 ### Task Mapping
@@ -207,4 +242,3 @@ Need to see what's going on under the hood?
 -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
 ## More Examples
 See the runnable scripts in the `examples/` directory for additional advanced examples.
-
