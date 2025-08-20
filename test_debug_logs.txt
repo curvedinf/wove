@@ -4,11 +4,11 @@ rootdir: /home/chase/Projects/wove
 configfile: setup.cfg
 plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 34 items
+collected 35 items
 
 tests/test_core.py .......                                               [ 20%]
-tests/test_debug.py ......                                               [ 38%]
-tests/test_mapping.py ..........FF..                                     [ 79%]
+tests/test_debug.py ......                                               [ 37%]
+tests/test_mapping.py ..........FF...                                    [ 80%]
 tests/test_merge.py .......                                              [100%]
 
 =================================== FAILURES ===================================
@@ -53,7 +53,7 @@ ______________________ test_mapping_over_sync_task_result ______________________
 tests/test_mapping.py:217: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = <wove.context.WoveContextManager object at 0x71573fb2e8a0>
+self = <wove.context.WoveContextManager object at 0x7c23c2421b80>
 exc_type = None, exc_val = None, exc_tb = None
 
     async def __aexit__(
@@ -141,4 +141,4 @@ wove/context.py:258: TypeError
 =========================== short test summary info ============================
 FAILED tests/test_mapping.py::test_mapping_over_async_task_result - TypeError...
 FAILED tests/test_mapping.py::test_mapping_over_sync_task_result - TypeError:...
-========================= 2 failed, 32 passed in 0.43s =========================
+========================= 2 failed, 33 passed in 0.42s =========================
