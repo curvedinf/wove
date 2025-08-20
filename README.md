@@ -1,12 +1,15 @@
 # Wove
 Beautiful Python async.
-## Core Concepts
-Wove is made from sensical philosophies that make async code feel more Pythonic.
--   **Looks Like Normal Python**: You write simple, decorated functions. No manual task objects, no callbacks.
--   **Reads Top-to-Bottom**: The code in a `weave` block is declared in a logical order, but `wove` intelligently determines the optimal *execution* order.
--   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures and runs independent tasks concurrently.
+## What is Wove For?
+Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
+asyncio, but with a drastically improved user experience.
+
+Improvements compared to asyncio include:
+-   **Looks Like Normal Python**: Parallelism and execution order are implicit. You write simple, decorated functions. No manual task objects, no callbacks.
+-   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
+-   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures and runs independent tasks concurrently as soon as possible.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
--   **Normal Python Data**: Wove's task data looks like normal Python variables because it is, creating inherent multithreaded data safety in the same way as map-reduce.
+-   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
 -   **Sync & Async Transparency**: Mix `async def` and `def` functions freely. `wove` automatically runs synchronous functions in a background thread pool to avoid blocking the event loop.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library and can be integrated into any Python project.
@@ -16,7 +19,10 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-Wove defines only three tools to manage all of your async needs, but you can do a lot with just two of them:
+Wove defines only three tools to manage all of your async needs, but you can do a lot with just two of them. The core
+of Wove's functionality is the `weave` context manager. It is used within an `async with` block to define a list of
+tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks
+are executed immediately based on a dependency graph that Wove builds from the function signatures.
 ```python
 import asyncio
 from wove import weave
