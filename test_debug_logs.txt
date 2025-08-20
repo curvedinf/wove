@@ -4,11 +4,11 @@ rootdir: /home/chase/Projects/wove
 configfile: setup.cfg
 plugins: cov-6.2.1, anyio-4.9.0, asyncio-1.1.0, django-4.11.1
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 35 items
+collected 36 items
 
-tests/test_core.py .......                                               [ 20%]
-tests/test_debug.py ......                                               [ 37%]
-tests/test_mapping.py ...............                                    [ 80%]
+tests/test_core.py .......                                               [ 19%]
+tests/test_debug.py ......                                               [ 36%]
+tests/test_mapping.py ................                                   [ 80%]
 tests/test_merge.py .......                                              [100%]
 
-============================== 35 passed in 0.39s ==============================
+============================== 36 passed in 0.41s ==============================

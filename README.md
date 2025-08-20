@@ -143,7 +143,7 @@ async def main():
         # This final task collects the results.
         @w.do
         def summarize(squares):
-            return f"Sum of squares: {sum(square)}"
+            return f"Sum of squares: {sum(squares)}"
     print(w.result.final)
 asyncio.run(main())
 # Expected output:
