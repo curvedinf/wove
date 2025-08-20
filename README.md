@@ -133,17 +133,17 @@ async def main():
     async with weave() as w:
         # This task generates the data we want to map over.
         @w.do
-        async def get_item_ids():
+        async def numbers():
             return [10, 20, 30]
-        # This task is mapped over the *result* of `get_item_ids`.
+        # This task is mapped over the *result* of `numbers`.
         # The `item` parameter receives each value from the list [10, 20, 30].
-        @w.do("get_item_ids")
-        async def process_item(item):
+        @w.do("numbers")
+        async def squares(item):
             return item * item
         # This final task collects the results.
         @w.do
-        def summarize(process_item):
-            return f"Sum of squares: {sum(process_item)}"
+        def summarize(squares):
+            return f"Sum of squares: {sum(square)}"
     print(w.result.final)
 asyncio.run(main())
 # Expected output:

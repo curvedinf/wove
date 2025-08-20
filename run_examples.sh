@@ -22,3 +22,6 @@ time python examples/file_processor.py
 echo "\n"
 echo "--- Timing Debug Example ---"
 time python examples/debug_example.py
+echo "\n"
+echo "--- Timing Chained Mapping Example ---"
+time python examples/chained_mapping.py
