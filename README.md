@@ -17,7 +17,7 @@ Wove is made from sensical philosophies that make async code feel more Pythonic.
 -   **Normal Python Data**: Wove's task data looks like normal python variables because it is, and it creates inherent multithreaded data safety in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
 -   **Sync & Async Transparency**: Mix `async def` and `def` functions freely. `wove` automatically runs synchronous functions in a background thread pool to avoid blocking the event loop.
--   **Zero Dependencies**: Wove is pure Python, using only the standard library.
+-   **Zero Dependencies**: Wove is pure Python, using only the standard library and can be integrated into any Python project.
 
 ## Installation
 Download wove with pip:
@@ -49,7 +49,7 @@ asyncio.run(main())
 >> The meaning of life is 42!
 ```
 
-In the example above, magic_number and important_text are called in parallel. The magic doesn't stop there.
+In the example above, `magic_number` and `important_text` are called in parallel. The magic doesn't stop there.
 
 ## The Wove API
 
