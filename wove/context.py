@@ -3,7 +3,7 @@ import inspect
 import functools
 import time
 from collections import OrderedDict, deque
-from typing import (
+from typing (
     Any,
     Callable,
     Coroutine,
@@ -18,8 +18,6 @@ from typing import (
 from .helpers import sync_to_async
 from .result import WoveResult
 from .vars import merge_context
-
-
 class WoveContextManager:
     """
     The core context manager that discovers, orchestrates, and executes tasks
@@ -28,7 +26,6 @@ class WoveContextManager:
     them with maximum concurrency while respecting dependencies. It handles both
     `async` and synchronous functions, running the latter in a thread pool.
     """
-
     def __init__(self, debug: bool = False) -> None:
         """Initializes the context manager, preparing to collect tasks."""
         self._debug = debug
@@ -36,7 +33,6 @@ class WoveContextManager:
         self.result = WoveResult()
         self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
-
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context and prepares for task registration.
@@ -44,7 +40,6 @@ class WoveContextManager:
             The context manager instance itself.
         """
         return self
-
     def _build_graph_and_plan(self) -> None:
         """
         Builds the dependency graph, sorts it topologically, and creates an
@@ -55,7 +50,7 @@ class WoveContextManager:
         dependencies: Dict[str, Set[str]] = {}
         for name, task_info in self._tasks.items():
             params = set(inspect.signature(task_info["func"]).parameters.keys())
-            if task_info["iterable"] is not None:
+            if task_info["map_source"] is not None:
                 # Mapped task: find the single parameter that isn't another task.
                 non_dependency_params = params - all_task_names
                 if len(non_dependency_params) != 1:
@@ -119,7 +114,6 @@ class WoveContextManager:
             "tiers": tiers,
             "sorted_tasks": sorted_tasks,
         }
-
     def _print_debug_report(self) -> None:
         """Prints a color-coded debug report of the execution plan."""
         if not self.execution_plan:
@@ -147,7 +141,6 @@ class WoveContextManager:
         for name in sorted_tasks:
             deps = sorted(dependencies.get(name, set()))
             deps_str = ", ".join(deps) if deps else "None"
-
             dents = sorted(dependents.get(name, set()))
             dents_str = ", ".join(dents) if dents else "None"
             print(f"  {C_CYAN}• {name}{C_RESET}")
@@ -162,26 +155,21 @@ class WoveContextManager:
             for task_name in sorted(tier):
                 task_info = self._tasks[task_name]
                 func = task_info["func"]
-
                 is_async = inspect.iscoroutinefunction(func)
                 type_str = (
                     f"{C_MAGENTA}(async){C_RESET}"
                     if is_async
                     else f"{C_YELLOW}(sync){C_RESET}"
                 )
-
                 map_str = ""
-                if task_info["iterable"] is not None:
+                if task_info["map_source"] is not None:
                     try:
-                        count = len(task_info["iterable"])
+                        count = len(task_info["map_source"])
                         map_str = f" {C_GREY}[mapped over {count} items]{C_RESET}"
                     except TypeError:
                         map_str = f" {C_GREY}[mapped over an iterable]{C_RESET}"
-
                 print(f"    {C_CYAN}- {task_name}{C_RESET} {type_str}{map_str}")
-
         print(f"\n{C_BLUE_B}--- Starting Execution ---{C_RESET}")
-
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -210,7 +198,6 @@ class WoveContextManager:
         dependencies = self.execution_plan["dependencies"]
         # 4. Execute tier by tier
         all_created_tasks: Set[asyncio.Future[Any]] = set()
-
         async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
             """Sets the merge_context and runs the given coroutine."""
             token = merge_context.set(self._merge)
@@ -218,7 +205,6 @@ class WoveContextManager:
                 return await target_coro
             finally:
                 merge_context.reset(token)
-
         async def _time_wrapper(
             awaitable: Coroutine[Any, Any, Any], task_name: str
         ) -> Any:
@@ -229,7 +215,6 @@ class WoveContextManager:
             finally:
                 duration = time.monotonic() - start_time
                 self.result._add_timing(task_name, duration)
-
         try:
             for tier in tiers:
                 tier_tasks: Dict[asyncio.Future[Any], str] = {}
@@ -239,19 +224,17 @@ class WoveContextManager:
                     args = {p: self.result._results[p] for p in dependencies[task_name]}
                     if not inspect.iscoroutinefunction(task_func):
                         task_func = sync_to_async(task_func)
-
-                    if task_info["iterable"] is not None:
+                    if task_info["map_source"] is not None:
                         # Mapped Task: Create a task for each item and gather results.
                         item_param = task_info["item_param"]
                         map_sub_tasks = []
-                        for item in task_info["iterable"]:
+                        for item in task_info["map_source"]:
                             map_args = args.copy()
                             map_args[item_param] = item
                             coro = task_func(**map_args)
                             sub_task = asyncio.create_task(_context_wrapper(coro))
                             map_sub_tasks.append(sub_task)
                             all_created_tasks.add(sub_task)
-
                         # For mapped tasks, we gather the sub-tasks. The result is a Future.
                         gathered_awaitable = asyncio.gather(*map_sub_tasks)
                         timed_awaitable = _time_wrapper(gathered_awaitable, task_name)
@@ -262,7 +245,6 @@ class WoveContextManager:
                         context_coro = _context_wrapper(coro)
                         timed_awaitable = _time_wrapper(context_coro, task_name)
                         task = asyncio.create_task(timed_awaitable)
-
                     tier_tasks[task] = task_name
                     all_created_tasks.add(task)
                 # Wait for tasks in the tier, processing them as they complete
@@ -292,7 +274,6 @@ class WoveContextManager:
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
             # Re-raise the original exception.
             raise
-
     async def _merge(
         self, func: Callable[..., Any], iterable: Optional[Iterable[Any]] = None
     ) -> Any:
@@ -305,7 +286,6 @@ class WoveContextManager:
                 "Merge call depth exceeded 100. A circular `merge` "
                 "dependency is likely."
             )
-
         # Safely get a name for the callable, handling partials and other callables without __name__.
         if isinstance(func, functools.partial):
             callable_name = func.func.__name__
@@ -331,24 +311,22 @@ class WoveContextManager:
                 return result
         finally:
             self._call_stack.pop()
-
     def do(
-        self, arg: Optional[Union[Iterable[Any], Callable[..., Any]]] = None
+        self, arg: Optional[Union[Iterable[Any], Callable[..., Any], str]] = None
     ) -> Callable[..., Any]:
         """
-        Decorator to register a task. Can be used as `@w.do` for a single task
-        or `@w.do(iterable)` to map a task over an iterable.
+        Decorator to register a task. Can be used as `@w.do` for a single task,
+        `@w.do(iterable)` to map a task over a static iterable, or
+        `@w.do("task_name")` to map a task over the result of another task.
         """
-
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            iterable = None if callable(arg) else arg
-            self._tasks[func.__name__] = {"func": func, "iterable": iterable}
+            map_source = None if callable(arg) else arg
+            self._tasks[func.__name__] = {"func": func, "map_source": map_source}
             self.result._definition_order.append(func.__name__)
             return func
-
         if callable(arg):
             # Used as @w.do
             return decorator(arg)
         else:
-            # Used as @w.do(iterable) or @w.do()
+            # Used as @w.do(iterable), @w.do("task_name"), or @w.do()
             return decorator
