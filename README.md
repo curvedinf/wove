@@ -3,7 +3,6 @@ Beautiful Python async.
 ## What is Wove For?
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
 asyncio, but with a drastically improved user experience.
-
 Improvements compared to asyncio include:
 -   **Looks Like Normal Python**: Parallelism and execution order are implicit. You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
@@ -123,7 +122,7 @@ print(w.result['collect'])
 >> {0: 'User 1', 1: 'User 2', 2: 'User 3'}
 ```
 ### Dynamic Task Mapping
-You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when the iterable is generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
+You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when the iterable is generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks. The source task (e.g., `get_item_ids` in the example below) must return an iterable collection like a list or tuple. If the result is not iterable, Wove will raise a `TypeError` at runtime.
 ```python
 import asyncio
 from wove import weave
@@ -195,4 +194,3 @@ Need to see what's going on under the hood?
 -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
 ## More Examples
 See the runnable scripts in the `examples/` directory for additional advanced examples.
-
