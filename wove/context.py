@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import functools
 from collections import OrderedDict, deque
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Type, Union, Iterable
 from .helpers import sync_to_async
@@ -110,7 +111,6 @@ class WoveContextManager:
             tier_build_queue = next_tier_queue
         # 4. Execute tier by tier
         all_created_tasks: Set[asyncio.Future[Any]] = set()
-
         async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
             """Sets the merge_context and runs the given coroutine."""
             token = merge_context.set(self._merge)
@@ -118,7 +118,6 @@ class WoveContextManager:
                 return await target_coro
             finally:
                 merge_context.reset(token)
-
         try:
             for tier in tiers:
                 tier_tasks: Dict[asyncio.Future[Any], str] = {}
@@ -190,7 +189,16 @@ class WoveContextManager:
                 "Merge call depth exceeded 100. A circular `merge` "
                 "dependency is likely."
             )
-        self._call_stack.append(func.__name__)
+        
+        # Safely get a name for the callable, handling partials and other callables without __name__.
+        if isinstance(func, functools.partial):
+            callable_name = func.func.__name__
+        elif hasattr(func, "__name__"):
+            callable_name = func.__name__
+        else:
+            callable_name = "anonymous_callable"
+        self._call_stack.append(callable_name)
+
         try:
             # Wrap sync functions to be awaitable
             if not inspect.iscoroutinefunction(func):
