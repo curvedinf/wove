@@ -193,3 +193,65 @@ async def test_error_in_map_cancels_others():
                     return "long_ok"
 
     assert long_task_cancelled, "The long-running sub-task should have been cancelled."
+
+@pytest.mark.asyncio
+async def test_mapping_over_async_task_result():
+    """Tests mapping over the result of a preceding async task."""
+    async with weave() as w:
+        @w.do
+        async def source_task():
+            await asyncio.sleep(0.01)
+            return [1, 2, 3]
+
+        @w.do("source_task")
+        def mapped_task(item):
+            return item * 2
+
+    assert w.result["mapped_task"] == [2, 4, 6]
+    assert w.result["source_task"] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_mapping_over_sync_task_result():
+    """Tests mapping over the result of a preceding sync task."""
+    async with weave() as w:
+        @w.do
+        def source_task():
+            return ["a", "b"]
+
+        @w.do("source_task")
+        async def mapped_task(item):
+            await asyncio.sleep(0.01)
+            return item.upper()
+
+    assert w.result["mapped_task"] == ["A", "B"]
+    assert w.result["source_task"] == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_mapping_over_task_returning_empty_list():
+    """Tests mapping over a task that returns an empty list."""
+    was_called = False
+    async with weave() as w:
+        @w.do
+        async def source_task():
+            return []
+
+        @w.do("source_task")
+        def mapped_task(item):
+            nonlocal was_called
+            was_called = True
+            return item * 2
+
+    assert w.result["mapped_task"] == []
+    assert not was_called, "Mapped function should not be called for an empty iterable."
+
+
+@pytest.mark.asyncio
+async def test_mapping_over_nonexistent_task_raises_error():
+    """Tests that mapping over a non-existent task name raises a NameError."""
+    with pytest.raises(NameError, match="depends on 'nonexistent_task'"):
+        async with weave() as w:
+            @w.do("nonexistent_task")
+            def mapped_task(item):
+                return item
