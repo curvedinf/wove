@@ -4,8 +4,8 @@ This script demonstrates a common ML workflow using Wove to manage a
 "diamond" dependency graph.
 - Load Data: A single task fetches the initial raw dataset.
 - Feature Engineering (Parallel): Multiple independent tasks process the
-  raw data to create different feature sets concurrently. These are now
-  CPU-bound to simulate heavy computation.
+  raw data to create different feature sets concurrently. These are synchronous,
+  CPU-bound style functions that Wove runs in a thread pool.
 - Train Model: A final task waits for all feature engineering to complete,
   then combines the feature sets to train a model.
 This pattern is useful for parallelizing data preparation steps.
@@ -13,14 +13,6 @@ This pattern is useful for parallelizing data preparation steps.
 import asyncio
 import time
 from wove import weave
-
-# A simple CPU-bound function to simulate work
-def cpu_intensive_task(iterations):
-    """Performs a meaningless but CPU-intensive calculation."""
-    result = 0
-    for i in range(iterations):
-        result += (i * i) % 1000
-    return result
 
 async def run_ml_pipeline_example():
     """
@@ -43,12 +35,12 @@ async def run_ml_pipeline_example():
             }
 
         # 2. FEATURE ENGINEERING (Parallel): These two tasks depend on
-        # `load_raw_data` and will run concurrently. They are now SYNC, CPU-bound.
+        # `load_raw_data` and will run concurrently. Because they are synchronous,
+        # Wove runs them in a background thread pool.
         @w.do
         def engineer_polynomial_features(load_raw_data):
-            print("-> [2a] Engineering polynomial features (CPU-bound)...")
-            # Simulate heavy computation instead of I/O wait
-            cpu_intensive_task(20_000_000)
+            print("-> [2a] Engineering polynomial features...")
+            # In a real scenario, this could be a heavy, CPU-bound operation.
             features = load_raw_data["features"]
             poly_features = [(x, x**2) for x in features]
             print("<- [2a] Polynomial features engineered.")
@@ -56,9 +48,8 @@ async def run_ml_pipeline_example():
 
         @w.do
         def engineer_statistical_features(load_raw_data):
-            print("-> [2b] Engineering statistical features (CPU-bound)...")
-            # Simulate a longer CPU task
-            cpu_intensive_task(30_000_000)
+            print("-> [2b] Engineering statistical features...")
+            # In a real scenario, this could be a heavy, CPU-bound operation.
             features = load_raw_data["features"]
             mean = sum(features) / len(features)
             stat_features = [(x - mean) for x in features]
@@ -87,9 +78,8 @@ async def run_ml_pipeline_example():
     assert final_result["stat_feature_count"] == num_records
     
     print(f"\nTotal execution time: {duration:.2f} seconds")
-    # Because the feature engineering tasks are CPU-bound and run in separate
-    # threads, the total time will be significantly longer than the original
-    # I/O-bound example.
+    # Because the feature engineering tasks run in parallel in a thread pool,
+    # the total time is less than the sum of their individual execution times.
     print(f"Final model status: {w.result.final}")
     print("--- ML Pipeline Example Finished ---")
 
