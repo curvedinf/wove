@@ -21,7 +21,6 @@ class WoveContextManager:
         self.result = WoveResult()
         self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
-
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context and prepares for task registration.
@@ -29,7 +28,6 @@ class WoveContextManager:
             The context manager instance itself.
         """
         return self
-
     def _build_graph_and_plan(self) -> None:
         """
         Builds the dependency graph, sorts it topologically, and creates an
@@ -61,7 +59,6 @@ class WoveContextManager:
             for param in params:
                 if param in dependents:
                     dependents[param].add(name)
-
         # 2. Topological Sort to find execution order and detect cycles
         in_degree: Dict[str, int] = {
             name: len(params) for name, params in dependencies.items()
@@ -86,7 +83,6 @@ class WoveContextManager:
                 f"{', '.join(sorted(unrunnable_tasks))}"
             )
             raise RuntimeError(msg)
-
         # 3. Group tasks into execution tiers
         tiers: List[List[str]] = []
         tier_build_queue = queue.copy()
@@ -100,13 +96,76 @@ class WoveContextManager:
                     if in_degree[dependent] == 0:
                         next_tier_queue.append(dependent)
             tier_build_queue = next_tier_queue
-
         self.execution_plan = {
             "dependencies": dependencies,
             "dependents": dependents,
             "tiers": tiers,
             "sorted_tasks": sorted_tasks,
         }
+
+    def _print_debug_report(self) -> None:
+        """Prints a color-coded debug report of the execution plan."""
+        if not self.execution_plan:
+            return
+
+        # ANSI Color Codes
+        C_BLUE_B = "\x1b[1;34m"
+        C_BOLD = "\x1b[1m"
+        C_CYAN = "\x1b[36m"
+        C_MAGENTA = "\x1b[35m"
+        C_YELLOW = "\x1b[33m"
+        C_GREY = "\x1b[37m"
+        C_GREEN_B = "\x1b[1;32m"
+        C_RESET = "\x1b[0m"
+
+        print(f'\n{C_BLUE_B}--- Wove Debug Report ---{C_RESET}')
+
+        # 1. Detected Tasks
+        task_names = list(self._tasks.keys())
+        print(f'\n{C_BOLD}Detected Tasks ({len(task_names)}):{C_RESET}')
+        for name in task_names:
+            print(f'  • {name}')
+
+        # 2. Dependency Graph
+        dependencies = self.execution_plan["dependencies"]
+        dependents = self.execution_plan["dependents"]
+        sorted_tasks = self.execution_plan["sorted_tasks"]
+        print(f'\n{C_BOLD}Dependency Graph:{C_RESET}')
+        for name in sorted_tasks:
+            deps = sorted(dependencies.get(name, set()))
+            deps_str = ", ".join(deps) if deps else "None"
+            
+            dents = sorted(dependents.get(name, set()))
+            dents_str = ", ".join(dents) if dents else "None"
+
+            print(f'  {C_CYAN}• {name}{C_RESET}')
+            print(f'    - Dependencies: {deps_str}')
+            print(f'    - Dependents:   {dents_str}')
+
+        # 3. Execution Plan
+        tiers = self.execution_plan["tiers"]
+        print(f'\n{C_BOLD}Execution Plan:{C_RESET}')
+        for i, tier in enumerate(tiers, 1):
+            tier_label = f'Tier {i}' + (" (Concurrent)" if len(tier) > 1 else "")
+            print(f'  {C_GREEN_B}{tier_label}{C_RESET}')
+            for task_name in sorted(tier):
+                task_info = self._tasks[task_name]
+                func = task_info["func"]
+                
+                is_async = inspect.iscoroutinefunction(func)
+                type_str = f'{C_MAGENTA}(async){C_RESET}' if is_async else f'{C_YELLOW}(sync){C_RESET}'
+                
+                map_str = ""
+                if task_info["iterable"] is not None:
+                    try:
+                        count = len(task_info["iterable"])
+                        map_str = f' {C_GREY}[mapped over {count} items]{C_RESET}'
+                    except TypeError:
+                        map_str = f' {C_GREY}[mapped over an iterable]{C_RESET}'
+                
+                print(f'    {C_CYAN}- {task_name}{C_RESET} {type_str}{map_str}')
+        
+        print(f'\n{C_BLUE_B}--- Starting Execution ---{C_RESET}')
 
     async def __aexit__(
         self,
@@ -128,13 +187,13 @@ class WoveContextManager:
         if exc_type:
             # If an exception occurred inside the block, don't execute
             return
-
         self._build_graph_and_plan()
+        if self._debug:
+            self._print_debug_report()
 
         # Extract plan details for execution
         tiers = self.execution_plan["tiers"]
         dependencies = self.execution_plan["dependencies"]
-
         # 4. Execute tier by tier
         all_created_tasks: Set[asyncio.Future[Any]] = set()
         async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
