@@ -16,3 +16,6 @@ time python examples/example.py
 echo "\n"
 echo "--- Timing ML Pipeline Example ---"
 time python examples/ml_pipeline.py
+echo "\n"
+echo "--- Timing File Processor Example ---"
+time python examples/file_processor.py
