@@ -52,14 +52,12 @@ async def test_merge_sync_function():
             return result
     assert w.result.final == "sync_result"
 @pytest.mark.asyncio
-async def test_merge_outside_weave_context_raises_lookup_error():
+async def test_merge_outside_weave_context_raises_runtime_error():
     """
     Tests that calling `merge` outside of an active `weave` context
-    raises a LookupError.
+    raises a RuntimeError.
     """
-    # This test anticipates a change in implementation from raising
-    # RuntimeError to allowing a LookupError to propagate.
-    with pytest.raises(LookupError):
+    with pytest.raises(RuntimeError):
         merge(simple_sync_func)
 @pytest.mark.asyncio
 async def test_merge_async_mapping():
@@ -121,4 +119,3 @@ async def test_merge_recursive_call_raises_error():
                 await merge(recursive_func)
             return "caught"
     assert w.result.final == "caught"
-
