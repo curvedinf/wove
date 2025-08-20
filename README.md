@@ -1,13 +1,6 @@
 # Wove
 Beautiful python async orchestration.
 
-## Free your code from async boilerplate
-
-Wove lets you write async code that reads top-to-bottom like normal Python code. It automatically discovers 
-which pieces of code can be run in parallel and which need to be run sequentially then executes them with maximum 
-concurrency. It is orchestration without the ceremony. Wove is a zero-dependency, lightweight library for 
-in-process concurrency, perfect for I/O-bound work like API calls and database queries.
-
 ## Core Concepts
 Wove is made from sensical philosophies that make async code feel more Pythonic.
 
