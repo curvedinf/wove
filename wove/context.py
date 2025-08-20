@@ -19,8 +19,9 @@ class WoveContextManager:
         self._debug = debug
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
-        self.execution_plan = None
+        self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
+
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context and prepares for task registration.
@@ -28,26 +29,12 @@ class WoveContextManager:
             The context manager instance itself.
         """
         return self
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-    ) -> None:
+
+    def _build_graph_and_plan(self) -> None:
         """
-        Exits the context, executes all registered tasks, and populates the
-        result container.
-        If an exception is raised within the `async with` block, task execution
-        is skipped. If a task raises an exception during execution, all other
-        running tasks are cancelled, and the exception is propagated.
-        Args:
-            exc_type: The type of exception raised in the block, if any.
-            exc_val: The exception instance raised, if any.
-            exc_tb: The traceback for the exception, if any.
+        Builds the dependency graph, sorts it topologically, and creates an
+        execution plan in tiers. Populates `self.execution_plan`.
         """
-        if exc_type:
-            # If an exception occurred inside the block, don't execute
-            return
         # 1. Build Dependency Graph
         all_task_names = set(self._tasks.keys())
         dependencies: Dict[str, Set[str]] = {}
@@ -74,6 +61,7 @@ class WoveContextManager:
             for param in params:
                 if param in dependents:
                     dependents[param].add(name)
+
         # 2. Topological Sort to find execution order and detect cycles
         in_degree: Dict[str, int] = {
             name: len(params) for name, params in dependencies.items()
@@ -98,6 +86,7 @@ class WoveContextManager:
                 f"{', '.join(sorted(unrunnable_tasks))}"
             )
             raise RuntimeError(msg)
+
         # 3. Group tasks into execution tiers
         tiers: List[List[str]] = []
         tier_build_queue = queue.copy()
@@ -111,6 +100,41 @@ class WoveContextManager:
                     if in_degree[dependent] == 0:
                         next_tier_queue.append(dependent)
             tier_build_queue = next_tier_queue
+
+        self.execution_plan = {
+            "dependencies": dependencies,
+            "dependents": dependents,
+            "tiers": tiers,
+            "sorted_tasks": sorted_tasks,
+        }
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
+        """
+        Exits the context, executes all registered tasks, and populates the
+        result container.
+        If an exception is raised within the `async with` block, task execution
+        is skipped. If a task raises an exception during execution, all other
+        running tasks are cancelled, and the exception is propagated.
+        Args:
+            exc_type: The type of exception raised in the block, if any.
+            exc_val: The exception instance raised, if any.
+            exc_tb: The traceback for the exception, if any.
+        """
+        if exc_type:
+            # If an exception occurred inside the block, don't execute
+            return
+
+        self._build_graph_and_plan()
+
+        # Extract plan details for execution
+        tiers = self.execution_plan["tiers"]
+        dependencies = self.execution_plan["dependencies"]
+
         # 4. Execute tier by tier
         all_created_tasks: Set[asyncio.Future[Any]] = set()
         async def _context_wrapper(target_coro: Coroutine[Any, Any, Any]) -> Any:
