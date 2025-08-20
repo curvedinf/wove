@@ -21,21 +21,9 @@ ____________________ test_merge_recursive_call_raises_error ____________________
         async def recursive_func(count=0):
             # The implementation stops at > 100, so we recurse past that.
             await merge(lambda: recursive_func(count + 1))
->       async with weave() as w:
-
-tests/test_merge.py:114: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-wove/context.py:166: in __aexit__
-    task.result()  # This re-raises the exception
-    ^^^^^^^^^^^^^
-wove/context.py:118: in _context_wrapper
-    return await target_coro
-           ^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-    @w.do
-    async def main_task():
-        # We expect a RecursionError because the call stack in _merge will exceed 100
+    
+        # The exception is propagated when the `weave` context manager exits,
+        # so the `raises` block must wrap it.
 >       with pytest.raises(RecursionError, match="Merge call depth exceeded 100"):
 E       Failed: DID NOT RAISE <class 'RecursionError'>
 
@@ -50,4 +38,4 @@ tests/test_merge.py::test_merge_recursive_call_raises_error
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
 FAILED tests/test_merge.py::test_merge_recursive_call_raises_error - Failed: ...
-=================== 1 failed, 23 passed, 1 warning in 0.34s ====================
+=================== 1 failed, 23 passed, 1 warning in 0.33s ====================
