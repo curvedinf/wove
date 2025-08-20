@@ -5,6 +5,7 @@ Wove is made from sensical philosophies that make async code feel more Pythonic.
 -   **Looks Like Normal Python**: You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in a logical order, but `wove` intelligently determines the optimal *execution* order.
 -   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures and runs independent tasks concurrently.
+-   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is, creating inherent multithreaded data safety in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
 -   **Sync & Async Transparency**: Mix `async def` and `def` functions freely. `wove` automatically runs synchronous functions in a background thread pool to avoid blocking the event loop.

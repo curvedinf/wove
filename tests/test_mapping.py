@@ -255,3 +255,16 @@ async def test_mapping_over_nonexistent_task_raises_error():
             @w.do("nonexistent_task")
             def mapped_task(item):
                 return item
+
+@pytest.mark.asyncio
+async def test_mapping_over_non_iterable_task_result():
+    """Tests that mapping over a task that returns a non-iterable raises a TypeError."""
+    with pytest.raises(TypeError, match="result of type 'int' is not iterable"):
+        async with weave() as w:
+            @w.do
+            def source_task_non_iterable():
+                return 123  # Not iterable
+
+            @w.do("source_task_non_iterable")
+            def mapped_task_on_non_iterable(item):
+                return item * 2
