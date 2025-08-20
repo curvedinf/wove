@@ -1,10 +1,13 @@
 from typing import Any, Dict, Iterator, List
+
+
 class WoveResult:
     """
     A container for the results of a weave block.
     Supports dictionary-style access by task name, unpacking in definition order,
     and a `.final` shortcut to the last-defined task's result.
     """
+
     def __init__(self) -> None:
         """
         Initializes the result container.

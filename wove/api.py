@@ -3,9 +3,14 @@ Public API functions for Wove, like `merge`.
 These functions are designed to be called from within tasks defined
 inside a `weave` block.
 """
+
 from typing import Any, Callable, Iterable, Optional
 from .vars import merge_context
-def merge(callable: Callable[..., Any], iterable: Optional[Iterable[Any]] = None) -> Any:
+
+
+def merge(
+    callable: Callable[..., Any], iterable: Optional[Iterable[Any]] = None
+) -> Any:
     """
     Dynamically executes a callable from within a Wove task, integrating
     its result into the dependency graph.
@@ -28,4 +33,3 @@ def merge(callable: Callable[..., Any], iterable: Optional[Iterable[Any]] = None
             "running within an active `async with weave()` block."
         )
     return merge_implementation(callable, iterable)
-

@@ -8,9 +8,11 @@ executing the tasks.
 This example also shows how to programmatically access the execution plan and
 task timings after the `weave` block completes.
 """
+
 import asyncio
 import time
 from wove import weave
+
 
 async def run_debug_example():
     """
@@ -59,7 +61,9 @@ async def run_debug_example():
     print("\nExecution Plan (from w.execution_plan):")
     # A real application might json.dumps this for logging.
     print(f"  - Tiers: {w.execution_plan['tiers']}")
-    print(f"  - Dependencies of 'combine_results': {w.execution_plan['dependencies']['combine_results']}")
+    print(
+        f"  - Dependencies of 'combine_results': {w.execution_plan['dependencies']['combine_results']}"
+    )
 
     # The `w.result.timings` dictionary stores the execution duration of each task.
     # This is invaluable for identifying performance bottlenecks.
@@ -72,14 +76,13 @@ async def run_debug_example():
     # --- Verification ---
     assert w.result.final == {"a": 20, "b": 15}
     assert "initial_data" in w.result.timings
-    assert 'process_a' in w.result.timings
-    assert 'process_b' in w.result.timings
-    assert 'combine_results' in w.result.timings
+    assert "process_a" in w.result.timings
+    assert "process_b" in w.result.timings
+    assert "combine_results" in w.result.timings
     # Note: Tiers can have varying order for items at the same level
-    assert w.execution_plan['tiers'][0] == ['initial_data']
-    assert set(w.execution_plan['tiers'][1]) == {'process_a', 'process_b'}
-    assert w.execution_plan['tiers'][2] == ['combine_results']
-
+    assert w.execution_plan["tiers"][0] == ["initial_data"]
+    assert set(w.execution_plan["tiers"][1]) == {"process_a", "process_b"}
+    assert w.execution_plan["tiers"][2] == ["combine_results"]
 
     print("\n--- Debugging and Introspection Example Finished ---")
 

@@ -9,6 +9,7 @@ then conditionally fetching additional data based on the results.
   call another function (`fetch_admin_permissions`) to get extra data.
 - The final result is composed from the outputs of all preceding tasks.
 """
+
 import asyncio
 import json
 import httpx
@@ -64,6 +65,7 @@ async def get_post_details(post_id: int):
     """
     print(f"--- Running Live API Example for Post {post_id} ---")
     async with weave() as w:
+
         @w.do
         async def post():
             return await fetch_post(post_id)
@@ -73,14 +75,14 @@ async def get_post_details(post_id: int):
             # This task depends on `post`. It won't run until `post` is complete.
             if not post:
                 return None
-            return await fetch_author_details(post['userId'])
+            return await fetch_author_details(post["userId"])
 
         @w.do
         async def comments(post):
             # This task also depends on `post` and runs in parallel with `author`.
             if not post:
                 return []
-            return await fetch_comments(post['id'])
+            return await fetch_comments(post["id"])
 
         @w.do
         async def author_permissions(author):
@@ -92,7 +94,7 @@ async def get_post_details(post_id: int):
                 # If the author is an admin, dynamically call the permission-fetching
                 # function and wait for its result. `merge` integrates this call
                 # into Wove's execution graph.
-                return await merge(lambda: fetch_admin_permissions(author['id']))
+                return await merge(lambda: fetch_admin_permissions(author["id"]))
             else:
                 # If not an admin, return a default value.
                 return []
@@ -103,14 +105,14 @@ async def get_post_details(post_id: int):
             if not post:
                 return {"error": "Post not found"}
 
-            post['author'] = author
-            post['comments'] = comments
+            post["author"] = author
+            post["comments"] = comments
             if author_permissions:
                 # Add a synthetic `is_admin` field for clarity in the output
-                post['author']['is_admin'] = True
-                post['author']['permissions'] = author_permissions
+                post["author"]["is_admin"] = True
+                post["author"]["permissions"] = author_permissions
             elif author:
-                post['author']['is_admin'] = False
+                post["author"]["is_admin"] = False
             return post
 
     # The `.final` property is a convenient shortcut for the result of the
@@ -125,11 +127,14 @@ async def main():
     print(json.dumps(admin_post_response, indent=2))
 
     # Verification for admin case
-    assert admin_post_response['author']['is_admin'] is True
-    assert "permissions" in admin_post_response['author']
-    assert admin_post_response['author'][
-        'permissions'] == ["create_post", "delete_post", "edit_user"]
-    assert admin_post_response['userId'] == 1
+    assert admin_post_response["author"]["is_admin"] is True
+    assert "permissions" in admin_post_response["author"]
+    assert admin_post_response["author"]["permissions"] == [
+        "create_post",
+        "delete_post",
+        "edit_user",
+    ]
+    assert admin_post_response["userId"] == 1
 
     # --- Run for a non-admin user (Post 11 is authored by User 2) ---
     non_admin_post_response = await get_post_details(11)
@@ -137,9 +142,9 @@ async def main():
     print(json.dumps(non_admin_post_response, indent=2))
 
     # Verification for non-admin case
-    assert non_admin_post_response['author']['is_admin'] is False
-    assert "permissions" not in non_admin_post_response['author']
-    assert non_admin_post_response['userId'] == 2
+    assert non_admin_post_response["author"]["is_admin"] is False
+    assert "permissions" not in non_admin_post_response["author"]
+    assert non_admin_post_response["userId"] == 2
 
     print("\n--- Live API Example Finished ---")
 

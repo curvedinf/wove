@@ -9,8 +9,11 @@ delay. This will cause `long_task`, which is already running, to be
 cancelled. The `dependent_task` will never even start because its dependency
 fails.
 """
+
 import asyncio
 from wove import weave
+
+
 async def run_error_handling_example():
     """
     Runs the error handling and cancellation example.
@@ -19,6 +22,7 @@ async def run_error_handling_example():
     print("--- Running Error Handling Example ---")
     try:
         async with weave() as w:
+
             @w.do
             async def long_task():
                 nonlocal was_cancelled
@@ -30,12 +34,14 @@ async def run_error_handling_example():
                     print("<- long_task was cancelled as expected.")
                     raise
                 return "This should not be returned."
+
             @w.do
             async def failing_task():
                 # Let long_task start running first
                 await asyncio.sleep(0.1)
                 print("!! failing_task is about to raise an exception.")
                 raise ValueError("Something went wrong in a task")
+
             @w.do
             def dependent_task(failing_task):
                 # This task will never run because its dependency fails.
@@ -43,8 +49,10 @@ async def run_error_handling_example():
                 return "never"
     except ValueError as e:
         print(f"\nSuccessfully caught expected exception: {e}")
-    
+
     assert was_cancelled, "The long-running task was not cancelled."
     print("--- Error Handling Example Finished ---")
+
+
 if __name__ == "__main__":
     asyncio.run(run_error_handling_example())
