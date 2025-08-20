@@ -25,20 +25,24 @@ async def main():
         # Wove runs an instance of `f2` for each item concurrently.
         @w.do("f1")
         async def f2(item):
-            # No print statement here to avoid clutter from parallel tasks
             return item * item
 
-        # 3. This final task collects the results from all `f2` executions.
+        # 3. This task is mapped over the result set of `f2` to demonstrate chaining mapped tasks.
+        @w.do("f2")
+        async def f3(item):
+            return item + 1
+
+        # 4. This final task collects the results from all `f3` executions.
         @w.do
-        async def f3(f2):
-            print(f"-> f3: Summarizing results from f2: {f2}")
-            result = sum(f2)
-            print(f"<- f3: Sum is {result}")
+        async def f4(f3):
+            print(f"-> f4: Summarizing results from f2: {f3}")
+            result = sum(f3)
+            print(f"<- f4: Sum is {result}")
             return result
 
     print(f"\nFinal Result (Sum of squares): {w.result.final}")
     # Verify the result
-    expected_sum = sum(x*x for x in range(10))
+    expected_sum = sum(x*x+1 for x in range(10))
     assert w.result.final == expected_sum
     print("--- Dependent Mapped Task Example Finished ---")
 

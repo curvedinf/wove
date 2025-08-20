@@ -46,9 +46,19 @@ asyncio.run(main())
 In the example above, `magic_number` and `important_text` are called concurrently. The magic doesn't stop there.
 ## The Wove API
 Here are all three of Wove's tools:
--   `weave()`: An `async` context manager that creates the execution environment for your tasks.
--   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block.
--   `merge()`: A function to dynamically call and `await` other functions from *inside* a running task.
+-   `weave()`: An `async` context manager that creates the execution environment for your tasks. It is used in an 
+    `async with` block. When the weave block ends, all tasks will be executed in the order of their dependency graph.
+    The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that
+    contains the result of the last task.
+-   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can optionally be 
+    passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed
+    a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of
+    the named task. Functions decorated with `@w.do` can be sync or async. Sync functions will be run in a background
+    thread pool to avoid blocking the event loop.
+-   `merge()`: A function that can be called from within a weave block to run a function concurrently for each item in
+    an iterable. It should be awaited, and will return a list of results of each concurrent function call. The function
+    passed in can be any function inside or outside the weave block, async or sync. Sync functions will be run in a
+    background thread pool to avoid blocking the event loop.
 ## More Spice
 Here is a more complex example that uses extra-powerful Wove features:
 ```python
