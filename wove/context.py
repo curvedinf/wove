@@ -58,6 +58,8 @@ class WoveContextManager:
         self.result = WoveResult()
         self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
+        self._merge_token = None
+        self._executor_token = None
 
         # Seed the graph with initial values.
         for name, value in initial_values.items():
@@ -67,7 +69,7 @@ class WoveContextManager:
                     "attribute of the WoveResult object and is not allowed."
                 )
             self.result._add_result(name, value)
-            self._tasks[name] = {"func": lambda: value, "map_source": None}
+            self._tasks[name] = {"func": lambda: value, "map_source": None, "seed": True}
 
         if parent_weave:
             self._load_from_parent(parent_weave)
@@ -119,6 +121,7 @@ class WoveContextManager:
         """
         self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         self._executor_token = executor_context.set(self._executor)
+        self._merge_token = merge_context.set(self._merge)
         return self
 
     def _build_graph_and_plan(self) -> None:
@@ -198,8 +201,57 @@ class WoveContextManager:
         }
 
     def _print_debug_report(self) -> None:
-        # ... (implementation unchanged for brevity)
-        pass
+        """Prints a detailed execution plan and dependency report."""
+        print("\n--- Wove Debug Report ---")
+
+        sorted_tasks = self.execution_plan.get("sorted_tasks", [])
+        seed_names = {k for k, v in self._tasks.items() if v.get('seed')}
+        executable_tasks = [t for t in sorted_tasks if t not in seed_names]
+
+        print(f"Detected Tasks ({len(executable_tasks)}):")
+        for task_name in executable_tasks:
+            print(f"  • {task_name}")
+
+        print("\nDependency Graph:")
+        for task_name in executable_tasks:
+            deps = self.execution_plan.get("dependencies", {}).get(task_name, set())
+            deps -= seed_names
+            deps_str = f"Dependencies: {', '.join(deps) or 'None'}"
+
+            dependents = self.execution_plan.get("dependents", {}).get(task_name, set())
+            dependents_str = f"Dependents:   {', '.join(dependents) or 'None'}"
+            print(f"  • {task_name}\n    {deps_str}\n    {dependents_str}")
+
+        print("\nExecution Plan:")
+        tiers = self.execution_plan.get("tiers", [])
+        if not any(any(t in executable_tasks for t in tier) for tier in tiers):
+            print("  - No tasks to execute.")
+        else:
+            for i, tier in enumerate(tiers):
+                executable_in_tier = [t for t in tier if t in executable_tasks]
+                if executable_in_tier:
+                    print(f"  - Tier {i + 1}: {', '.join(executable_in_tier)}")
+
+        print("\n--- Starting Execution ---")
+        for task_name in executable_tasks:
+            task_info = self._tasks[task_name]
+            original_func = task_info['func']
+            while isinstance(original_func, functools.partial):
+                original_func = original_func.func
+            kind = "async" if inspect.iscoroutinefunction(original_func) else "sync"
+
+            map_source = task_info.get("map_source")
+            map_str = ""
+            if map_source:
+                source_iterable = self.result._results.get(map_source) if isinstance(map_source, str) else map_source
+                if isinstance(source_iterable, (list, tuple, set)):
+                    map_str = f" [mapped over {len(source_iterable)} items]"
+                else:
+                    map_str = f" [map over: {map_source if isinstance(map_source, str) else 'iterable'}]"
+
+            print(f"- {task_name} ({kind}){map_str}")
+
+        print("--- End Report ---\n")
 
     async def _retry_timeout_wrapper(
         self, task_name: str, task_func: Callable, args: Dict
@@ -208,16 +260,21 @@ class WoveContextManager:
         retries = task_info.get("retries", 0)
         timeout = task_info.get("timeout")
         last_exception = None
-        for attempt in range(retries + 1):
-            coro = task_func(**args)
-            try:
-                if timeout is not None:
-                    return await asyncio.wait_for(coro, timeout=timeout)
-                else:
-                    return await coro
-            except (Exception, asyncio.TimeoutError) as e:
-                last_exception = e
-        raise last_exception from None
+        start_time = time.monotonic()
+        try:
+            for attempt in range(retries + 1):
+                coro = task_func(**args)
+                try:
+                    if timeout is not None:
+                        return await asyncio.wait_for(coro, timeout=timeout)
+                    else:
+                        return await coro
+                except (Exception, asyncio.TimeoutError) as e:
+                    last_exception = e
+            raise last_exception from None
+        finally:
+            end_time = time.monotonic()
+            self.result._add_timing(task_name, end_time - start_time)
 
     async def __aexit__(
         self,
@@ -226,67 +283,243 @@ class WoveContextManager:
         exc_tb: Optional[Any],
     ) -> None:
         if exc_type:
+            # If the context exits with an exception from user code, cancel tasks.
+            if self._executor:
+                self._executor.shutdown(wait=False)
             return
 
-        try:
-            self._build_graph_and_plan()
-        except (NameError, TypeError, RuntimeError) as e:
-            # For graph-building errors, we fail fast.
-            raise e
-
-        if self._debug:
-            self._print_debug_report()
-
-        tiers = self.execution_plan["tiers"]
-        dependencies = self.execution_plan["dependencies"]
         all_created_tasks: Set[asyncio.Future] = set()
-
         try:
+            # This outer try...except is to catch CancelledError and allow it
+            # to be handled gracefully by the cleanup logic in `finally`.
+            try:
+                self._build_graph_and_plan()
+            except (NameError, TypeError, RuntimeError) as e:
+                for task_name in self._tasks:
+                    if not task_name in self.result._results: # Don't overwrite seed values
+                        self.result._add_error(task_name, e)
+                return # Stop execution
+
+            if self._debug:
+                self._print_debug_report()
+
+            tiers = self.execution_plan["tiers"]
+            dependencies = self.execution_plan["dependencies"]
+            dependents = self.execution_plan["dependents"]
+
+            globally_failed_tasks: Set[str] = set()
+            # Semaphore for each task that defines a `workers` limit
+            semaphores: Dict[str, asyncio.Semaphore] = {}
+
             for tier in tiers:
-                tier_futures: Dict[asyncio.Future, str] = {}
-                for task_name in tier:
+                tier_futures: Dict[str, Union[asyncio.Future, List[asyncio.Future]]] = {}
+                tasks_in_tier_to_run = [t for t in tier if t not in globally_failed_tasks]
+
+                for task_name in tasks_in_tier_to_run:
                     task_info = self._tasks[task_name]
                     task_func = task_info["func"]
-                    args = {p: self.result._results[p] for p in dependencies[task_name]}
+                    task_deps = dependencies.get(task_name, set())
+                    map_source_name = task_info.get("map_source") if isinstance(task_info.get("map_source"), str) else None
+                    args = {p: self.result._results[p] for p in task_deps if p != map_source_name}
 
                     if not inspect.iscoroutinefunction(task_func):
                         task_func = sync_to_async(task_func)
 
-                    coro = self._retry_timeout_wrapper(task_name, task_func, args)
-                    future = asyncio.create_task(coro)
-                    tier_futures[future] = task_name
-                    all_created_tasks.add(future)
+                    map_source = task_info.get("map_source")
+                    if map_source is not None:
+                        # Mapped task
+                        item_param = task_info.get("item_param")
+                        iterable_source = self.result._results.get(map_source_name) if map_source_name else map_source
+
+                        # Handle non-iterable map source as a recoverable error
+                        if not isinstance(iterable_source, Iterable):
+                            e = TypeError(f"result of type '{type(iterable_source).__name__}' is not iterable")
+                            self.result._add_error(task_name, e)
+                            # Manually trigger failure propagation
+                            tasks_to_fail = deque([task_name])
+                            processed_for_failure = {task_name}
+                            while tasks_to_fail:
+                                current_failed_task = tasks_to_fail.popleft()
+                                globally_failed_tasks.add(current_failed_task)
+                                for dep in dependents.get(current_failed_task, []):
+                                    if dep not in processed_for_failure:
+                                        self.result._add_error(dep, e)
+                                        tasks_to_fail.append(dep)
+                                        processed_for_failure.add(dep)
+                            continue # Skip to the next task in the tier
+
+                        workers = task_info.get("workers")
+                        if workers and task_name not in semaphores:
+                            semaphores[task_name] = asyncio.Semaphore(workers)
+
+                        limit_per_minute = task_info.get("limit_per_minute")
+                        delay = 60.0 / limit_per_minute if limit_per_minute else 0
+
+                        async def mapped_task_runner(item, index):
+                            # Stagger start times for throttling
+                            if limit_per_minute and index > 0:
+                                await asyncio.sleep(index * delay)
+
+                            semaphore = semaphores.get(task_name)
+                            if semaphore:
+                                async with semaphore:
+                                    return await self._retry_timeout_wrapper(task_name, task_func, {**args, item_param: item})
+                            return await self._retry_timeout_wrapper(task_name, task_func, {**args, item_param: item})
+
+                        mapped_futures = [asyncio.create_task(mapped_task_runner(item, i)) for i, item in enumerate(iterable_source)]
+                        tier_futures[task_name] = mapped_futures
+                        all_created_tasks.update(mapped_futures)
+                    else:
+                        # Regular task
+                        future = asyncio.create_task(self._retry_timeout_wrapper(task_name, task_func, args))
+                        tier_futures[task_name] = future
+                        all_created_tasks.add(future)
 
                 if not tier_futures:
                     continue
 
-                done, pending = await asyncio.wait(
-                    tier_futures.keys(), return_when=asyncio.FIRST_COMPLETED
-                )
+                # Wait for all tasks created in this tier to complete
+                current_tier_futures = [f for flist in tier_futures.values() for f in (flist if isinstance(flist, list) else [flist])]
 
-                for task in done:
-                    if task.exception():
-                        # Fail fast
-                        task.result()
+                if not current_tier_futures:
+                    # Handle cases like mapping over an empty list
+                    for task_name in tasks_in_tier_to_run:
+                        if isinstance(tier_futures.get(task_name), list):
+                            self.result._add_result(task_name, [])
+                    continue
 
-                # If we are here, all tasks in `done` are successful.
-                # Wait for the rest of the tier to complete.
+                done, pending = await asyncio.wait(current_tier_futures, return_when=asyncio.FIRST_COMPLETED)
+
+                exception_found = None
+                # Prioritize non-cancellation exceptions as the root cause
+                for f in done:
+                    exc = f.exception()
+                    if exc and not isinstance(exc, asyncio.CancelledError):
+                        exception_found = exc
+                        break
+
+                # If no "real" exception was found, the first exception (likely a CancelledError) will do.
+                if not exception_found:
+                    for f in done:
+                        if f.exception():
+                            exception_found = f.exception()
+                            break
+
+                if exception_found:
+                    # Cancel pending tasks in this tier
+                    for p in pending:
+                        p.cancel()
+                    # Wait for cancellations to propagate
+                    if pending:
+                        await asyncio.gather(*pending, return_exceptions=True)
+
+                if exception_found:
+                    print(f"DEBUG: Exception found: {type(exception_found)} {exception_found}")
+                    # The whole weave fails. Find the task that caused it.
+                    source_of_failure = None
+                    def _exc_match(e1, e2):
+                        if e1 is None or e2 is None: return False
+                        return type(e1) is type(e2) and str(e1) == str(e2)
+
+                    for task_name, f_or_list in tier_futures.items():
+                        print(f"DEBUG: Checking task {task_name}")
+                        if isinstance(f_or_list, list):
+                            for i, f in enumerate(f_or_list):
+                                try:
+                                    exc = f.exception()
+                                    print(f"DEBUG:  - subtask {i} exc: {type(exc)} {exc}")
+                                    if _exc_match(exc, exception_found):
+                                        source_of_failure = task_name
+                                        break
+                                except asyncio.CancelledError:
+                                    print(f"DEBUG:  - subtask {i} was cancelled.")
+                        else:
+                            try:
+                                exc = f_or_list.exception()
+                                print(f"DEBUG:  - single task exc: {type(exc)} {exc}")
+                                if _exc_match(exc, exception_found):
+                                    source_of_failure = task_name
+                            except asyncio.CancelledError:
+                                    print(f"DEBUG:  - single task {task_name} was cancelled.")
+                        if source_of_failure:
+                            break
+
+                    print(f"DEBUG: Source of failure found: {source_of_failure}")
+
+                    # Mark the source task and its dependents as failed.
+                    if source_of_failure:
+                        self.result._add_error(source_of_failure, exception_found)
+                        tasks_to_fail = deque([source_of_failure])
+                        processed_for_failure = {source_of_failure}
+                        while tasks_to_fail:
+                            current_failed_task = tasks_to_fail.popleft()
+                            globally_failed_tasks.add(current_failed_task)
+                            for dep in dependents.get(current_failed_task, []):
+                                if dep not in processed_for_failure:
+                                    self.result._add_error(dep, exception_found)
+                                    tasks_to_fail.append(dep)
+                                    processed_for_failure.add(dep)
+                    # After handling the exception, skip processing results for this tier.
+                    continue
+
+                # No exceptions, wait for the rest of the tier and process results
                 if pending:
                     await asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED)
 
-                # All tasks in the tier are done, store results.
-                for future, task_name in tier_futures.items():
-                    self.result._add_result(task_name, future.result())
+                for task_name in tasks_in_tier_to_run:
+                    if task_name not in tier_futures: continue
+                    future_or_list = tier_futures[task_name]
 
-        except Exception:
+                    try:
+                        if isinstance(future_or_list, list):
+                            results = [f.result() for f in future_or_list]
+                            if task_name not in self.result.timings: # Record timing for the whole map
+                                self.result._add_timing(task_name, 0) # Placeholder
+                            self.result._add_result(task_name, results)
+                        else:
+                            self.result._add_result(task_name, future_or_list.result())
+                    except asyncio.CancelledError:
+                        # This isn't a task failure, it's a result of another task failing.
+                        # The task will just not have a result. The original error is already propagated.
+                        pass
+                    except Exception as e:
+                        self.result._add_error(task_name, e)
+                        tasks_to_fail = deque([task_name])
+                        processed_for_failure = {task_name}
+                        while tasks_to_fail:
+                            current_failed_task = tasks_to_fail.popleft()
+                            globally_failed_tasks.add(current_failed_task)
+                            for dep in dependents.get(current_failed_task, []):
+                                if dep not in processed_for_failure:
+                                    self.result._add_error(dep, e)
+                                    tasks_to_fail.append(dep)
+                                    processed_for_failure.add(dep)
+
+        except asyncio.CancelledError:
+            # The weave was cancelled externally.
+            pass
+        except (NameError, TypeError, RuntimeError) as e:
+            # Graph-building errors should fail fast.
+            raise e
+        finally:
+            # Final cleanup
             for task in all_created_tasks:
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*all_created_tasks, return_exceptions=True)
-            raise
-        finally:
+
             if self._executor:
-                self._executor.shutdown(wait=True)
+                try:
+                    loop = asyncio.get_running_loop()
+                    if loop.is_running():
+                        await loop.run_in_executor(None, self._executor.shutdown)
+                except RuntimeError:
+                    pass # Loop is already closed
+
+            if self._executor_token:
+                executor_context.reset(self._executor_token)
+            if self._merge_token:
+                merge_context.reset(self._merge_token)
 
     def do(
         self,
@@ -353,5 +586,39 @@ class WoveContextManager:
     async def _merge(
         self, func: Callable[..., Any], iterable: Optional[Iterable[Any]] = None
     ) -> Any:
-        # ... (implementation unchanged)
-        pass
+        """
+        Dynamically executes a callable from within a Wove task, integrating
+        its result into the dependency graph.
+        """
+        # Simple recursion guard
+        if len(self._call_stack) > 100:
+            raise RecursionError("Merge call depth exceeded 100")
+
+        # Get the name of the function for the call stack
+        func_name = getattr(func, '__name__', 'anonymous_callable')
+        self._call_stack.append(func_name)
+
+        try:
+            # If the provided function is synchronous, wrap it to run in the executor
+            if not inspect.iscoroutinefunction(getattr(func, 'func', func)):
+                func = sync_to_async(func)
+
+            if iterable is None:
+                # Single execution
+                res = await func()
+                if inspect.iscoroutine(res):
+                    res = await res
+                return res
+            else:
+                # Mapped execution
+                async def run_and_await(item):
+                    res = await func(item)
+                    if inspect.iscoroutine(res):
+                        res = await res
+                    return res
+
+                items = list(iterable)
+                tasks = [asyncio.create_task(run_and_await(item)) for item in items]
+                return await asyncio.gather(*tasks)
+        finally:
+            self._call_stack.pop()

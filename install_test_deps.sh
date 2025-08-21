@@ -1,2 +1,2 @@
 #!/bin/bash
-pip install -e .[test]
+pip install -e .[dev]
