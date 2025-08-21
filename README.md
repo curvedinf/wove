@@ -42,48 +42,24 @@ async def main():
 asyncio.run(main())
 >> The meaning of life is 42!
 ```
-## Synchronous Usage
-For convenience when integrating into synchronous codebases (like Flask or standard Django), `wove` also provides a synchronous context manager. This block can contain `async def` or `def` tasks just like its async counterpart. Internally, `wove` will manage the `asyncio` event loop, automatically creating, running, and awaiting the entire workflow on your behalf.
-```python
-from wove import weave
-
-# This can be a standard synchronous function
-def my_sync_function():
-    with weave() as w:
-        @w.do
-        def get_data():
-            return "data"
-
-    # The block waits until all tasks are complete.
-    print(w.result.get_data)
-
-my_sync_function()
->> data
-```
-
+In the example above, `magic_number` and `important_text` are called concurrently. The magic doesn't stop there.
 ## The Wove API
-Here are all of Wove's tools:
--   `weave()`: An `async` context manager that creates the execution environment for your tasks. It can also be used as a standard synchronous `with` block. When the weave block ends, all tasks will be executed in the order of their dependency graph. The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that contains the result of the last task. It can take an optional `debug` argument to print a detailed report to the console before executing the tasks, and an optional `max_threads` argument to set the maximum number of threads that Wove will use to run tasks in parallel.
--   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block.
-    -   **Mapping**: It can be passed an iterable (`@w.do(my_list)`) to run the task concurrently for each item. It can also be passed the name of another task (`@w.do("other_task")`) to map over its results.
-    -   **Error Handling**: `retries: int` - The number of times to re-run a task if it raises an exception. `timeout: float` - The maximum number of seconds a task can run before being cancelled.
-    -   **Concurrency Control**: `workers: int` - For mapped tasks, limits the number of concurrent executions. `limit_per_minute: int` - For mapped tasks, throttles their execution to a maximum number per minute.
+Here are all three of Wove's tools:
+-   `weave()`: An `async` context manager that creates the execution environment for your tasks. It is used in an
+    `async with` block. When the weave block ends, all tasks will be executed in the order of their dependency graph.
+    The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that
+    contains the result of the last task. It can take an optional `debug` argument to print a detailed report to the
+    console before executing the tasks, and an optional `max_threads` argument to set the maximum number of threads
+    that Wove will use to run tasks in parallel.
+-   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can optionally be
+    passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed
+    a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of
+    the named task. Functions decorated with `@w.do` can be sync or async. Sync functions will be run in a background
+    thread pool to avoid blocking the event loop.
 -   `merge()`: A function that can be called from within a weave block to run a function concurrently for each item in
     an iterable. It should be awaited, and will return a list of results of each concurrent function call. The function
     passed in can be any function inside or outside the weave block, async or sync. Sync functions will be run in a
     background thread pool to avoid blocking the event loop.
-## Helper Functions
-`wove` provides a set of simple, composable helper functions for common data manipulation patterns within your tasks.
--   **`flatten(list_of_lists)`**: Converts a 2D iterable into a 1D list.
-    - *Example*: `flatten([[1, 2], [3, 4]])` → `[1, 2, 3, 4]`
--   **`fold(a_list, size)`**: Converts a 1D list into a list of smaller lists of a given size.
-    - *Example*: `fold([1, 2, 3, 4], 2)` → `[[1, 2], [3, 4]]`
--   **`undict(a_dict)`**: Converts a dictionary into a list of `[key, value]` pairs.
-    - *Example*: `undict({'a': 1, 'b': 2})` → `[('a', 1), ('b', 2)]`
--   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
-    - *Example*: `redict([('a', 1), ('b', 2)])` → `{'a': 1, 'b': 2}`
--   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
-    - *Example*: `denone([1, None, 2, 3])` → `[1, 2, 3]`
 ## More Spice
 Here is a more complex example that showcases Wove's core features working together: static and dynamic task mapping, the `merge` function for dynamic calls, and a diamond-shaped dependency graph.
 ```python

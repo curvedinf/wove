@@ -38,6 +38,22 @@ class WoveResult:
         """
         return len(self._results)
 
+    def __getattr__(self, name: str) -> Any:
+        """
+        Retrieves a task's result by its name using attribute access.
+        Args:
+            name: The name of the task.
+        Returns:
+            The result of the specified task.
+        Raises:
+            AttributeError: If no task with that name exists.
+        """
+        if name in self._results:
+            return self._results[name]
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
+
     @property
     def final(self) -> Any:
         """

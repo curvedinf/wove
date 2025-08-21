@@ -41,9 +41,11 @@ def test_sync_error_propagation():
     Tests that an exception raised inside a synchronous `weave` block
     is correctly propagated.
     """
-    with pytest.raises(ValueError, match="Sync failure"):
-        with weave() as w:
+    with weave() as w:
 
-            @w.do
-            def failing_task():
-                raise ValueError("Sync failure")
+        @w.do
+        def failing_task():
+            raise ValueError("Sync failure")
+
+    with pytest.raises(ValueError, match="Sync failure"):
+        _ = w.result.failing_task

@@ -8,6 +8,7 @@ It's designed for I/O-bound tasks like API calls or database queries.
 from .api import merge
 from .context import WoveContextManager
 from .result import WoveResult
+from .weave import Weave
 from .helpers import (
     sync_to_async,
     flatten,
@@ -21,6 +22,7 @@ from .helpers import (
 weave = WoveContextManager
 __all__ = [
     "weave",
+    "Weave",
     "WoveResult",
     "sync_to_async",
     "merge",

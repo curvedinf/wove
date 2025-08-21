@@ -54,7 +54,7 @@ async def test_merge_async_function():
             result = await merge(simple_async_func)
             return result
 
-    assert w.result.final == "async_result"
+    assert w.result.main_task == "async_result"
 
 
 @pytest.mark.asyncio
@@ -70,7 +70,7 @@ async def test_merge_sync_function():
             result = await merge(simple_sync_func)
             return result
 
-    assert w.result.final == "sync_result"
+    assert w.result.main_task == "sync_result"
 
 
 @pytest.mark.asyncio
@@ -99,7 +99,7 @@ async def test_merge_async_mapping():
     duration = time.time() - start_time
     # If run serially, would be > 0.06s. Concurrently, should be just over 0.02s.
     assert duration < 0.05
-    assert w.result.final == [2, 4, 6]
+    assert w.result.main_task == [2, 4, 6]
 
 
 @pytest.mark.asyncio
@@ -118,7 +118,7 @@ async def test_merge_sync_mapping():
     duration = time.time() - start_time
     # If run serially, would be > 0.06s. Concurrently in threads, should be just over 0.02s.
     assert duration < 0.05
-    assert w.result.final == [2, 4, 6]
+    assert w.result.main_task == [2, 4, 6]
 
 
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ async def test_merge_with_arguments_via_partial():
             sync_result = await merge(lambda: sync_func_with_args(3, 4))
             return async_result, sync_result
 
-    assert w.result.final == (15, 7)
+    assert w.result.main_task == (15, 7)
 
 
 @pytest.mark.asyncio
@@ -149,14 +149,11 @@ async def test_merge_recursive_call_raises_error():
         # The implementation stops at > 100, so we recurse past that.
         await merge(lambda: recursive_func(count + 1))
 
-    # The exception is propagated when the `weave` context manager exits,
-    # so the `raises` block must wrap it.
-    with pytest.raises(RecursionError, match="Merge call depth exceeded 100"):
-        async with weave() as w:
+    async with weave() as w:
 
-            @w.do
-            async def main_task():
-                # The recursive call will happen here, and the exception will be
-                # stored in the asyncio.Task. The exception is then re-raised
-                # when the `weave` context manager exits.
-                await merge(recursive_func)
+        @w.do
+        async def main_task():
+            await merge(recursive_func)
+
+    with pytest.raises(RecursionError, match="Merge call depth exceeded 100"):
+        _ = w.result.main_task
