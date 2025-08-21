@@ -111,8 +111,8 @@ print(f"\nPipeline complete. Results: {w.result.final}")
 The `@w.do` decorator has several optional parameters for convenience:
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
--   **`workers: int`**: For mapped tasks only, this limits the number of **concurrent** executions to the specified integer.
--   **`limit_per_minute: int`**: For mapped tasks only, this throttles their execution to a maximum number per minute.
+-   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
+-   **`limit_per_minute: int`**: For mapped tasks only, this throttles their task instances to a maximum number per minute.
 ### Dynamic Task Mapping
 You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when the iterable is generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
 ```python
@@ -215,7 +215,7 @@ print(w.result.generate_summary)
 # >> Report for Admin
 ```
 ### Merging External Functions
-Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. Each copy of the function will be run concurrently for each item in the iterable. Used with `await`, it will then return a list when all instances have completed.
+Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. Each copy of the function will be run concurrently for each item in the iterable. Used with `await`, it will return a list of results when all instances have completed.
 ```python
 from wove import weave, merge, flatten
 
