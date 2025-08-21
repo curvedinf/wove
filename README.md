@@ -128,10 +128,8 @@ from wove import weave
 
 numbers = [10, 20, 30]
 with weave() as w:
-    # This block is magically an `async with` block, so you can use async functions
-    
+    # This block is magically an `async with` block so you can use async functions.
     # Map each item from numbers to the squares function.
-    # non-async weaves can contain async functions
     @w.do(numbers)
     async def squares(item):
         return item * item
