@@ -23,7 +23,6 @@ The core of Wove's functionality is the `weave` context manager. It is used in a
 import time
 from wove import weave
 with weave() as w:
-    # This block is magically like an `async with` block.
     # These first two tasks run concurrently.
     @w.do
     def magic_number():
@@ -129,6 +128,8 @@ from wove import weave
 
 numbers = [10, 20, 30]
 with weave() as w:
+    # This block is magically an `async with` block, so you can use async functions
+    
     # Map each item from numbers to the squares function.
     # non-async weaves can contain async functions
     @w.do(numbers)
