@@ -48,6 +48,35 @@ class WoveContextManager:
         self.execution_plan: Optional[Dict[str, Any]] = None
         self._call_stack: List[str] = []
 
+    def __enter__(self) -> "WoveContextManager":
+        """Enters the synchronous context."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
+        """
+        Exits the synchronous context and runs the entire async workflow.
+        """
+        # If an exception was raised inside the `with` block, do not execute tasks.
+        if exc_type:
+            return
+
+        async def _runner() -> None:
+            """A coroutine to run the async context manager lifecycle."""
+            # We don't need to pass exc_type etc. to __aexit__ because if they
+            # existed, we would have returned early. The exceptions handled by
+            # __aexit__ are ones that happen *during* task execution.
+            await self.__aenter__()
+            await self.__aexit__(None, None, None)
+
+        # `asyncio.run` creates a new event loop, runs the coroutine,
+        # and closes the loop. This is the bridge from sync to async.
+        asyncio.run(_runner())
+
     async def __aenter__(self) -> "WoveContextManager":
         """
         Enters the asynchronous context, creates a dedicated thread pool,
@@ -200,6 +229,32 @@ class WoveContextManager:
                 print(f"    {C_CYAN}- {task_name}{C_RESET} {type_str}{map_str}")
         print(f"\n{C_BLUE_B}--- Starting Execution ---{C_RESET}")
 
+    async def _retry_timeout_wrapper(
+        self, task_name: str, task_func: Callable, args: Dict
+    ) -> Any:
+        """Handles retries and timeouts for a single task execution."""
+        task_info = self._tasks[task_name]
+        retries = task_info.get("retries", 0)
+        timeout = task_info.get("timeout")
+
+        last_exception = None
+        for attempt in range(retries + 1):
+            # Recreate the coroutine for each attempt, as they cannot be reused.
+            coro = task_func(**args)
+            try:
+                if timeout is not None:
+                    return await asyncio.wait_for(coro, timeout=timeout)
+                else:
+                    return await coro
+            except (Exception, asyncio.TimeoutError) as e:
+                last_exception = e
+                if self._debug and attempt < retries:
+                    print(
+                        f"Task {task_name} failed on attempt {attempt + 1}/{retries + 1}. "
+                        "Retrying..."
+                    )
+        raise last_exception from None
+
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -257,20 +312,25 @@ class WoveContextManager:
                     for task_name in tier:
                         task_info = self._tasks[task_name]
                         task_func = task_info["func"]
-                        args = {p: self.result._results[p] for p in dependencies[task_name]}
+                        args = {
+                            p: self.result._results[p] for p in dependencies[task_name]
+                        }
+
                         if not inspect.iscoroutinefunction(task_func):
                             task_func = sync_to_async(task_func)
+
                         if task_info["map_source"] is not None:
                             # Mapped Task: Create a task for each item and gather results.
                             item_param = task_info["item_param"]
-                            map_sub_tasks = []
+                            workers = task_info.get("workers")
+                            semaphore = (
+                                asyncio.Semaphore(workers) if workers is not None else None
+                            )
+
                             map_source_value = task_info["map_source"]
                             iterable = None
                             if isinstance(map_source_value, str):
-                                # The map source is the name of another task. Resolve its result.
                                 iterable = self.result._results[map_source_value]
-                                # The result of the source task is used for iteration,
-                                # not as a direct keyword argument.
                                 if map_source_value in args:
                                     del args[map_source_value]
                                 try:
@@ -282,25 +342,50 @@ class WoveContextManager:
                                         f"'{type(iterable).__name__}' is not iterable."
                                     )
                             else:
-                                # The map source is a static iterable.
                                 iterable = map_source_value
-                            for item in iterable:
+
+                            async def run_sub_task(item):
+                                """Defines and runs a single sub-task, respecting the semaphore."""
                                 map_args = args.copy()
                                 map_args[item_param] = item
-                                coro = task_func(**map_args)
-                                sub_task = asyncio.create_task(_context_wrapper(coro))
+                                retry_coro = self._retry_timeout_wrapper(
+                                    task_name, task_func, map_args
+                                )
+                                context_coro = _context_wrapper(retry_coro)
+                                if semaphore:
+                                    async with semaphore:
+                                        return await context_coro
+                                else:
+                                    return await context_coro
+
+                            limit_per_minute = task_info.get("limit_per_minute")
+                            delay = (
+                                60 / limit_per_minute if limit_per_minute else 0
+                            )
+
+                            map_sub_tasks = []
+                            for item in iterable:
+                                # If a rate limit is set, wait before creating the next task.
+                                if delay > 0 and map_sub_tasks:
+                                    await asyncio.sleep(delay)
+                                sub_task = asyncio.create_task(run_sub_task(item))
                                 map_sub_tasks.append(sub_task)
-                                all_created_tasks.add(sub_task)
-                            # For mapped tasks, we gather the sub-tasks. The result is a Future.
+                            all_created_tasks.update(map_sub_tasks)
+
                             gathered_awaitable = asyncio.gather(*map_sub_tasks)
-                            timed_awaitable = _time_wrapper(gathered_awaitable, task_name)
+                            timed_awaitable = _time_wrapper(
+                                gathered_awaitable, task_name
+                            )
                             task = asyncio.create_task(timed_awaitable)
                         else:
                             # Normal Task: Create a single task from the coroutine.
-                            coro = task_func(**args)
-                            context_coro = _context_wrapper(coro)
+                            retry_coro = self._retry_timeout_wrapper(
+                                task_name, task_func, args
+                            )
+                            context_coro = _context_wrapper(retry_coro)
                             timed_awaitable = _time_wrapper(context_coro, task_name)
                             task = asyncio.create_task(timed_awaitable)
+
                         tier_tasks[task] = task_name
                         all_created_tasks.add(task)
                     # Wait for tasks in the tier, processing them as they complete
@@ -375,17 +460,45 @@ class WoveContextManager:
             self._call_stack.pop()
 
     def do(
-        self, arg: Optional[Union[Iterable[Any], Callable[..., Any], str]] = None
+        self,
+        arg: Optional[Union[Iterable[Any], Callable[..., Any], str]] = None,
+        *,
+        retries: int = 0,
+        timeout: Optional[float] = None,
+        workers: Optional[int] = None,
+        limit_per_minute: Optional[int] = None,
     ) -> Callable[..., Any]:
         """
-        Decorator to register a task. Can be used as `@w.do` for a single task,
+        Decorator to register a task.
+
+        Can be used as `@w.do` for a single task,
         `@w.do(iterable)` to map a task over a static iterable, or
         `@w.do("task_name")` to map a task over the result of another task.
+
+        Args:
+            retries: The number of times to re-run a task if it raises an exception.
+            timeout: The maximum number of seconds a task can run before being cancelled.
+            workers: For mapped tasks, this limits the number of concurrent
+                executions to the specified integer.
+            limit_per_minute: For mapped tasks, this throttles their execution
+                to a maximum number per minute.
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             map_source = None if callable(arg) else arg
-            self._tasks[func.__name__] = {"func": func, "map_source": map_source}
+            if (workers is not None or limit_per_minute is not None) and map_source is None:
+                raise ValueError(
+                    "The 'workers' and 'limit_per_minute' parameters can only be used with "
+                    "mapped tasks (e.g., @w.do(iterable, ...))."
+                )
+            self._tasks[func.__name__] = {
+                "func": func,
+                "map_source": map_source,
+                "retries": retries,
+                "timeout": timeout,
+                "workers": workers,
+                "limit_per_minute": limit_per_minute,
+            }
             self.result._definition_order.append(func.__name__)
             return func
 
@@ -393,5 +506,5 @@ class WoveContextManager:
             # Used as @w.do
             return decorator(arg)
         else:
-            # Used as @w.do(iterable), @w.do("task_name"), or @w.do()
+            # Used as @w.do(...)
             return decorator

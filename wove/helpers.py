@@ -33,3 +33,30 @@ def sync_to_async(func: Callable[..., R]) -> Callable[..., Coroutine[Any, Any, R
         return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
 
     return run_in_executor
+
+
+def flatten(list_of_lists):
+    """Converts a 2D iterable into a 1D list."""
+    return [item for sublist in list_of_lists for item in sublist]
+
+
+def fold(a_list, size):
+    """Converts a 1D list into a list of smaller lists of a given size."""
+    if size <= 0:
+        raise ValueError("Fold size must be a positive integer.")
+    return [a_list[i : i + size] for i in range(0, len(a_list), size)]
+
+
+def undict(a_dict):
+    """Converts a dictionary into a list of [key, value] pairs."""
+    return list(a_dict.items())
+
+
+def redict(list_of_pairs):
+    """Converts a list of key-value pairs back into a dictionary."""
+    return dict(list_of_pairs)
+
+
+def denone(an_iterable):
+    """Removes all None values from an iterable."""
+    return [item for item in an_iterable if item is not None]
