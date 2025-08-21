@@ -65,25 +65,30 @@ class DataPipeline(Weave):
     def __init__(self, records: int):
         self.records = records
         super().__init__()
+    
     @Weave.do(retries=2, timeout=60.0)
     def load_data(self):
         # Initial data loading - the top of the diamond.
         time.sleep(0.1)
         return np.linspace(0, 10, self.records)
+    
     @Weave.do("load_data")
     def feature_a(self, item):
         # First parallel processing branch.
         time.sleep(0.2)
         return np.sin(item)
+    
     @Weave.do("load_data")
     def feature_b(self, item):
         # Second parallel processing branch.
         time.sleep(0.3)
         return np.cos(item)
+    
     @Weave.do
     def merged_features(self, feature_a, feature_b):
         # Merge the results from parallel branches - bottom of the diamond.
         return np.column_stack((feature_a, feature_b))
+    
     @Weave.do
     async def report(self, merged_features):
         # Dynamically map an external function using `merge`.
