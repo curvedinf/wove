@@ -60,6 +60,7 @@ from wove import Weave, weave, merge
 def quality_check(data):
     return any(np.isnan(data))
 
+# Define a reusable base pipeline
 class DataPipeline(Weave):
     def __init__(self, records: int):
         self.records = records
@@ -95,6 +96,7 @@ class DataPipeline(Weave):
             "shape": merged_features.shape,
             "quality_status": quality_status,
         }
+# The class isn't executed right now
 
 # Run a customized version of the pipeline
 with weave(DataPipeline(records=1_000)) as w:
@@ -102,6 +104,7 @@ with weave(DataPipeline(records=1_000)) as w:
     @w.do("load_data")
     def feature_a(item):
         return np.tanh(item)
+# The pipeline runs when the `with` block ends
 
 print(f"\nPipeline complete. Results: {w.result.final}")
 # >> Pipeline complete. Results: {'mean': 0.9302537626956293, 'std': 0.18500793874408072, 'shape': (1000, 2), 'quality_status': 'OK'}
