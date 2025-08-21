@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Union, Iterable
 
 
 class Weave:
@@ -12,7 +12,7 @@ class Weave:
 
     @staticmethod
     def do(
-        _func: Optional[Callable] = None,
+        arg: Optional[Union[Callable, str, Iterable]] = None,
         *,
         retries: int = 0,
         timeout: Optional[float] = None,
@@ -30,7 +30,9 @@ class Weave:
             # Attach the parameters to the function object itself.
             # The WoveContextManager will inspect the Weave class
             # for these attributes to build the initial task set.
+            map_source = None if callable(arg) else arg
             func._wove_task_info = {
+                "map_source": map_source,
                 "retries": retries,
                 "timeout": timeout,
                 "workers": workers,
@@ -38,9 +40,9 @@ class Weave:
             }
             return func
 
-        if _func is None:
+        if callable(arg):
+            # Called as @Weave.do or @w.do(callable_func)
+            return decorator(arg)
+        else:
             # Called as @Weave.do(...) with parameters
             return decorator
-        else:
-            # Called as @Weave.do without parameters
-            return decorator(_func)

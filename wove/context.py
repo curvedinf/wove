@@ -72,18 +72,22 @@ class WoveContextManager:
             self._tasks[name] = {"func": lambda: value, "map_source": None, "seed": True}
 
         if parent_weave:
-            self._load_from_parent(parent_weave)
+            # If a class is passed, instantiate it. If an instance is passed, use it directly.
+            instance_to_load = parent_weave() if inspect.isclass(parent_weave) else parent_weave
+            self._load_from_parent(instance_to_load)
 
-    def _load_from_parent(self, parent_weave: Type["Weave"]) -> None:
-        """Inspects a Weave class and pre-populates the tasks."""
-        for name, member in inspect.getmembers(parent_weave, inspect.isfunction):
+    def _load_from_parent(self, parent_weave_instance: "Weave") -> None:
+        """Inspects a Weave class and pre-populates the tasks from the given instance."""
+        # Inspect the class of the instance to find the functions with metadata
+        for name, member in inspect.getmembers(type(parent_weave_instance), inspect.isfunction):
             if hasattr(member, "_wove_task_info"):
                 task_info = member._wove_task_info
-                bound_method = functools.partial(member, parent_weave())
+                # Bind the function to the specific instance that was passed in
+                bound_method = functools.partial(member, parent_weave_instance)
 
                 self._tasks[name] = {
                     "func": bound_method,
-                    "map_source": None,
+                    "map_source": task_info.get("map_source"),
                     "retries": task_info.get("retries", 0),
                     "timeout": task_info.get("timeout"),
                     "workers": task_info.get("workers"),

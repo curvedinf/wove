@@ -1,105 +1,59 @@
-"""
-Example: Machine Learning Pipeline with NumPy
-This script demonstrates a common ML workflow using Wove to manage a
-"diamond" dependency graph with realistic CPU-bound tasks.
-- Load Data: A single task fetches the initial raw dataset as NumPy arrays.
-- Feature Engineering (Parallel): Multiple independent tasks process the
-  raw data to create different feature sets concurrently. These are synchronous,
-  CPU-bound functions using NumPy that Wove runs in a thread pool.
-- Train Model: A final task waits for all feature engineering to complete,
-  then combines the feature sets into a final design matrix.
-This pattern is useful for parallelizing data preparation steps in ML workflows.
-"""
-
-import asyncio
+# Save as ml_pipeline.py and run `python ml_pipeline.py`
 import time
 import numpy as np
-from wove import weave
+from wove import Weave, weave
+from wove.helpers import fold
 
+# Define the workflow as a reusable class inheriting from `wove.Weave`.
+class MLPipeline(Weave):
+    def __init__(self, num_records: int, batch_size: int):
+        self.num_records = num_records
+        self.batch_size = batch_size
+        super().__init__()
 
-async def run_ml_pipeline_example():
-    """
-    Runs the ML pipeline example.
-    """
-    print("--- Running ML Pipeline Example ---")
-    start_time = time.time()
-    num_records = 50_000_000
+    # Use the class-based decorator `@Weave.do`.
+    # Add robustness: retry on failure and timeout if it takes too long.
+    @Weave.do(retries=2, timeout=60.0)
+    def load_raw_data(self):
+        print(f"-> [1] Loading raw data ({self.num_records} records)...")
+        time.sleep(0.05)  # Simulate I/O
+        features = np.arange(self.num_records, dtype=np.float64)
+        print("<- [1] Raw data loaded.")
+        return features
 
-    async with weave() as w:
-        # 1. LOAD: Fetch the raw dataset.
-        @w.do
-        async def load_raw_data():
-            print("-> [1] Loading raw data...")
-            await asyncio.sleep(0.05)  # Simulate I/O
-            print(f"<- [1] Raw data loaded ({num_records} records).")
-            # In a real scenario, this might be loaded from a file or database.
-            features = np.arange(num_records, dtype=np.float64)
-            labels = features % 2
-            return {"features": features, "labels": labels}
+    # This task creates batches from the raw data.
+    @Weave.do
+    def create_batches(self, load_raw_data):
+        print("-> [2] Creating batches...")
+        # Use the fold helper to create a list of numpy arrays (batches)
+        batches = fold(load_raw_data, self.batch_size)
+        print(f"<- [2] Created {len(batches)} batches of size {self.batch_size}.")
+        return batches
 
-        # 2. FEATURE ENGINEERING (Parallel): These two tasks depend on
-        # `load_raw_data` and will run concurrently. Because they are synchronous,
-        # Wove runs them in a background thread pool.
-        @w.do
-        def engineer_polynomial_features(load_raw_data):
-            print("-> [2a] Engineering polynomial features...")
-            # This is a CPU-bound operation using numpy.
-            features = load_raw_data["features"]
-            # Create a 2nd degree polynomial: (x, x^2)
-            poly_features = np.vstack([features, features**2]).T
-            print(
-                f"<- [2a] Polynomial features engineered. Shape: {poly_features.shape}"
-            )
-            return poly_features
+    # This mapped task processes data in chunks.
+    # `workers=4` limits concurrency to 4 chunks at a time.
+    # `limit_per_minute=600` throttles new tasks to 10/sec.
+    @Weave.do("create_batches", workers=4, limit_per_minute=600)
+    def process_batch(self, chunk):
+        # `chunk` is now a list of numbers, so `len()` works.
+        processed_chunk = np.vstack([chunk, np.square(chunk)]).T
+        print(f"    -> Processed batch of size {len(chunk)}")
+        return processed_chunk
 
-        @w.do
-        def engineer_statistical_features(load_raw_data):
-            print("-> [2b] Engineering statistical features (standardization)...")
-            # This is another CPU-bound numpy operation.
-            features = load_raw_data["features"]
-            # Standardize the features (z-score normalization)
-            mean = np.mean(features)
-            std = np.std(features)
-            stat_features = (features - mean) / (std if std > 0 else 1)
-            print(
-                f"<- [2b] Statistical features engineered. Shape: {stat_features.shape}"
-            )
-            return stat_features
+    # This final task waits for all batches to be processed.
+    @Weave.do
+    def train_model(self, process_batch):
+        print("-> [3] Training model...")
+        # `process_batch` returns a list of arrays; `vstack` combines them.
+        design_matrix = np.vstack(process_batch)
+        print(f"<- [3] Model trained. Shape: {design_matrix.shape}")
+        return {"status": "trained", "shape": design_matrix.shape}
 
-        # 3. TRAIN (Combine): This task depends on both feature engineering
-        # tasks. It will only run after both are complete.
-        @w.do
-        def train_model(engineer_polynomial_features, engineer_statistical_features):
-            print("-> [3] Training model with combined features...")
-            # Combine the different feature sets into a single design matrix.
-            # engineer_statistical_features is 1D, so we reshape it to 2D for hstack.
-            stat_features_reshaped = engineer_statistical_features.reshape(-1, 1)
+# --- Synchronous Execution ---
+# Pass the class to the context manager to instantiate and run it.
+with weave(MLPipeline(num_records=100_000, batch_size=1000)) as w:
+    # The pipeline runs here. You could override tasks inside this
+    # block if needed.
+    pass
 
-            design_matrix = np.hstack(
-                [engineer_polynomial_features, stat_features_reshaped]
-            )
-
-            print(
-                f"<- [3] Model trained with combined feature matrix. Shape: {design_matrix.shape}"
-            )
-            return {"status": "trained", "feature_matrix_shape": design_matrix.shape}
-
-    duration = time.time() - start_time
-
-    # Verification
-    final_result = w.result.final
-    final_shape = final_result["feature_matrix_shape"]
-
-    assert final_result["status"] == "trained"
-    assert final_shape[0] == num_records
-    assert final_shape[1] == 3  # (x, x^2) + (z-score) = 3 columns
-
-    print(f"\nTotal execution time: {duration:.2f} seconds")
-    # Because the feature engineering tasks run in parallel in a thread pool,
-    # the total time is less than the sum of their individual execution times.
-    print(f"Final model status: {w.result.final}")
-    print("--- ML Pipeline Example Finished ---")
-
-
-if __name__ == "__main__":
-    asyncio.run(run_ml_pipeline_example())
+print(f"\nFinal model status: {w.result.final}")
