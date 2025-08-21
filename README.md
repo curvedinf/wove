@@ -210,20 +210,22 @@ asyncio.run(main())
 # Report for Alice: Total spent: $150
 ```
 ### Inheritable Weaves
-You can define reusable, overridable workflows by inheriting from `wove.Weave`.
+You can define reusable overridable workflows by inheriting from `wove.Weave`.
 ```python
 # In reports.py
 from wove import Weave
 class StandardReport(Weave):
+    def __init__(self, user_id: int):
+        self.user_id = user_id
     @Weave.do(retries=2, timeout=5.0)
-    def fetch_data(self, user_id: int):
+    def fetch_data(self):
         # ... logic to fetch from a database or API ...
         print(f"Fetching data for user {user_id}...")
         return {"id": user_id, "name": "Standard User"}
     @Weave.do
     def generate_summary(self, fetch_data: dict):
         return f"Report for {fetch_data['name']}"
-# This won't be executed right now in class form
+# This class's tasks won't be executed right now
 ```
 To call the reusable `Weave`, pass it to a `weave` context manager.
 ```python
