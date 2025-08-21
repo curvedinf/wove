@@ -18,38 +18,27 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-Wove can be used in any standard Python script or REPL. It automatically manages the `asyncio` event loop, allowing you to mix `async` and `def` functions without boilerplate. When the `weave` block exits, all tasks are executed based on a dependency graph built from their function signatures.
+The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures.
 
 ```python
-# Save as example.py and run `python example.py`
-# or copy-paste into a Python console.
 import time
 from wove import weave
 
-# The `weave` block can be used without `async with`.
-# Wove will manage the event loop behind the scenes.
 with weave() as w:
-    # This task takes 1 second to run.
+    # These first two tasks run concurrently.
     @w.do
     def magic_number():
         time.sleep(1.0)
         return 42
-
-    # This task also takes 1 second. Wove runs it
-    # in parallel with `magic_number` in a background thread.
     @w.do
     def important_text():
         time.sleep(1.0)
         return "The meaning of life"
-
-    # This task depends on the first two. It runs only
-    # after both are complete.
+    # This task depends on the first two. It runs only after both are complete.
     @w.do
     def put_together(important_text, magic_number):
         return f"{important_text} is {magic_number}!"
 
-# The block finishes here, taking ~1 second total.
-# Access the result of the final task via `w.result.final`.
 print(w.result.final)
 # >> The meaning of life is 42!
 
@@ -57,134 +46,72 @@ print(w.result.final)
 print(f"The magic number was {w.result.magic_number}")
 # >> The magic number was 42
 ```
-## The Wove API
-Here are all three of Wove's tools:
--   `weave()`: An `async` context manager that creates the execution environment for your tasks. It is used in an
-    `async with` block. When the weave block ends, all tasks will be executed in the order of their dependency graph.
-    The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that
-    contains the result of the last task. It can take an optional `debug` argument to print a detailed report to the
-    console before executing the tasks, and an optional `max_threads` argument to set the maximum number of threads
-    that Wove will use to run tasks in parallel.
--   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can optionally be
-    passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed
-    a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of
-    the named task. Functions decorated with `@w.do` can be sync or async. Sync functions will be run in a background
-    thread pool to avoid blocking the event loop.
--   `merge()`: A function that can be called from within a weave block to run a function concurrently for each item in
-    an iterable. It should be awaited, and will return a list of results of each concurrent function call. The function
-    passed in can be any function inside or outside the weave block, async or sync. Sync functions will be run in a
-    background thread pool to avoid blocking the event loop.
-## More Spice
-This example demonstrates a more complex ML workflow using Wove's advanced features, including inheritable Weaves and enhanced task parameters.
+## Core API
+The two main Wove tools are:
+-   `weave()`: An `async` context manager used in either a `with` or `async with` block that creates the execution environment for your tasks. When the weave block ends, all tasks will be executed in the order of their dependency graph. The weave object has a `result` attribute that contains the results of all tasks and a `.final` attribute that contains the result of the last task. It can take an optional `debug` argument to print a detailed report to the console before executing the tasks, and an optional `max_threads` argument to set the maximum number of threads that Wove will use to run tasks in parallel.
+-   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can be used on both `def` and `async def` functions, with non-async functions being run in a background thread pool to avoid blocking the event loop. It can optionally be passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of the named task. It accepts several other optional parameters for greater control over task execution, including `retries`, `timeout`, `workers`, and `limit_per_minute`.
 
+## More Spice
+This example demonstrates using Wove's advanced features, including inheritable overridable Weaves, static task mapping, dynamic task mapping, merging external functions, and a complex task graph.
 ```python
-# Save as ml_pipeline.py and run `python ml_pipeline.py`
 import time
 import numpy as np
 from wove import Weave, weave
 
-# Define the workflow as a reusable class inheriting from `wove.Weave`.
-class MLPipeline(Weave):
+class DiamondPipeline(Weave):
     def __init__(self, num_records: int):
         self.num_records = num_records
         super().__init__()
-
-    # Use the class-based decorator `@Weave.do`.
-    # Add robustness: retry on failure and timeout if it takes too long.
     @Weave.do(retries=2, timeout=60.0)
-    def load_raw_data(self):
-        print(f"-> [1] Loading raw data ({self.num_records} records)...")
-        time.sleep(0.05)  # Simulate I/O
-        features = np.arange(self.num_records, dtype=np.float64)
-        print("<- [1] Raw data loaded.")
-        return features
-
-    # This mapped task processes data in chunks.
-    # `workers=4` limits concurrency to 4 chunks at a time.
-    # `limit_per_minute=600` throttles new tasks to 10/sec.
-    @Weave.do("load_raw_data", workers=4, limit_per_minute=600)
-    def process_batches(self, chunk):
-        processed_chunk = np.vstack([chunk, chunk**2]).T
-        print(f"    -> Processed batch of size {len(chunk)}")
-        return processed_chunk
-
-    # This final task waits for all batches to be processed.
+    def load_data(self):
+        # Initial data loading - the top of the diamond.
+        time.sleep(0.1)
+        data = np.linspace(0, 10, self.num_records)
+        return data
+    @Weave.do("load_data")
+    def feature_a(self, item):
+        # First parallel processing branch.
+        time.sleep(0.2)
+        result = np.sin(item)
+        return result
+    @Weave.do("load_data")
+    def feature_b(self, item):
+        # Second parallel processing branch.
+        time.sleep(0.3)
+        result = np.cos(item)
+        return result
     @Weave.do
-    def train_model(self, process_batches):
-        print("-> [3] Training model...")
-        design_matrix = np.vstack(process_batches)
-        print(f"<- [3] Model trained. Shape: {design_matrix.shape}")
-        return {"status": "trained", "shape": design_matrix.shape}
+    def merged_features(self, feature_a, feature_b):
+        # Merge the results from parallel branches - bottom of the diamond.
+        merged = np.column_stack(feature_a + feature_b)
+        return merged
+    @Weave.do
+    def report(self, merged_features):
+        """Create a report from the merged features."""
+        return {
+            "mean": float(np.mean(merged_features)),
+            "std": float(np.std(merged_features)),
+            "shape": merged_features.shape
+        }
 
-# --- Synchronous Execution ---
-# Pass the class to the context manager to instantiate and run it.
-with weave(MLPipeline(num_records=100_000)) as w:
-    # The pipeline runs here. You could override tasks inside this
-    # block if needed.
-    pass
+# Run the pipeline
+with weave(DiamondPipeline(num_records=1_000)) as w:
+    # You can customize any step. `do` params are inherited.
+    @w.do
+    def feature_a(item):
+        result = np.tanh(item)
+        return result
 
-print(f"\nFinal model status: {w.result.final}")
-# >> Final model status: {'status': 'trained', 'shape': (100000, 2)}
+print(f"\nPipeline complete. Results: {w.result.final}")
+# >> Pipeline complete. Results: {'mean': 0.0, 'std': 1.0, 'shape': (1000, 2)}
 ```
 ## Advanced Features
-### Enhanced `@w.do` Parameters
-The `@w.do` decorator is enhanced with optional parameters for greater control:
+### Task parameters
+The `@w.do` decorator has several optional parameters for convenience:
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks, this limits the number of **concurrent** executions to the specified integer.
 -   **`limit_per_minute: int`**: For mapped tasks, this throttles their execution to a maximum number per minute.
-
-### Inheritable Weaves
-This feature introduces a class-based method for defining reusable workflows that can be customized inline.
-
-**1. Defining a Parent Weave**
-
-Workflows are defined as classes inheriting from `wove.Weave`. Tasks are defined as methods using the **`@Weave.do`** decorator.
-
-```python
-# In reports.py
-from wove import Weave
-
-class StandardReport(Weave):
-    """A reusable Weave template."""
-    @Weave.do(retries=2, timeout=5.0)
-    def fetch_data(self, user_id: int):
-        # ... logic to fetch from a database or API ...
-        print(f"Fetching data for user {user_id}...")
-        return {"id": user_id, "name": "Standard User"}
-
-    @Weave.do
-    def generate_summary(self, fetch_data: dict):
-        return f"Report for {fetch_data['name']}"
-```
-
-**2. Inline Customization**
-
-Pass the `Weave` class to the `weave` context manager. Inside the `with` block, use the instance's `@w.do` decorator to override parent tasks or add new ones. Overridden tasks automatically inherit parameters (`retries`, `timeout`, etc.) from the parent, which you can modify.
-
-```python
-# In views.py
-from wove import weave
-# from .reports import StandardReport # Assuming StandardReport is in reports.py
-
-# This can be a standard synchronous function
-def admin_report_view(user_id: int):
-    # Use the synchronous `weave` block for convenience
-    with weave(StandardReport(user_id=user_id)) as w:
-        # This override inherits `retries=2` from the parent,
-        # but changes `timeout` from 5.0 to 10.0.
-        @w.do(timeout=10.0)
-        def fetch_data(user_id: int):
-            print(f"Fetching data for ADMIN {user_id}...")
-            return {"id": user_id, "name": "Admin"}
-
-    # The result of the final task in the graph
-    return w.result.generate_summary
-
-# print(admin_report_view(user_id=123))
-# >> Fetching data for ADMIN 123...
-# >> Report for Admin
-```
 
 ### Dynamic Task Mapping
 You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when the iterable is generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
@@ -212,12 +139,7 @@ asyncio.run(main())
 # Sum of squares: 1400
 ```
 ### Complex Task Graphs
-Wove can handle complex task graphs with nested `weave` blocks, `@w.do` decorators, and `merge` functions. Before a 
-`weave` block is executed, wove builds a dependency graph from the function signatures and creates a plan to execute
-the tasks in the correct order such that tasks run as concurrently and as soon as possible.
-In addition to typical map-reduce patterns, you can also implement diamond graphs and other complex task graphs. A 
-"diamond" dependency graph is one where multiple concurrent tasks depend on a single upstream task, and a final
-downstream task depends on all of them.
+Wove can handle complex task graphs with nested `weave` blocks, `@w.do` decorators, and `merge` functions. Before a `weave` block is executed, wove builds a dependency graph from the function signatures and creates a plan to execute the tasks in the correct order such that tasks run as concurrently and as soon as possible. In addition to typical map-reduce patterns, you can also implement diamond graphs and other complex task graphs. A "diamond" dependency graph is one where multiple concurrent tasks depend on a single upstream task, and a final downstream task depends on all of them.
 ```python
 import asyncio
 from wove import weave
@@ -248,10 +170,59 @@ asyncio.run(main())
 # -> Fetching orders for user 123...
 # Report for Alice: Total spent: $150
 ```
+### Inheritable Weaves
+This feature introduces a class-based method for defining reusable workflows that can be customized inline.
+
+**1. Defining a Parent Weave**
+
+Workflows are defined as classes inheriting from `wove.Weave`. Tasks are defined as methods using the **`@Weave.do`** decorator.
+
+```python
+# In reports.py
+from wove import Weave
+
+class StandardReport(Weave):
+    """A reusable Weave template."""
+    @Weave.do(retries=2, timeout=5.0)
+    def fetch_data(self, user_id: int):
+        # ... logic to fetch from a database or API ...
+        print(f"Fetching data for user {user_id}...")
+        return {"id": user_id, "name": "Standard User"}
+
+    @Weave.do
+    def generate_summary(self, fetch_data: dict):
+        return f"Report for {fetch_data['name']}"
+```
+
+**2. Inline Customization**
+
+If you pass a `Weave` subclass to the `weave` context manager, you can customize it inline. Inside the `with` block, use the instance's `@w.do` decorator to override parent tasks or add new ones. Overridden tasks automatically inherit parameters (`retries`, `timeout`, etc.) from the parent as defaults.
+
+```python
+# In views.py
+from wove import weave
+# from .reports import StandardReport # Assuming StandardReport is in reports.py
+
+# This can be a standard synchronous function
+def admin_report_view(user_id: int):
+    # Use the synchronous `weave` block for convenience
+    with weave(StandardReport(user_id=user_id)) as w:
+        # This override inherits `retries=2` from the parent,
+        # but changes `timeout` from 5.0 to 10.0.
+        @w.do(timeout=10.0)
+        def fetch_data(user_id: int):
+            print(f"Fetching data for ADMIN {user_id}...")
+            return {"id": user_id, "name": "Admin"}
+
+    # The result of the final task in the graph
+    return w.result.generate_summary
+
+# print(admin_report_view(user_id=123))
+# >> Fetching data for ADMIN 123...
+# >> Report for Admin
+```
 ### Error Handling
-If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original 
-exception from the `async with weave()` block. This ensures predictable state and allows you to use standard 
-`try...except` blocks.
+If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original exception from the `async with weave()` block. This ensures predictable state and allows you to use standard `try...except` blocks.
 ### Debugging & Introspection
 Need to see what's going on under the hood?
 -   `async with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
