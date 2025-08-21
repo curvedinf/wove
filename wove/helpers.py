@@ -41,9 +41,19 @@ def flatten(list_of_lists):
 
 
 def fold(a_list, size):
-    """Converts a 1D list into a list of smaller lists of a given size."""
+    """Converts a 1D list into N smaller lists of `size` length."""
     if size <= 0:
         raise ValueError("Fold size must be a positive integer.")
+    return [a_list[i : i + size] for i in range(0, len(a_list), size)]
+
+
+def batch(a_list, count):
+    """Converts a 1D list into `count` smaller lists of N length."""
+    if not a_list:
+        return []
+    if count <= 0:
+        raise ValueError("Batch count must be a positive integer.")
+    size = (len(a_list) + count - 1) // count
     return [a_list[i : i + size] for i in range(0, len(a_list), size)]
 
 

@@ -22,6 +22,27 @@ def test_fold():
         helpers.fold([1, 2, 3], 0)
 
 
+def test_batch():
+    """Tests the batch helper function."""
+    # Test with a list that can be evenly divided
+    assert helpers.batch([1, 2, 3, 4, 5, 6], 2) == [[1, 2, 3], [4, 5, 6]]
+    assert helpers.batch([1, 2, 3, 4, 5, 6], 3) == [[1, 2], [3, 4], [5, 6]]
+
+    # Test with an uneven final chunk
+    assert helpers.batch([1, 2, 3, 4, 5], 2) == [[1, 2, 3], [4, 5]]
+    assert helpers.batch([1, 2, 3, 4, 5], 3) == [[1, 2], [3, 4], [5]]
+
+    # Test with a count larger than the list size
+    assert helpers.batch([1, 2, 3], 5) == [[1], [2], [3]]
+
+    # Test with an empty list
+    assert helpers.batch([], 3) == []
+
+    # Test with invalid count
+    with pytest.raises(ValueError):
+        helpers.batch([1, 2, 3], 0)
+
+
 def test_undict():
     """Tests the undict helper function."""
     assert helpers.undict({"a": 1, "b": 2}) == [("a", 1), ("b", 2)]

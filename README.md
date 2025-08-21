@@ -120,12 +120,13 @@ import asyncio
 from wove import weave
 async def main():
     async with weave() as w:
-        # This task generates the data we want to map over.
+        # Generates the data we want to map over.
         @w.do
         async def numbers():
             return [10, 20, 30]
-        # This task is mapped over the *result* of `numbers`.
-        # The `item` parameter receives each value from the list [10, 20, 30].
+        # Map each item produced by `numbers` to the `squares` function.
+        # Each item's instance of `squares` will run concurrently, and then
+        # be collected as a list after all have completed.
         @w.do("numbers")
         async def squares(item):
             return item * item
@@ -185,25 +186,36 @@ class StandardReport(Weave):
     def generate_summary(self, fetch_data: dict):
         return f"Report for {fetch_data['name']}"
 ```
-You can then override any tasks inline in your with block. The override inherits the parent's `do` parameters if not specified.
+To call the reusable `Weave`, pass it to a `weave` context manager.
+```python
+from wove import weave
+from .reports import StandardReport
+
+with weave(StandardReport(user_id=123)) as w:
+    pass
+
+print(w.result.final)
+```
+You can override any tasks inline in your `with` block. The overrided task inherits the parent's `do` parameters if not specified.
 ```python
 # In views.py
 from wove import weave
 from .reports import StandardReport
-def admin_report_view(user_id: int):
-    with weave(StandardReport(user_id=user_id)) as w:
-        @w.do(timeout=10.0)
-        def fetch_data(user_id: int):
-            print(f"Fetching data for ADMIN {user_id}...")
-            return {"id": user_id, "name": "Admin"}
-    # The result of the final task in the graph
-    return w.result.generate_summary
+
+user_id = 100
+with weave(StandardReport(user_id=user_id)) as w:
+    @w.do(timeout=10.0) # retries=2 from parent
+    def fetch_data(user_id: int):
+        print(f"Fetching data for ADMIN {user_id}...")
+        return {"id": user_id, "name": "Admin"}
+
+print(w.result.generate_summary)
 # print(admin_report_view(user_id=123))
 # >> Fetching data for ADMIN 123...
 # >> Report for Admin
 ```
 ### Merging External Functions
-Wove provides a `merge` function that can be used to dynamically map any function over an iterable. The function can be inside or outside the weave block, and can be `async` or not. Each copy of the function will be run concurrently for each item in the iterable. Used with `await`, it will return a list when all instances have completed.
+Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. Each copy of the function will be run concurrently for each item in the iterable. Used with `await`, it will then return a list when all instances have completed.
 ```python
 from wove import weave, merge, flatten
 
@@ -233,7 +245,8 @@ Need to see what's going on under the hood?
 ### Data-Shaping Helper Functions
 `wove` provides a set of simple, composable helper functions for common data manipulation patterns. Import them from `wove.helpers`.
 -   **`flatten(list_of_lists)`**: Converts a 2D iterable into a 1D list.
--   **`fold(a_list, size)`**: Converts a 1D list into a list of smaller lists.
+-   **`fold(a_list, size)`**: Converts a 1D list into N smaller lists of `size` length.
+-   **`batch(a_list, count)`**: Converts a 1D list into `count` smaller lists of N length.
 -   **`undict(a_dict)`**: Converts a dictionary into a list of `[key, value]` pairs.
 -   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
