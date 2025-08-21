@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import (
     Any,
     Callable,
-    Coroutine,
     Dict,
     List,
     Optional,
@@ -137,7 +136,7 @@ class WoveContextManager:
         dependencies: Dict[str, Set[str]] = {}
         for name, task_info in self._tasks.items():
             # Seed values are not real tasks, they have no dependencies.
-            is_seed = name in self.result._results and not hasattr(task_info["func"], '_wove_task_info') and not name in self.result._definition_order
+            is_seed = name in self.result._results and not hasattr(task_info["func"], '_wove_task_info') and name not in self.result._definition_order
             if is_seed:
                  dependencies[name] = set()
                  continue
@@ -300,7 +299,7 @@ class WoveContextManager:
                 self._build_graph_and_plan()
             except (NameError, TypeError, RuntimeError) as e:
                 for task_name in self._tasks:
-                    if not task_name in self.result._results: # Don't overwrite seed values
+                    if task_name not in self.result._results: # Don't overwrite seed values
                         self.result._add_error(task_name, e)
                 return # Stop execution
 
@@ -422,7 +421,8 @@ class WoveContextManager:
                     # The whole weave fails. Find the task that caused it.
                     source_of_failure = None
                     def _exc_match(e1, e2):
-                        if e1 is None or e2 is None: return False
+                        if e1 is None or e2 is None:
+                            return False
                         return type(e1) is type(e2) and str(e1) == str(e2)
 
                     for task_name, f_or_list in tier_futures.items():
@@ -471,7 +471,8 @@ class WoveContextManager:
                     await asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED)
 
                 for task_name in tasks_in_tier_to_run:
-                    if task_name not in tier_futures: continue
+                    if task_name not in tier_futures:
+                        continue
                     future_or_list = tier_futures[task_name]
 
                     try:
