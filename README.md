@@ -113,17 +113,40 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this throttles their task instances to a maximum number per minute.
+### Static Task Mapping
+You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run the task concurrently for each item in the iterable and collect the results as a list after all have completed.
+```python
+from wove import weave
+
+numbers = [10, 20, 30]
+with weave() as w:
+    # Map each item from numbers to the squares function.
+    # non-async weaves can contain async functions
+    @w.do(numbers)
+    async def squares(item):
+        return item * item
+    # This final task collects the results.
+    @w.do
+    def summarize(squares):
+        return f"Sum of squares: {sum(squares)}"
+print(w.result.final)
+# Expected output:
+# Sum of squares: 1400
+```
 ### Dynamic Task Mapping
-You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when the iterable is generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
+You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when an iterable needs to be generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
 ```python
 import asyncio
 from wove import weave
 async def main():
+    min = 10
+    max = 40
+    step = 10
     async with weave() as w:
         # Generates the data we want to map over.
         @w.do
         async def numbers():
-            return [10, 20, 30]
+            return range(min, max, step)
         # Map each item produced by `numbers` to the `squares` function.
         # Each item's instance of `squares` will run concurrently, and then
         # be collected as a list after all have completed.
@@ -131,6 +154,7 @@ async def main():
         async def squares(item):
             return item * item
         # This final task collects the results.
+        # You can mix `async def` and `def` tasks.
         @w.do
         def summarize(squares):
             return f"Sum of squares: {sum(squares)}"
@@ -185,6 +209,7 @@ class StandardReport(Weave):
     @Weave.do
     def generate_summary(self, fetch_data: dict):
         return f"Report for {fetch_data['name']}"
+# This won't be executed right now in class form
 ```
 To call the reusable `Weave`, pass it to a `weave` context manager.
 ```python
