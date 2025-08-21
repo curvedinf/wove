@@ -11,7 +11,7 @@ Improvements compared to asyncio include:
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
 -   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
--   **Zero Dependencies**: Wove is pure Python, using only the standard library and can be integrated into any Python project.
+-   **Zero Dependencies**: Wove is pure Python, using only the standard library. It can be easily integrated into any Python project whether the project uses asyncio or not.
 ## Installation
 Download wove with pip:
 ```bash
