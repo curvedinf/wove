@@ -105,7 +105,8 @@ class DataPipeline(Weave):
 
 # Run a customized version of the pipeline
 with weave(DataPipeline(records=1_000)) as w:
-    # Override one of the feature steps. Any parameters in the parent are now defaults.
+    # Override one of the feature steps.
+    # Any parameters in the parent `do` are defaults here.
     @w.do("load_data")
     def feature_a(item):
         return np.tanh(item)
