@@ -133,7 +133,7 @@ with weave() as w:
     @w.do(numbers)
     async def squares(item):
         return item * item
-    # This final task collects the results.
+    # Collect the results.
     @w.do
     def summarize(squares):
         return f"Sum of squares: {sum(squares)}"
@@ -161,7 +161,7 @@ async def main():
         @w.do("numbers")
         async def squares(item):
             return item * item
-        # This final task collects the results.
+        # Collects the results.
         # You can mix `async def` and `def` tasks.
         @w.do
         def summarize(squares):
@@ -181,6 +181,9 @@ async def main():
         @w.do
         async def user_id():
             return 123
+        
+        # Both `user_profile` and `user_orders` depend on `user_id`
+        # so they will run concurrently after `user_id` completes.
         @w.do
         async def user_profile(user_id):
             print(f"-> Fetching profile for user {user_id}...")
@@ -191,6 +194,9 @@ async def main():
             print(f"-> Fetching orders for user {user_id}...")
             await asyncio.sleep(0.1)
             return [{"order_id": 1, "total": 100}, {"order_id": 2, "total": 50}]
+        
+        # Automatically wait until both `user_profile` and `user_orders`
+        # complete then pass their results to `report`.
         @w.do
         def report(user_profile, user_orders):
             name = user_profile["name"]
