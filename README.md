@@ -57,21 +57,25 @@ from .models import Author, Book
 def author_details(request, author_id):
     with weave() as w:
         @w.do
-        async def author():
+        def author():
             author_obj = Author.objects.get(id=author_id)
             time.sleep(0.1) # API call
             return author_obj
         @w.do
-        async def books():
-            books_list = list(Book.objects.filter(author_id=author_id))
-            time.sleep(0.1) # API call
-            return books_list
-        # `author` and `books` will run concurrently before being added to the template context.
+        # Get the list of the author's books
+        def books():
+            return Book.objects.filter(author_id=author_id)
+        # Map the books to a task to update their prices
+        @w.do("books")
+        def books_with_prices(book):
+            book.update_price_from_api()
+            return book
+        # When everything is done, create the template context
         @w.do
-        def context(author, books):
+        def context(author, books_with_prices):
             return {
                 "author": author,
-                "books": books,
+                "books": books_with_prices,
             }
     return render(request, "author_details.html", w.result.final)
 ```
