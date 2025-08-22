@@ -115,6 +115,12 @@ print(f"\nPipeline complete. Results: {w.result.final}")
 # >> Pipeline complete. Results: {'mean': 0.9302537626956293, 'std': 0.18500793874408072, 'shape': (1000, 2), 'quality_status': 'OK'}
 ```
 ## Advanced Features
+### Context parameters
+The `weave()` context manager has several optional parameters:
+-   **`parent_weave: Weave`**: A `Weave` class or instance to inherit tasks from.
+-   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
+-   **`max_workers: int`**: The maximum number of threads for running synchronous tasks in the background.
+-   **`**initial_values`**: Any additional keyword arguments will be available as seed values for your tasks. For example, `with weave(user_id=123) as w:` makes `user_id` available to any task that lists it as a parameter.
 ### Task parameters
 The `@w.do` decorator has several optional parameters for convenience:
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
