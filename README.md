@@ -100,7 +100,7 @@ class DataPipeline(Weave):
     @Weave.do(retries=2, timeout=60.0)
     def load_data(self, records: int):
         # Initial data loading - the top of the diamond.
-        # `records` is injected from the `weave` call.
+        # `records` is provided by the `weave()` call below.
         time.sleep(0.1)
         return np.linspace(0, 10, records)
     
