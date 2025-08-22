@@ -181,7 +181,7 @@ print(w.result.final)
 # Sum of squares: 1400
 ```
 ### Dependent Task Mapping
-You can also map a task over the result of another task or initialization data by passing the dependency's name as a string to the decorator. This is especially useful when an iterable needs to be generated dynamically. If the mapped dependency is a task, Wove ensures the upstream task completes before starting the mapped tasks.
+You can also map a task over the result of another task or over initialization data by passing the dependency's name as a string to the decorator. This is especially useful when an iterable needs to be generated dynamically. If the mapped dependency is a task, Wove ensures the upstream task completes before starting the mapped tasks.
 ```python
 import asyncio
 from wove import weave
