@@ -59,7 +59,7 @@ def author_details(request, author_id):
         @w.do
         def author():
             author_obj = Author.objects.get(id=author_id)
-            time.sleep(0.1) # API call
+            author_obj.get_related_authors()
             return author_obj
         # Get the list of the author's books
         @w.do
