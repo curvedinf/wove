@@ -91,14 +91,12 @@ async def test_downstream_task_uses_mapped_results():
 @pytest.mark.asyncio
 async def test_mapped_task_signature_validation():
     """Tests that a mapped task with an incorrect signature raises a TypeError."""
-    async with weave() as w:
-
-        @w.do([1, 2, 3])
-        def no_item_param():
-            return 1
-
     with pytest.raises(TypeError, match="must have exactly one parameter that is not a dependency"):
-        _ = w.result.no_item_param
+        async with weave() as w:
+
+            @w.do([1, 2, 3])
+            def no_item_param():
+                return 1
 
 
 @pytest.mark.asyncio
@@ -238,13 +236,11 @@ async def test_mapping_over_task_returning_empty_list():
 @pytest.mark.asyncio
 async def test_mapping_over_nonexistent_task_raises_error():
     """Tests that mapping over a non-existent task name raises a NameError."""
-    async with weave() as w:
-        @w.do("nonexistent_task")
-        def mapped_task(item):
-            return item
-
     with pytest.raises(NameError, match="depends on 'nonexistent_task'"):
-        _ = w.result.mapped_task
+        async with weave() as w:
+            @w.do("nonexistent_task")
+            def mapped_task(item):
+                return item
 
 @pytest.mark.asyncio
 async def test_mapping_over_non_iterable_task_result():

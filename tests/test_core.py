@@ -180,22 +180,20 @@ async def test_error_cancels_running_tasks():
 @pytest.mark.asyncio
 async def test_circular_dependency_detection():
     """Tests that a circular dependency raises a RuntimeError."""
-    async with weave() as w:
-
-        @w.do
-        def task_a(task_c):
-            return "a"
-
-        @w.do
-        def task_b(task_a):
-            return "b"
-
-        @w.do
-        def task_c(task_b):
-            return "c"
-
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
-        _ = w.result.final
+        async with weave() as w:
+
+            @w.do
+            def task_a(task_c):
+                return "a"
+
+            @w.do
+            def task_b(task_a):
+                return "b"
+
+            @w.do
+            def task_c(task_b):
+                return "c"
 
 
 @pytest.mark.asyncio

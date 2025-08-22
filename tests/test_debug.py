@@ -89,10 +89,15 @@ async def test_programmatic_access_to_execution_plan():
     assert "dependents" in plan
     assert "tiers" in plan
     assert "sorted_tasks" in plan
-    assert plan["dependencies"] == {"task_a": set(), "task_b": {"task_a"}}
-    assert plan["dependents"] == {"task_a": {"task_b"}, "task_b": set()}
-    assert plan["tiers"] == [["task_a"], ["task_b"]]
-    assert plan["sorted_tasks"] == ["task_a", "task_b"]
+    assert plan["dependencies"] == {"data": set(), "task_a": set(), "task_b": {"task_a"}}
+    assert plan["dependents"] == {"data": set(), "task_a": {"task_b"}, "task_b": set()}
+    # Tier ordering is deterministic, but order within a tier is not.
+    # So we convert to sets for comparison.
+    assert [set(t) for t in plan["tiers"]] == [set(["data", "task_a"]), set(["task_b"])]
+    # The exact sort order isn't guaranteed for items in the same tier,
+    # but we can check for content and relative order of dependent tasks.
+    assert set(plan["sorted_tasks"]) == {"data", "task_a", "task_b"}
+    assert plan["sorted_tasks"].index("task_a") < plan["sorted_tasks"].index("task_b")
 
 
 @pytest.mark.asyncio

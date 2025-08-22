@@ -75,7 +75,7 @@ class WoveContextManager:
                     "The key 'data' is a reserved name for the initial values object and cannot be used as a keyword argument."
                 )
             self.result._add_result(name, value)
-            self._tasks[name] = {"func": lambda: value, "map_source": None, "seed": True}
+            self._tasks[name] = {"func": (lambda v=value: v), "map_source": None, "seed": True}
 
         if parent_weave:
             # If a class is passed, instantiate it. If an instance is passed, use it directly.
@@ -163,6 +163,12 @@ class WoveContextManager:
                         f"Mapped task '{name}' must have exactly one parameter that is not a dependency."
                     )
                 task_info["item_param"] = non_dependency_params.pop()
+            else:
+                unresolved_params = params - all_task_names
+                if unresolved_params:
+                    raise NameError(
+                        f"Task '{name}' has unresolved dependencies: {', '.join(unresolved_params)}"
+                    )
             dependencies[name] = task_dependencies
 
         dependents: Dict[str, Set[str]] = {name: set() for name in self._tasks}
@@ -311,7 +317,7 @@ class WoveContextManager:
                 for task_name in self._tasks:
                     if task_name not in self.result._results: # Don't overwrite seed values
                         self.result._add_error(task_name, e)
-                return # Stop execution
+                raise
 
             if self._debug:
                 self._print_debug_report()
