@@ -266,7 +266,7 @@ class StandardReport(Weave):
         return {"id": user_id, "name": "Standard User"}
     @Weave.do
     def summary(self, data: dict):
-        return f"Report for {fetch_data['name']}"
+        return f"Report for {data['name']}"
 # This class's tasks won't be executed right now
 ```
 To call the reusable `Weave`, pass it to a `weave` context manager.
