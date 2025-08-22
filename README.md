@@ -46,7 +46,7 @@ print(f'The important text was "{w.result["important_text"]}"')
 # >> The important text was "The meaning of life"
 ```
 ## Wove's Design Pattern
-Wove is designed to be added inline in your existing functions. Since it is not required to be in an `async` block, it is useful for retrofitting into any IO-bound parallelizable process. For instance in a Django view, you can run your database lookups and related code in parallel.
+Wove is designed to be added inline in your existing functions. Since it is not required to be in an `async` block, it is useful for retrofitting into any IO-bound parallelizable process. For instance in a non-async Django view, you can run your database lookups and related code in parallel.
 ```python
 # views.py
 import time
