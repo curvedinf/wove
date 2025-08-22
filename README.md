@@ -262,7 +262,7 @@ print(w.result.generate_summary)
 # >> Report for Admin
 ```
 ### Merging External Functions
-Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. Each copy of the function will be run concurrently for each item in the iterable. Used with `await`, it will return a list of results when all instances have completed.
+Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. A copy of the callable will be run concurrently for each item in the iterable. Used with `await`, a list of results will be returned when all instances have completed.
 ```python
 from wove import weave, merge, flatten
 
