@@ -256,7 +256,7 @@ from wove import Weave
 
 class StandardReport(Weave):
     @Weave.do(retries=2, timeout=5.0)
-    def fetch_user_data(self, user_id: int):
+    def user_data(self, user_id: int):
         # `user_id` is passed in from the `weave()` call.
         # Wove checks the function's signature at runtime and passes the appropriate data in.
         print(f"Fetching data for user {user_id}...")
@@ -264,8 +264,8 @@ class StandardReport(Weave):
         return {"id": user_id, "name": "Standard User"}
 
     @Weave.do
-    def summary(self, fetch_user_data: dict):
-        return f"Report for {fetch_user_data['name']}"
+    def summary(self, user_data: dict):
+        return f"Report for {user_data['name']}"
 ```
 To run the reusable `Weave`, pass the class and any required data to the `weave` context manager.
 ```python
@@ -290,7 +290,7 @@ from .reports import StandardReport
 with weave(StandardReport, user_id=456, is_admin=True) as w:
     # This override has a different signature than StandardReport's version and Wove handles it.
     @w.do(timeout=10.0)
-    def fetch_user_data(user_id: int, is_admin: bool):
+    def user_data(user_id: int, is_admin: bool):
         if is_admin:
             print(f"Fetching data for ADMIN {user_id}...")
             return {"id": user_id, "name": "Admin"}
