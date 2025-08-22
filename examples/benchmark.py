@@ -77,20 +77,17 @@ def run_wove_benchmark():
 
     start_time = time.perf_counter()
 
-    # The executor is now passed to weave()
-    with ThreadPoolExecutor() as executor:
-        with wove.weave(executor=executor) as w:
-            @w.do(range(NUM_TASKS))
-            def wove_task(item):
-                # The item from the range is the dummy parameter.
-                combined_task(item)
+    with wove.weave() as w:
+        @w.do(range(NUM_TASKS))
+        def wove_task(item):
+            # The item from the range is the dummy parameter.
+            combined_task(item)
 
     end_time = time.perf_counter()
 
-    # The README mentions w.result.timings. Let's log the timing for our task.
-    # Based on the error, w.result.timings['wove_task'] is a float.
-    execution_time = w.result.timings.get('wove_task', 0.0)
-    log.info(f"Wove execution time (from timings dict): {execution_time:.4f} seconds")
+    log.info("Wove timing details:")
+    for key, value in sorted(w.result.timings.items()):
+        log.info(f"  - {key}: {value:.4f}s")
 
     log.info(f"Wove total time: {end_time - start_time:.4f} seconds")
     log.info("-" * 35)

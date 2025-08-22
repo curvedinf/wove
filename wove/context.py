@@ -296,7 +296,10 @@ class WoveContextManager:
             # This outer try...except is to catch CancelledError and allow it
             # to be handled gracefully by the cleanup logic in `finally`.
             try:
+                planning_start_time = time.monotonic()
                 self._build_graph_and_plan()
+                planning_end_time = time.monotonic()
+                self.result._add_timing("planning", planning_end_time - planning_start_time)
             except (NameError, TypeError, RuntimeError) as e:
                 for task_name in self._tasks:
                     if task_name not in self.result._results: # Don't overwrite seed values
@@ -314,7 +317,8 @@ class WoveContextManager:
             # Semaphore for each task that defines a `workers` limit
             semaphores: Dict[str, asyncio.Semaphore] = {}
 
-            for tier in tiers:
+            for i, tier in enumerate(tiers):
+                tier_pre_execution_start = time.monotonic()
                 tier_futures: Dict[str, Union[asyncio.Future, List[asyncio.Future]]] = {}
                 tasks_in_tier_to_run = [t for t in tier if t not in globally_failed_tasks]
 
@@ -378,6 +382,9 @@ class WoveContextManager:
                         tier_futures[task_name] = future
                         all_created_tasks.add(future)
 
+                tier_execution_start = time.monotonic()
+                self.result._add_timing(f"tier_{i+1}_pre_execution", tier_execution_start - tier_pre_execution_start)
+
                 if not tier_futures:
                     continue
 
@@ -389,6 +396,9 @@ class WoveContextManager:
                     for task_name in tasks_in_tier_to_run:
                         if isinstance(tier_futures.get(task_name), list):
                             self.result._add_result(task_name, [])
+                    tier_post_execution_start = time.monotonic()
+                    self.result._add_timing(f"tier_{i+1}_execution", tier_post_execution_start - tier_execution_start)
+                    self.result._add_timing(f"tier_{i+1}_post_execution", 0)
                     continue
 
                 done, pending = await asyncio.wait(current_tier_futures, return_when=asyncio.FIRST_COMPLETED)
@@ -470,6 +480,9 @@ class WoveContextManager:
                 if pending:
                     await asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED)
 
+                tier_post_execution_start = time.monotonic()
+                self.result._add_timing(f"tier_{i+1}_execution", tier_post_execution_start - tier_execution_start)
+
                 for task_name in tasks_in_tier_to_run:
                     if task_name not in tier_futures:
                         continue
@@ -499,6 +512,9 @@ class WoveContextManager:
                                     self.result._add_error(dep, e)
                                     tasks_to_fail.append(dep)
                                     processed_for_failure.add(dep)
+
+                tier_post_execution_end = time.monotonic()
+                self.result._add_timing(f"tier_{i+1}_post_execution", tier_post_execution_end - tier_post_execution_start)
 
         except asyncio.CancelledError:
             # The weave was cancelled externally.
