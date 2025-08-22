@@ -19,7 +19,7 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures.
+The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. After a dependency task runs, its return value is passed to the same parameter that names it as a dependency.
 ```python
 import time
 from wove import weave
@@ -129,7 +129,7 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
 ### Static Task Mapping
-You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run the task concurrently for each item in the iterable and collect the results as a list after all have completed.
+You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run the task concurrently for each item in the iterable and collect the results as a list after all have completed. The result list will be passed to any dependent tasks through the same-named parameter.
 ```python
 from wove import weave
 
