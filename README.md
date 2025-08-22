@@ -67,7 +67,7 @@ def author_details(request, author_id):
         # Map the books to a task that updates each of their prices concurrently
         @w.do("books")
         def books_with_prices(book):
-            book.verify_with_api()
+            book.get_price_from_api()
             return book
         # When everything is done, create the template context
         @w.do
