@@ -19,7 +19,7 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters. The result of the last task that runs are available in `w.result.final`.
+The core of Wove's functionality is the `weave` context manager. It is used in a `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters. The result of the last task that runs are available in `w.result.final`.
 ```python
 import time
 from wove import weave
@@ -35,7 +35,7 @@ with weave() as w:
         return "The meaning of life"
     # This task depends on the first two. It runs only after both are complete.
     @w.do
-    def put_together(important_text, magic_number):
+    def combined(important_text, magic_number):
         return f"{important_text} is {magic_number}!"
     # When the `with` block closes, all tasks are executed.
 print(w.result.final)
@@ -45,6 +45,42 @@ print(f"The magic number was {w.result.magic_number}")
 print(f'The important text was "{w.result["important_text"]}"')
 # >> The important text was "The meaning of life"
 ```
+## Wove's Design Pattern
+Wove is designed to be added inline in your existing functions. Since it is not required to be in an `async` block, it is good for retrofiting into any IO-bound parallelizable task. For instance in a Django view, you could have each of your QuerySets in a separate task.
+```python
+# models.py
+# from django.db import models
+#
+# class Author(models.Model):
+#     name = models.CharField(max_length=100)
+# 
+# class Book(models.Model):
+#    title = models.CharField(max_length=100)
+#    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='books')
+
+# views.py
+from django.shortcuts import render
+from wove import weave
+from .models import Author, Book
+
+def author_details(request, author_id):
+    with weave() as w:
+        @w.do
+        def author(author_id):
+            return Author.objects.get(id=author_id)
+        @w.do
+        def books(author_id):
+            return Book.objects.filter(author_id=author_id)
+        # `author` and `books` will run concurrently before being added to the template context.
+        @w.do
+        def context(author, books):
+            return {
+                "author": author,
+                "books": books,
+            }
+    return render(request, "author_details.html", w.result.final)
+```
+We suggest naming weave tasks with nouns instead of verbs like functions. Since Wove tasks are designed to be run immediately like inline code, and not be reused, noun names reinforce the concept that a Wove task represents its output data instead of its action.
 ## Core API
 The two core Wove tools are:
 -   `weave()`: An `async` context manager used in either a `with` or `async with` block that creates the execution environment for your tasks. When the `weave` block ends, all tasks will be executed in the order of their dependency graph. The `weave` object has a `result` attribute that contains the results of all tasks and a `.final` attribute that contains the result of the last task.
@@ -142,7 +178,7 @@ with weave() as w:
         return item * item
     # Collect the results.
     @w.do
-    def summarize(squares):
+    def summary(squares):
         return f"Sum of squares: {sum(squares)}"
 print(w.result.final)
 # Expected output:
@@ -171,7 +207,7 @@ async def main():
         # Collects the results.
         # You can mix `async def` and `def` tasks.
         @w.do
-        def summarize(squares):
+        def summary(squares):
             return f"Sum of squares: {sum(squares)}"
     print(w.result.final)
 asyncio.run(main())
@@ -225,12 +261,12 @@ class StandardReport(Weave):
     def __init__(self, user_id: int):
         self.user_id = user_id
     @Weave.do(retries=2, timeout=5.0)
-    def fetch_data(self):
+    def data(self):
         # ... logic to fetch from a database or API ...
         print(f"Fetching data for user {user_id}...")
         return {"id": user_id, "name": "Standard User"}
     @Weave.do
-    def generate_summary(self, fetch_data: dict):
+    def summary(self, data: dict):
         return f"Report for {fetch_data['name']}"
 # This class's tasks won't be executed right now
 ```
@@ -253,7 +289,7 @@ from .reports import StandardReport
 user_id = 100
 with weave(StandardReport(user_id=user_id)) as w:
     @w.do(timeout=10.0) # retries=2 from parent
-    def fetch_data(user_id: int):
+    def data(user_id: int):
         print(f"Fetching data for ADMIN {user_id}...")
         return {"id": user_id, "name": "Admin"}
 
@@ -274,7 +310,7 @@ with weave() as w:
     def strings():
         return ["hello world", "foo bar", "baz qux"]
     @w.do
-    async def chop(strings):
+    async def chopped(strings):
         # Async functions can be within non-async weave blocks.
         # `merge` needs an async function so it can be awaited.
         return flatten(await merge(split, strings))
