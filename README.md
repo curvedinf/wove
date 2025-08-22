@@ -282,7 +282,7 @@ with weave(StandardReport(user_id=user_id)) as w:
         print(f"Fetching data for ADMIN {user_id}...")
         return {"id": user_id, "name": "Admin"}
 
-print(w.result.generate_summary)
+print(w.result.summary)
 # >> Fetching data for ADMIN 123...
 # >> Report for Admin
 ```
