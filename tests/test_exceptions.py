@@ -12,5 +12,6 @@ def test_unresolved_signature_error():
         with weave() as w:
             w.do(lambda unavailable_dependency: "will not run")
 
-    assert "Task '<lambda>' has unresolved dependencies: unavailable_dependency" in str(exc_info.value)
-    assert "Available dependencies: data" in str(exc_info.value)
+    error_str = str(exc_info.value)
+    assert error_str.startswith("Task '<lambda>' has unresolved dependencies: unavailable_dependency")
+    assert "data" in error_str

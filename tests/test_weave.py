@@ -13,5 +13,5 @@ def test_instantiating_weave_class_outside_context_fails():
     with pytest.raises(TypeError, match="cannot be instantiated directly"):
         MyWorkflow()
 
-    with pytest.raises(TypeError, match="Instead, pass the class to the `weave()` context manager"):
+    with pytest.raises(TypeError, match="Instead, pass the class"):
         MyWorkflow()

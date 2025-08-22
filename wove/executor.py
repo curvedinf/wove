@@ -31,6 +31,7 @@ async def retry_timeout_wrapper(
                 else:
                     return await coro
             except asyncio.CancelledError:
+                result._add_cancelled(task_name)
                 raise
             except (Exception, asyncio.TimeoutError) as e:
                 last_exception = e
@@ -197,7 +198,12 @@ async def execute_plan(
 
                 try:
                     if isinstance(future_or_list, list):
-                        results = [f.result() for f in future_or_list]
+                        results = []
+                        for f in future_or_list:
+                            try:
+                                results.append(f.result())
+                            except asyncio.CancelledError:
+                                result._add_cancelled(task_name)
                         if task_name not in result.timings:
                             result._add_timing(task_name, 0)
                         result._add_result(task_name, results)

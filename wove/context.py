@@ -66,8 +66,9 @@ class WoveContextManager:
             self._tasks[name] = {"func": (lambda v=value: v), "map_source": None, "seed": True}
 
         if parent_weave:
-            instance_to_load = parent_weave() if inspect.isclass(parent_weave) else parent_weave
-            self._load_from_parent(instance_to_load)
+            self.parent_weave = parent_weave
+        else:
+            self.parent_weave = None
 
     def _load_from_parent(self, parent_weave_instance: "Weave") -> None:
         """Inspects a Weave class and pre-populates tasks."""
@@ -108,6 +109,9 @@ class WoveContextManager:
         self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         self._executor_token = executor_context.set(self._executor)
         self._merge_token = merge_context.set(self._merge)
+        if self.parent_weave:
+            instance_to_load = self.parent_weave() if inspect.isclass(self.parent_weave) else self.parent_weave
+            self._load_from_parent(instance_to_load)
         return self
 
     async def __aexit__(
