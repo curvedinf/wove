@@ -127,7 +127,7 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
--   **`limit_per_minute: int`**: For mapped tasks only, this throttles their task instances to a maximum number per minute.
+-   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
 ### Static Task Mapping
 You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run the task concurrently for each item in the iterable and collect the results as a list after all have completed.
 ```python
