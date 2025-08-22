@@ -6,7 +6,7 @@ asyncio, but with a drastically improved user experience.
 Improvements compared to asyncio include:
 -   **Looks Like Normal Python**: Parallelism and execution order are implicit. You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
--   **Sync & Async Transparency**: Mix `async def` and `def` freely. A `weave` block can be inside or outside an async context. Sync functions are run in a background thread pool to avoid blocking the event loop.
+-   **Sync or Async**: Mix `async def` and `def` freely. A `weave` block can be inside or outside an async context. Sync functions are run in a background thread pool to avoid blocking the event loop.
 -   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures and runs independent tasks concurrently as soon as possible.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
