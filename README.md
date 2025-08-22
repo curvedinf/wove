@@ -80,7 +80,7 @@ def author_details(request, author_id):
             }
     return render(request, "author_details.html", w.result.final)
 ```
-We suggest naming `weave` tasks with nouns instead of verbs like functions. Since `weave` tasks are designed to be run immediately like inline code, and not be reused, noun names reinforce the concept that a Wove task represents its output data instead of its action.
+We suggest naming `weave` tasks with nouns instead of verbs like functions. Since `weave` tasks are designed to be run immediately like inline code, and not be reused, noun names reinforce the concept that a `weave` task represents its output data instead of its action.
 ## Core API
 The two core Wove tools are:
 -   `weave()`: An `async` context manager used in either a `with` or `async with` block that creates the execution environment for your tasks. When the `weave` block ends, all tasks will be executed in the order of their dependency graph. The `weave` object has a `result` attribute that contains the results of all tasks and a `.final` attribute that contains the result of the last task.
