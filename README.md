@@ -160,8 +160,8 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
-### Static Task Mapping
-You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run instances of the task concurrently for each item in the iterable and collect the results as a list after all instances have completed. The result list will be passed to any dependent tasks through the same-named parameter.
+### Local Task Mapping
+You can map a task to a local iterable by passing the iterable to the `@w.do` decorator. Wove will run instances of the task concurrently for each item in the iterable and collect the results as a list after all instances have completed. The result list will be passed to any dependent tasks through the same-named parameter.
 ```python
 from wove import weave
 
@@ -180,8 +180,8 @@ print(w.result.final)
 # Expected output:
 # Sum of squares: 1400
 ```
-### Dynamic Task Mapping
-You can also map a task over the result of another task by passing the upstream task's name as a string to the decorator. This is useful when an iterable needs to be generated dynamically. Wove ensures the upstream task completes before starting the mapped tasks.
+### Dependent Task Mapping
+You can also map a task over the result of another task or initialization data by passing the dependency's name as a string to the decorator. This is especially useful when an iterable needs to be generated dynamically. If the mapped dependency is a task, Wove ensures the upstream task completes before starting the mapped tasks.
 ```python
 import asyncio
 from wove import weave
