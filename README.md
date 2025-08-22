@@ -279,7 +279,7 @@ with weave(StandardReport(user_id=123)) as w:
 
 print(w.result.final)
 ```
-You can override or add any tasks inline in your `with` block. An overridden task inherits its parent's `do` parameters if not specified, with the exception of mappings. If you would like the same mappings for a task, they must be restated.
+You can override or add any tasks inline in your `with` block. An overridden task inherits its parent's `do` parameters if not specified, with the exception of mappings. If you would like the same mapping for a task, it must be restated.
 ```python
 # In views.py
 from wove import weave
