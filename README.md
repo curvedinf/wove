@@ -59,17 +59,15 @@ def author_details(request, author_id):
         # `author` and `books` run concurrently
         @w.do
         def author():
-            author_obj = Author.objects.get(id=author_id)
-            author_obj.get_related_authors()
-            return author_obj
+            return Author.objects.get(id=author_id)
         # Get the list of the author's books
         @w.do
         def books():
             return list(Book.objects.filter(author_id=author_id))
         # Map the books to a task that updates their prices concurrently
         @w.do("books")
-        def books_with_prices(book):
-            book.update_price_from_api()
+        def books_with_prices(book, author):
+            book.verify_with_api(author)
             return book
         # When everything is done, create the template context
         @w.do
