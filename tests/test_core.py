@@ -164,7 +164,6 @@ async def test_error_cancels_running_tasks():
                 await asyncio.sleep(0.2)  # Long enough to get cancelled
             except asyncio.CancelledError:
                 long_task_was_cancelled = True
-                raise
             return "should not finish"
 
         @w.do
@@ -172,7 +171,7 @@ async def test_error_cancels_running_tasks():
             await long_task_started.wait()
             raise ValueError("Failing task")
 
-    assert long_task_was_cancelled, "The long-running task should have been cancelled"
+    assert "long_running_task" in w.result.cancelled
     with pytest.raises(ValueError, match="Failing task"):
         _ = w.result.failing_task
 

@@ -14,8 +14,16 @@ class WoveResult:
         """
         self._results: Dict[str, Any] = {}
         self._errors: Dict[str, Exception] = {}
+        self._cancelled: set[str] = set()
         self._definition_order: List[str] = []
         self.timings: Dict[str, float] = {}
+
+    @property
+    def cancelled(self) -> set[str]:
+        """
+        Returns a set of the names of all cancelled tasks.
+        """
+        return self._cancelled
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -86,6 +94,10 @@ class WoveResult:
     def _add_error(self, key: str, error: Exception) -> None:
         """Adds an error for a given task key."""
         self._errors[key] = error
+
+    def _add_cancelled(self, key: str) -> None:
+        """Adds a task to the set of cancelled tasks."""
+        self._cancelled.add(key)
 
     def _add_timing(self, key: str, duration: float) -> None:
         """Adds a timing duration for a given task key."""
