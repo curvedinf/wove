@@ -298,7 +298,7 @@ Need to see what's going on under the hood?
 -   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
 ## Benchmarks
-Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is availabe in the `/examples` directory.
+Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is available in the `/examples` directory.
 ```bash
 $ python examples/benchmark.py
  Starting performance benchmarks...
