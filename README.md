@@ -60,7 +60,6 @@ def author_details(request, author_id):
         @w.do
         def author():
             return Author.objects.get(id=author_id)
-        # Get the list of the author's books
         @w.do
         def books():
             return list(Book.objects.filter(author_id=author_id))
