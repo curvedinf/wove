@@ -97,15 +97,12 @@ def quality_check(data):
 
 # Define a reusable base pipeline
 class DataPipeline(Weave):
-    def __init__(self, records: int):
-        self.records = records
-        super().__init__()
-    
     @Weave.do(retries=2, timeout=60.0)
-    def load_data(self):
+    def load_data(self, records: int):
         # Initial data loading - the top of the diamond.
+        # `records` is injected from the `weave` call.
         time.sleep(0.1)
-        return np.linspace(0, 10, self.records)
+        return np.linspace(0, 10, records)
     
     @Weave.do("load_data")
     def feature_a(self, item):
@@ -139,7 +136,7 @@ class DataPipeline(Weave):
 # The class isn't executed right now
 
 # Run a customized version of the pipeline
-with weave(DataPipeline(records=1_000)) as w:
+with weave(DataPipeline, records=1_000) as w:
     # Override one of the feature steps.
     # Any parameters in the parent `do` are defaults here.
     @w.do("load_data")
@@ -156,7 +153,7 @@ The `weave()` context manager has several optional parameters:
 -   **`parent_weave: Weave`**: A `Weave` class or instance to inherit tasks from.
 -   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
 -   **`max_workers: int`**: The maximum number of threads for running synchronous tasks in the background.
--   **`**initial_values`**: Any additional keyword arguments will be available as seed values for your tasks. For example, `with weave(user_id=123) as w:` makes `user_id` available to any task that lists it as a parameter.
+-   **`**kwargs`**: Any additional keyword arguments passed to `weave()` become injectable dependencies. For example, in `weave(user_id=123)`, any task can now include `user_id` in its signature to receive the value `123`. All keyword arguments are also collected into a single `data` dictionary, which is also injectable.
 ### Task parameters
 The `@w.do` decorator has several optional parameters for convenience:
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
@@ -252,48 +249,55 @@ asyncio.run(main())
 # Report for Alice: Total spent: $150
 ```
 ### Inheritable Weaves
-You can define reusable overridable workflows by inheriting from `wove.Weave`.
+You can define reusable, overridable workflows by inheriting from `wove.Weave`. External data is passed into the workflow as keyword arguments to the `weave()` context manager.
+
+Tasks within the `Weave` class can then access this data by simply including a parameter with the same name as the keyword argument.
 ```python
 # In reports.py
 from wove import Weave
+
 class StandardReport(Weave):
-    def __init__(self, user_id: int):
-        self.user_id = user_id
     @Weave.do(retries=2, timeout=5.0)
-    def data(self):
-        # ... logic to fetch from a database or API ...
+    def fetch_user_data(self, user_id: int):
+        # 'user_id' is injected from the weave() call.
         print(f"Fetching data for user {user_id}...")
+        # ... logic to fetch from a database or API ...
         return {"id": user_id, "name": "Standard User"}
+
     @Weave.do
-    def summary(self, data: dict):
-        return f"Report for {data['name']}"
-# This class's tasks won't be executed right now
+    def summary(self, fetch_user_data: dict):
+        return f"Report for {fetch_user_data['name']}"
 ```
-To call the reusable `Weave`, pass it to a `weave` context manager.
+To run the reusable `Weave`, pass the class and any required data to the `weave` context manager.
 ```python
 from wove import weave
 from .reports import StandardReport
 
-with weave(StandardReport(user_id=123)) as w:
+# Pass `user_id` as a keyword argument.
+with weave(StandardReport, user_id=123) as w:
     pass
 
 print(w.result.final)
+# >> Fetching data for user 123...
+# >> Report for Standard User
 ```
-You can override or add any tasks inline in your `with` block. An overridden task inherits its parent's `do` parameters if not specified, with the exception of mappings. If you would like the same mapping for a task, it must be restated.
+You can override tasks inline. The new task's signature is used to resolve its dependencies.
 ```python
-# In views.py
+# In an admin view...
 from wove import weave
 from .reports import StandardReport
 
-user_id = 100
-with weave(StandardReport(user_id=user_id)) as w:
-    @w.do(timeout=10.0) # retries=2 from parent
-    def data(user_id: int):
-        print(f"Fetching data for ADMIN {user_id}...")
-        return {"id": user_id, "name": "Admin"}
+with weave(StandardReport, user_id=456, is_admin=True) as w:
+    # This override has a different signature. Wove adapts.
+    @w.do(timeout=10.0)
+    def fetch_user_data(user_id: int, is_admin: bool):
+        if is_admin:
+            print(f"Fetching data for ADMIN {user_id}...")
+            return {"id": user_id, "name": "Admin"}
+        # ... regular logic ...
 
 print(w.result.summary)
-# >> Fetching data for ADMIN 123...
+# >> Fetching data for ADMIN 456...
 # >> Report for Admin
 ```
 ### Merging External Functions

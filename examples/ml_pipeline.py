@@ -6,28 +6,23 @@ from wove.helpers import fold
 
 # Define the workflow as a reusable class inheriting from `wove.Weave`.
 class MLPipeline(Weave):
-    def __init__(self, num_records: int, batch_size: int):
-        self.num_records = num_records
-        self.batch_size = batch_size
-        super().__init__()
-
     # Use the class-based decorator `@Weave.do`.
     # Add robustness: retry on failure and timeout if it takes too long.
     @Weave.do(retries=2, timeout=60.0)
-    def load_raw_data(self):
-        print(f"-> [1] Loading raw data ({self.num_records} records)...")
+    def load_raw_data(self, num_records: int):
+        print(f"-> [1] Loading raw data ({num_records} records)...")
         time.sleep(0.05)  # Simulate I/O
-        features = np.arange(self.num_records, dtype=np.float64)
+        features = np.arange(num_records, dtype=np.float64)
         print("<- [1] Raw data loaded.")
         return features
 
     # This task creates batches from the raw data.
     @Weave.do
-    def create_batches(self, load_raw_data):
+    def create_batches(self, load_raw_data, batch_size: int):
         print("-> [2] Creating batches...")
         # Use the fold helper to create a list of numpy arrays (batches)
-        batches = fold(load_raw_data, self.batch_size)
-        print(f"<- [2] Created {len(batches)} batches of size {self.batch_size}.")
+        batches = fold(load_raw_data, batch_size)
+        print(f"<- [2] Created {len(batches)} batches of size {batch_size}.")
         return batches
 
     # This mapped task processes data in chunks.
@@ -50,8 +45,8 @@ class MLPipeline(Weave):
         return {"status": "trained", "shape": design_matrix.shape}
 
 # --- Synchronous Execution ---
-# Pass the class to the context manager to instantiate and run it.
-with weave(MLPipeline(num_records=100_000, batch_size=1000)) as w:
+# Pass the class and keyword arguments to the context manager.
+with weave(MLPipeline, num_records=100_000, batch_size=1000) as w:
     # The pipeline runs here. You could override tasks inside this
     # block if needed.
     pass

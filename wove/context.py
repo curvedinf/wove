@@ -37,18 +37,18 @@ class WoveContextManager:
         *,
         debug: bool = False,
         max_workers: Optional[int] = 256,
-        **initial_values,
+        **kwargs,
     ) -> None:
         """
         Initializes the context manager.
-
         Args:
             parent_weave: An optional Weave class to inherit tasks from.
             debug: If True, prints a detailed execution plan.
             max_workers: The maximum number of threads for running sync tasks.
                 If None, a default value is chosen by ThreadPoolExecutor.
-            **initial_values: Keyword arguments to be used as initial seed
-                values for the dependency graph.
+            **kwargs: Keyword arguments to be used as initial seed values for
+                the dependency graph. These are collected into a `data` object
+                and also made available individually for dependency injection.
         """
         self._debug = debug
         self._max_workers = max_workers
@@ -60,12 +60,19 @@ class WoveContextManager:
         self._merge_token = None
         self._executor_token = None
 
-        # Seed the graph with initial values.
-        for name, value in initial_values.items():
+        # Seed the graph with the `data` object and its individual keys.
+        self._tasks["data"] = {"func": lambda: kwargs, "map_source": None, "seed": True}
+        self.result._add_result("data", kwargs)
+
+        for name, value in kwargs.items():
             if hasattr(WoveResult, name):
                 raise NameError(
                     f"Initial value name '{name}' conflicts with a built-in "
                     "attribute of the WoveResult object and is not allowed."
+                )
+            if name == "data":
+                raise NameError(
+                    "The key 'data' is a reserved name for the initial values object and cannot be used as a keyword argument."
                 )
             self.result._add_result(name, value)
             self._tasks[name] = {"func": lambda: value, "map_source": None, "seed": True}
