@@ -292,3 +292,42 @@ Need to see what's going on under the hood?
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
 ## More Examples
 See the runnable scripts in the `examples/` directory for additional advanced examples.
+
+## Benchmarks
+`wove` is designed for high-latency I/O-bound tasks. For these workloads, its performance is comparable to using Python's native `threading` and `asyncio` libraries directly, indicating that `wove` adds minimal overhead.
+
+The `examples/benchmark.py` script compares the performance of `wove` against these libraries for a task that mixes CPU-bound and I/O-bound work.
+
+```bash
+$ python examples/benchmark.py
+ Starting performance benchmarks...
+Number of tasks: 200
+CPU load iterations per task: 100000
+I/O sleep duration per task: 0.1s
+===================================
+--- Running Threading Benchmark ---
+Threading total time: 1.6910 seconds
+-----------------------------------
+--- Running Asyncio Benchmark ---
+Asyncio total time: 1.4953 seconds
+-----------------------------------
+--- Running Wove Benchmark ---
+Wove timing details:
+  - planning: 0.0002s
+  - tier_1_execution: 1.6428s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0007s
+  - wove_task: 0.1324s
+Wove total time: 1.6585 seconds
+-----------------------------------
+--- Running Wove Async Benchmark ---
+Wove Async timing details:
+  - planning: 0.0001s
+  - tier_1_execution: 1.6366s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0006s
+  - wove_async_task: 1.5063s
+Wove Async total time: 1.6414 seconds
+-----------------------------------
+Benchmarks finished.
+```
