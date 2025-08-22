@@ -19,7 +19,7 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. After a dependency task runs, its return value is passed to the same parameter that names it as a dependency.
+The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a dependency task are passed to any same-named function parameters.
 ```python
 import time
 from wove import weave
