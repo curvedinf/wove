@@ -59,7 +59,7 @@ def author_details(request, author_id):
             return Author.objects.get(id=author_id)
         @w.do
         def books():
-            return Book.objects.filter(author_id=author_id)
+            return list(Book.objects.filter(author_id=author_id))
         # `author` and `books` will run concurrently before being added to the template context.
         @w.do
         def context(author, books):
