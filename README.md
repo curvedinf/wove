@@ -296,5 +296,40 @@ Need to see what's going on under the hood?
 -   **`undict(a_dict)`**: Converts a dictionary into a list of `[key, value]` pairs.
 -   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
+## Benchmarks
+Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is availabe in the `/examples` directory.
+```bash
+$ python examples/benchmark.py
+ Starting performance benchmarks...
+Number of tasks: 200
+CPU load iterations per task: 100000
+I/O sleep duration per task: 0.1s
+===================================
+--- Running Threading Benchmark ---
+Threading total time: 1.6910 seconds
+-----------------------------------
+--- Running Asyncio Benchmark ---
+Asyncio total time: 1.4953 seconds
+-----------------------------------
+--- Running Wove Benchmark ---
+Wove timing details:
+  - planning: 0.0002s
+  - tier_1_execution: 1.6428s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0007s
+  - wove_task: 0.1324s
+Wove total time: 1.6585 seconds
+-----------------------------------
+--- Running Wove Async Benchmark ---
+Wove Async timing details:
+  - planning: 0.0001s
+  - tier_1_execution: 1.6366s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0006s
+  - wove_async_task: 1.5063s
+Wove Async total time: 1.6414 seconds
+-----------------------------------
+Benchmarks finished.
+```
 ## More Examples
-See the runnable scripts in the `examples/` directory for additional advanced examples.
+You can find a variety of usecase examples in the `examples/` directory including for machine learning and web development.

@@ -93,6 +93,27 @@ def run_wove_benchmark():
     log.info("-" * 35)
 
 
+def run_wove_async_benchmark():
+    log.info("--- Running Wove Async Benchmark ---")
+
+    start_time = time.perf_counter()
+
+    with wove.weave() as w:
+        @w.do(range(NUM_TASKS))
+        async def wove_async_task(item):
+            # The item from the range is the dummy parameter.
+            await async_combined_task(item)
+
+    end_time = time.perf_counter()
+
+    log.info("Wove Async timing details:")
+    for key, value in sorted(w.result.timings.items()):
+        log.info(f"  - {key}: {value:.4f}s")
+
+    log.info(f"Wove Async total time: {end_time - start_time:.4f} seconds")
+    log.info("-" * 35)
+
+
 def main():
     """Main function to run all benchmarks."""
     log.info("Starting performance benchmarks...")
@@ -104,6 +125,7 @@ def main():
     run_threading_benchmark()
     run_asyncio_benchmark()
     run_wove_benchmark()
+    run_wove_async_benchmark()
 
     log.info("Benchmarks finished.")
 
