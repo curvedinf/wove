@@ -133,7 +133,7 @@ async def execute_plan(
                 result._add_timing(f"tier_{i+1}_post_execution", 0)
                 continue
 
-            done, pending = await asyncio.wait(current_tier_futures, return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait(current_tier_futures, return_when=asyncio.FIRST_EXCEPTION)
 
             exception_found = None
             for f in done:
@@ -149,8 +149,19 @@ async def execute_plan(
                         break
 
             if exception_found:
+                # Build a reverse mapping from future to task name for efficient lookup.
+                future_to_task_name = {
+                    f: name
+                    for name, f_or_list in tier_futures.items()
+                    for f in (f_or_list if isinstance(f_or_list, list) else [f_or_list])
+                }
                 for p in pending:
                     p.cancel()
+                    task_name = future_to_task_name.get(p)
+                    # For mapped tasks, we only want to add the parent task once.
+                    if task_name and task_name not in result.cancelled:
+                        result._add_cancelled(task_name)
+
                 if pending:
                     await asyncio.gather(*pending, return_exceptions=True)
 
