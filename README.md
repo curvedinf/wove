@@ -19,7 +19,7 @@ Download wove with pip:
 pip install wove
 ```
 ## The Basics
-The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the weave block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters.
+The core of Wove's functionality is the `weave` context manager. It is used in an inline `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters.
 ```python
 import time
 from wove import weave
@@ -262,7 +262,7 @@ print(w.result.generate_summary)
 # >> Report for Admin
 ```
 ### Merging External Functions
-Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the weave block, and can be `async` or not. A copy of the callable will be run concurrently for each item in the iterable. Used with `await`, a list of results will be returned when all instances have completed.
+Wove provides the `merge` function to dynamically map any callable over an iterable. The callable (typically a function) can be defined inside or outside the `weave` block, and can be `async` or not. A copy of the callable will be run concurrently for each item in the iterable. Used with `await`, a list of results will be returned when all instances have completed.
 ```python
 from wove import weave, merge, flatten
 
@@ -290,7 +290,7 @@ Need to see what's going on under the hood?
 -   `w.execution_plan`: After the block, this dictionary contains the full dependency graph and execution tiers.
 -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
 ### Data-Shaping Helper Functions
-`wove` provides a set of simple, composable helper functions for common data manipulation patterns.
+Wove provides a set of simple, composable helper functions for common data manipulation patterns.
 -   **`flatten(list_of_lists)`**: Converts a 2D iterable into a 1D list.
 -   **`fold(a_list, size)`**: Converts a 1D list into N smaller lists of `size` length.
 -   **`batch(a_list, count)`**: Converts a 1D list into `count` smaller lists of N length.
