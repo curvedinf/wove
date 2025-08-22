@@ -129,7 +129,7 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
 ### Static Task Mapping
-You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run the task concurrently for each item in the iterable and collect the results as a list after all have completed. The result list will be passed to any dependent tasks through the same-named parameter.
+You can map a task to an iterable by passing the iterable to the `@w.do` decorator. Wove will run instances of the task concurrently for each item in the iterable and collect the results as a list after all instances have completed. The result list will be passed to any dependent tasks through the same-named parameter.
 ```python
 from wove import weave
 
