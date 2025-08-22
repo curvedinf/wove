@@ -55,10 +55,10 @@ from .models import Author, Book
 def author_details(request, author_id):
     with weave() as w:
         @w.do
-        def author():
+        async def author():
             return Author.objects.get(id=author_id)
         @w.do
-        def books():
+        async def books():
             return list(Book.objects.filter(author_id=author_id))
         # `author` and `books` will run concurrently before being added to the template context.
         @w.do
