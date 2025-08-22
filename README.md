@@ -56,6 +56,7 @@ from .models import Author, Book
 
 def author_details(request, author_id):
     with weave() as w:
+        # `author` and `books` run concurrently
         @w.do
         def author():
             author_obj = Author.objects.get(id=author_id)
@@ -64,7 +65,7 @@ def author_details(request, author_id):
         # Get the list of the author's books
         @w.do
         def books():
-            return Book.objects.filter(author_id=author_id)
+            return list(Book.objects.filter(author_id=author_id))
         # Map the books to a task that updates their prices concurrently
         @w.do("books")
         def books_with_prices(book):
