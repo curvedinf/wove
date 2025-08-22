@@ -1,6 +1,9 @@
 from typing import Optional, Callable, Union, Iterable
 
 
+from .vars import executor_context
+
+
 class Weave:
     """
     A base class for creating inheritable, reusable workflows.
@@ -9,6 +12,13 @@ class Weave:
     workflows can then be passed to the `weave` context manager and
     customized inline.
     """
+    def __init__(self):
+        if executor_context.get() is None:
+            raise TypeError(
+                f"'{type(self).__name__}' cannot be instantiated directly. "
+                "Instead, pass the class to the `weave()` context manager, "
+                "e.g., `async with weave(MyWorkflow):`"
+            )
 
     @staticmethod
     def do(
