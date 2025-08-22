@@ -36,7 +36,7 @@ class WoveContextManager:
         parent_weave: Optional[Type["Weave"]] = None,
         *,
         debug: bool = False,
-        max_workers: Optional[int] = None,
+        max_workers: Optional[int] = 256,
         **initial_values,
     ) -> None:
         """
