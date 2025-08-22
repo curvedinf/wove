@@ -48,17 +48,6 @@ print(f'The important text was "{w.result["important_text"]}"')
 ## Wove's Design Pattern
 Wove is designed to be added inline in your existing functions. Since it is not required to be in an `async` block, it is useful for retrofiting into any IO-bound parallelizable task. For instance in a Django view, you could have each of your QuerySets in a separate task.
 ```python
-# models.py
-# from django.db import models
-#
-# class Author(models.Model):
-#     name = models.CharField(max_length=100)
-# 
-# class Book(models.Model):
-#    title = models.CharField(max_length=100)
-#    author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='books')
-
-# views.py
 from django.shortcuts import render
 from wove import weave
 from .models import Author, Book
