@@ -65,7 +65,7 @@ def author_details(request, author_id):
         def books():
             return list(Book.objects.filter(author_id=author_id))
         # Map the books to a task that updates each of their prices concurrently
-        @w.do("books")
+        @w.do("books", retries=3)
         def books_with_prices(book):
             book.get_price_from_api()
             return book
