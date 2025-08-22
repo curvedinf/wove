@@ -186,10 +186,13 @@ You can also map a task over the result of another task by passing the upstream 
 import asyncio
 from wove import weave
 async def main():
-    async with weave(min=10, max=40, step=10) as w:
+    step = 10
+    async with weave(min=10, max=40) as w:
         # Generates the data we want to map over.
         @w.do
-        async def numbers(min, max, step):
+        async def numbers(min, max):
+            # This scope can read local variables outside the `weave` block, but
+            # passing them in as initialization data is cleaner.
             return range(min, max, step)
         # Map each item produced by `numbers` to the `squares` function.
         # Each item's instance of `squares` will run concurrently, and then
