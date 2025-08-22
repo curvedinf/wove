@@ -137,7 +137,7 @@ with weave(DataPipeline(records=1_000)) as w:
         return np.tanh(item)
 # The pipeline runs when the `with` block ends
 
-print(f"\nPipeline complete. Results: {w.result.final}")
+print(f"Pipeline complete. Results: {w.result.final}")
 # >> Pipeline complete. Results: {'mean': 0.9302537626956293, 'std': 0.18500793874408072, 'shape': (1000, 2), 'quality_status': 'OK'}
 ```
 ## Advanced Features
