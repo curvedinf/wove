@@ -98,19 +98,19 @@ def quality_check(data):
 # Define a reusable base pipeline
 class DataPipeline(Weave):
     @Weave.do(retries=2, timeout=60.0)
-    def load_data(self, records: int):
+    def dataset(self, records: int):
         # Initial data loading - the top of the diamond.
         # `records` is provided by the `weave()` call below.
         time.sleep(0.1)
         return np.linspace(0, 10, records)
     
-    @Weave.do("load_data")
+    @Weave.do("dataset")
     def feature_a(self, item):
         # First parallel processing branch.
         time.sleep(0.2)
         return np.sin(item)
     
-    @Weave.do("load_data")
+    @Weave.do("dataset")
     def feature_b(self, item):
         # Second parallel processing branch.
         time.sleep(0.3)
@@ -139,7 +139,7 @@ class DataPipeline(Weave):
 with weave(DataPipeline, records=1_000) as w:
     # Override one of the feature steps.
     # Any parameters in the parent `do` are defaults here.
-    @w.do("load_data")
+    @w.do("dataset")
     def feature_a(item):
         return np.tanh(item)
 # The pipeline runs when the `with` block ends
