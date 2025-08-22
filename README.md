@@ -295,6 +295,7 @@ with weave(StandardReport, user_id=456, is_admin=True) as w:
             print(f"Fetching data for ADMIN {user_id}...")
             return {"id": user_id, "name": "Admin"}
         # ... regular logic ...
+        return {"id": user_id, "name": "Standard User"}
 
 print(w.result.summary)
 # >> Fetching data for ADMIN 456...
