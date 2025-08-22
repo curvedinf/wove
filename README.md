@@ -56,12 +56,12 @@ from .models import Author, Book
 
 def author_details(request, author_id):
     with weave() as w:
-        @w.do(retries=3)
+        @w.do(retries=3, timeout=10.0)
         async def author():
             author_obj = Author.objects.get(id=author_id)
             time.sleep(0.1) # API call
             return author_obj
-        @w.do(retries=3)
+        @w.do(retries=3, timeout=10.0)
         async def books():
             books_list = list(Book.objects.filter(author_id=author_id))
             time.sleep(0.1) # API call
