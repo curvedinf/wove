@@ -61,8 +61,8 @@ def author_details(request, author_id):
             author_obj = Author.objects.get(id=author_id)
             time.sleep(0.1) # API call
             return author_obj
-        @w.do
         # Get the list of the author's books
+        @w.do
         def books():
             return Book.objects.filter(author_id=author_id)
         # Map the books to a task to update their prices
