@@ -10,7 +10,7 @@ Improvements compared to asyncio include:
 -   **Automatic Parallelism**: Wove builds a dependency graph from your function signatures and runs independent tasks concurrently as soon as possible.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
--   **Minimal Boilerplate**: Get started with just the `async with weave() as w:` context manager and the `@w.do` decorator.
+-   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
 ## Installation
@@ -283,10 +283,10 @@ print(w.result.final)
 # >> ['hello', 'world', 'foo', 'bar', 'baz', 'qux']
 ```
 ### Error Handling
-If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original exception from the `async with weave()` block. This ensures predictable state and allows you to use standard `try...except` blocks.
+If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original exception from the `with weave()` block. This ensures predictable state and allows you to use standard `try...except` blocks.
 ### Debugging & Introspection
 Need to see what's going on under the hood?
--   `async with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
+-   `with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
 -   `w.execution_plan`: After the block, this dictionary contains the full dependency graph and execution tiers.
 -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
 ### Data-Shaping Helper Functions
