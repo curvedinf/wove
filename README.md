@@ -150,7 +150,7 @@ print(f"Pipeline complete. Results: {w.result.final}")
 ## Advanced Features
 ### Context parameters
 The `weave()` context manager has several optional parameters:
--   **`parent_weave: Weave`**: A `Weave` class or instance to inherit tasks from.
+-   **`parent_weave: Weave`**: A `Weave` class to inherit tasks from.
 -   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
 -   **`max_workers: int`**: The maximum number of threads for running synchronous tasks in the background.
 -   **`**kwargs`**: Any additional keyword arguments passed to `weave()` become initialization data that can be used as task parameters.
