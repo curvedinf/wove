@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import functools
 import time
+import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
@@ -21,6 +22,7 @@ from .result import WoveResult
 from .task import do as do_decorator, merge as merge_func
 from .weave import Weave
 from .vars import merge_context, executor_context
+from .detached import check_and_detach
 
 
 class WoveContextManager:
@@ -35,6 +37,7 @@ class WoveContextManager:
         *,
         debug: bool = False,
         max_workers: Optional[int] = 256,
+        detach: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -42,6 +45,8 @@ class WoveContextManager:
         """
         self._debug = debug
         self._max_workers = max_workers
+        self._detach = detach
+        self._is_detached_parent = False
         self._executor: Optional[ThreadPoolExecutor] = None
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
@@ -88,6 +93,11 @@ class WoveContextManager:
                     self.result._definition_order.append(name)
 
     def __enter__(self) -> "WoveContextManager":
+        if self._detach:
+            # Fork and detach the process. The original parent will set a flag
+            # and exit the context manager, while the grandchild continues.
+            if check_and_detach():
+                self._is_detached_parent = True
         return self
 
     def __exit__(
@@ -96,16 +106,33 @@ class WoveContextManager:
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
     ) -> None:
+        # If this is the parent process in a detached weave, do nothing and exit.
+        if getattr(self, "_is_detached_parent", False):
+            return
+
         if exc_type:
             return
 
+        # For a detached weave, this code is run only by the grandchild process.
+        # For a standard synchronous weave, this runs in the main process.
         async def _runner():
             await self.__aenter__()
-            await self.__aexit__(None, None, None)
+            await self.__aexit__(exc_type, exc_val, exc_tb)
+
+        # In detached mode, we must unset the flag before calling the runner
+        # to prevent a recursive error inside the child process.
+        if self._detach:
+            self._detach = False
 
         asyncio.run(_runner())
 
     async def __aenter__(self) -> "WoveContextManager":
+        if self._detach:
+            raise TypeError(
+                "Detached mode is not supported with `async with`. "
+                "Please use a synchronous `with weave(detach=True):` block."
+            )
+
         self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         self._executor_token = executor_context.set(self._executor)
         self._merge_token = merge_context.set(self._merge)
@@ -120,6 +147,10 @@ class WoveContextManager:
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
     ) -> None:
+        # If this is the parent process in a detached weave, do nothing.
+        if getattr(self, "_is_detached_parent", False):
+            return
+
         if exc_type:
             if self._executor:
                 self._executor.shutdown(wait=False)
