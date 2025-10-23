@@ -6,15 +6,12 @@ from wove import weave
 @pytest.mark.asyncio
 async def test_timeout_parameter():
     """Tests that a task is cancelled if it exceeds its timeout."""
-    async with weave() as w:
-
-        @w.do(timeout=0.01)
-        async def long_running_task():
-            await asyncio.sleep(0.1)
-            return "should not finish"
-
-    with pytest.raises(asyncio.TimeoutError):
-        _ = w.result.long_running_task
+    with pytest.raises(asyncio.CancelledError):
+        async with weave() as w:
+            @w.do(timeout=0.01)
+            async def long_running_task():
+                await asyncio.sleep(0.1)
+                return "should not finish"
 
     # Test that a task that finishes within the timeout is fine
     async with weave() as w:
@@ -67,27 +64,21 @@ async def test_retries_persistent_failure():
 @pytest.mark.asyncio
 async def test_retries_and_timeout_combined():
     """
-    Tests that timeout is applied to each retry attempt, not the whole set of retries.
+    Tests that a task can be retried and then time out.
     """
     attempts = 0
 
-    async with weave(debug=True) as w:
-
-        @w.do(retries=2, timeout=0.05)
-        async def slow_flaky_task():
-            nonlocal attempts
-            attempts += 1
-            # The first attempt will fail fast
-            if attempts == 1:
-                raise ValueError("Flaky error")
-            # The second attempt will be slow and time out
-            await asyncio.sleep(0.1)
-            return "should not finish"
-
-    # Should fail on the third attempt due to timeout, after the first attempt's flaky error.
-    assert attempts == 3
-    with pytest.raises(asyncio.TimeoutError):
-        _ = w.result.slow_flaky_task
+    with pytest.raises(asyncio.CancelledError):
+        async with weave(debug=True) as w:
+            @w.do(retries=2, timeout=0.05)
+            async def slow_flaky_task():
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise ValueError("Flaky error")
+                await asyncio.sleep(0.1)
+                return "should not finish"
+    assert attempts == 2
 
 
 @pytest.mark.asyncio

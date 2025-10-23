@@ -18,6 +18,19 @@
 [![Python 3.14 (free-threaded)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml)
 
 Beautiful Python async.
+
+## Table of Contents
+- [What is Wove For?](#what-is-wove-for)
+- [Installation](#installation)
+- [The Basics](#the-basics)
+- [Wove's Design Pattern](#woves-design-pattern)
+- [Core API](#core-api)
+- [More Spice](#more-spice)
+- [Advanced Features](#advanced-features)
+- [Background Processing](#background-processing)
+- [Benchmarks](#benchmarks)
+- [More Examples](#more-examples)
+
 ## What is Wove For?
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
 asyncio, but with a drastically improved user experience.
@@ -171,6 +184,9 @@ The `weave()` context manager has several optional parameters:
 -   **`parent_weave: Weave`**: A `Weave` class to inherit tasks from.
 -   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
 -   **`max_workers: int`**: The maximum number of threads for running synchronous tasks in the background.
+-   **`background: bool`**: If `True`, runs the entire weave in a background thread.
+-   **`fork: bool`**: If `True` and `background` is `True`, runs the weave in a forked process instead of a thread.
+-   **`on_done: callable`**: A callback function to be executed when a background weave is complete.
 -   **`**kwargs`**: Any additional keyword arguments passed to `weave()` become initialization data that can be used as task parameters.
 ### Task parameters
 The `@w.do` decorator has several optional parameters for convenience:
@@ -355,6 +371,33 @@ Wove provides a set of simple, composable helper functions for common data manip
 -   **`undict(a_dict)`**: Converts a dictionary into a list of `[key, value]` pairs.
 -   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
+
+## Background Processing
+Wove supports running the entire weave in the background, either in a separate thread or a forked process. This is useful for fire-and-forget tasks where you don't need to wait for the result immediately.
+
+To enable background processing, set `background=True` in the `weave()` call.
+-   **Embedded (threaded) mode (default)**: `weave(background=True)` will run the weave in a new background thread.
+-   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new background process. This is useful for CPU-bound tasks that would otherwise block the main event loop.
+
+You can provide an `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
+```python
+import time
+from wove import weave
+
+def my_callback(result):
+    print(f"Background weave complete! Final result: {result.final}")
+
+# Run in a background thread
+with weave(background=True, on_done=my_callback) as w:
+    @w.do
+    def long_running_task():
+        time.sleep(2)
+        return "Done!"
+
+print("Main program continues to run...")
+# After 2 seconds, the callback will be executed.
+```
+
 ## Benchmarks
 Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is available in the `/examples` directory.
 ```bash
