@@ -41,14 +41,14 @@ jobs:
         fi
         echo "color=$COLOR" >> $GITHUB_OUTPUT
     - name: Generate coverage badge
-      uses: emibcn/badge-action@v1.0.1
+      uses: emibcn/badge-action@v2
       with:
         label: 'Coverage'
-        message: '${{ steps.coverage.outputs.percentage }}%'
+        status: '${{ steps.coverage.outputs.percentage }}%'
         color: '${{ steps.coverage.outputs.color }}'
         path: 'coverage.svg'
     - name: Commit coverage badge
-      uses: stefanzweifel/git-auto-commit-action@v4
+      uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: "docs: update coverage badge"
         file_pattern: coverage.svg
