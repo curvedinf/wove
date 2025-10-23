@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python 3.6
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python 3.7
@@ -192,11 +192,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.14t
+    - name: Set up Python 3.14 (free-threaded)
       uses: actions/setup-python@v4
       with:
-        python-version: '3.14t'
-        allow-prereleases: true
+        python-version: '3.14'
+        architecture: 'x64-freethreaded'
     - name: Set PYTHON_GIL
       shell: bash
       run: echo "PYTHON_GIL=0" >> "$GITHUB_ENV"
