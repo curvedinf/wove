@@ -373,13 +373,14 @@ Wove provides a set of simple, composable helper functions for common data manip
 -   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
 
 ## Background Processing
-Wove supports running the entire weave in the background, either in a separate thread or a forked process. This is useful for fire-and-forget tasks where you don't need to wait for the result immediately.
+Wove supports running the entire weave in the background, either in a separate thread or a forked process. This is useful for fire-and-forget tasks where you don't want to wait for results.
 
-To enable background processing, set `background=True` in the `weave()` call.
--   **Embedded (threaded) mode (default)**: `weave(background=True)` will run the weave in a new background thread.
--   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new background process. This is useful for CPU-bound tasks that would otherwise block the main event loop.
+To enable background processing, set `background=True` in the `weave()` call. Wove's background processing supports two modes:
+-   **Embedded mode (default)**: `weave(background=True)` will run the weave in a new background thread using the `threading` module attached to the current python process.
+-   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new detached python process. This is useful for persisting the background process past when the current python process ends. For instance when running Wove in an HTTP server worker process, it is ideal to complete the request as fast as possible and return the worker to the server. Forking Wove allows the background process to continue processing after the request responds.
 
-You can provide an `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
+Both modes can be provided an optional `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
+
 ```python
 import time
 from wove import weave
@@ -397,6 +398,8 @@ with weave(background=True, on_done=my_callback) as w:
 print("Main program continues to run...")
 # After 2 seconds, the callback will be executed.
 ```
+
+There are important considerations when running a wove process in the background. Firstly, you are responsible for signaling when a background weave process ends via the callback you provide. With embedded mode, your callback can access the global environment of your python process, but when using forked mode, your callback will be run from the forked process, so you will need to use a signaling system, database, or file to transmit data back to your original process if that is desired. Secondly, when forking, Wove serializes your entire local python context to a file to enable all features and ensure maximal compatibility in the remote forked process. This does mean that you must be careful about the size of data stored in local variables in the scope of your `with` statement while using forked mode, as all local variables will be deepcopied to the fork.
 
 ## Benchmarks
 Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is available in the `/examples` directory.
