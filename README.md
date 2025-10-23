@@ -377,7 +377,7 @@ Wove supports running the entire weave in the background, either in a separate t
 
 To enable background processing, set `background=True` in the `weave()` call. Wove's background processing supports two modes:
 -   **Embedded mode (default)**: `weave(background=True)` will run the weave in a new background thread using the `threading` module attached to the current python process.
--   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new detached python process. This is useful for persisting the background process past when the current python process ends. For instance when running Wove in an HTTP server worker process, it is ideal to complete the request as fast as possible and return the worker to the server. Forking Wove allows the background process to continue processing after the request responds.
+-   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new detached python process. This is useful for persisting the background process past when the current python process ends. For instance when running Wove in an HTTP server worker, it is ideal to complete the request as fast as possible and return the worker to the server's pool. Forking Wove allows the background process to continue processing after the request responds.
 
 Both modes can be provided an optional `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
 
