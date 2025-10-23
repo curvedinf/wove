@@ -6,6 +6,7 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/wove)](https://pypi.org/project/wove/)
 [![GitHub stars](https://img.shields.io/github/stars/curvedinf/wove)](https://github.com/curvedinf/wove/stargazers)
 [![Ko-fi Link](kofi.webp)](https://ko-fi.com/A0A31B6VB6)
+
 [![Coverage](coverage.svg)](https://github.com/curvedinf/wove/actions/workflows/coverage.yml)
 
 [![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/python-3-8.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-8.yml)
