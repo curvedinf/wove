@@ -41,7 +41,7 @@ Improvements compared to asyncio include:
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
 -   **Automatic Scheduling**: Wove builds a dependency graph from your task signatures and runs independent tasks concurrently as soon as possible.
 -   **Automatic Detachment**: Wove can run your inline code in a forked detached process so you can return your current process back to your server's pool.
--   **Extensibility**: Define parallelized workflow templates that can be overriden inline.
+-   **Extensibility**: Define parallelized workflow templates that can be overridden inline.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
