@@ -35,12 +35,14 @@ Beautiful Python async.
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
 asyncio, but with a drastically improved user experience.
 Improvements compared to asyncio include:
--   **Looks Like Normal Python**: Parallelism and execution order are implicit. You write simple, decorated functions. No manual task objects, no callbacks.
 -   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
+-   **Implicit Parallelism**: Parallelism and execution order are implicit based on function and parameter naming.
 -   **Sync or Async**: Mix `async def` and `def` freely. A `weave` block can be inside or outside an async context. Sync functions are run in a background thread pool to avoid blocking the event loop.
--   **Automatic Parallelism**: Wove builds a dependency graph from your task signatures and runs independent tasks concurrently as soon as possible.
--   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
+-   **Automatic Scheduling**: Wove builds a dependency graph from your task signatures and runs independent tasks concurrently as soon as possible.
+-   **Automatic Detachment**: Wove can run your inline code in a forked detached process so you can return your current process back to your server's pool.
+-   **Extensibility**: Define parallelized workflow templates that can be overriden inline.
+-   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
