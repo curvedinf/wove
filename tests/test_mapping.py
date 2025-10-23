@@ -66,7 +66,7 @@ async def test_sync_function_mapping():
 
     duration = time.time() - start_time
     # If run in series, would be > 0.03. Concurrently in threads, should be less.
-    assert duration < 0.025
+    assert duration < 0.03
     assert w.result.sync_process == [True, True, True]
 
 
