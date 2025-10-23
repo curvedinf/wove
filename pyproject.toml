@@ -18,6 +18,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "cloudpickle",
+]
 [project.urls]
 "Homepage" = "https://github.com/curvedinf/wove"
 "Bug Tracker" = "https://github.com/curvedinf/wove/issues"

@@ -63,9 +63,11 @@ class WoveResult:
         Raises:
             AttributeError: If no task with that name exists.
         """
-        if name in self._errors:
+        # Access __dict__ directly to prevent recursion, and check for attribute
+        # existence to ensure safety during unpickling.
+        if "_errors" in self.__dict__ and name in self._errors:
             raise self._errors[name]
-        if name in self._results:
+        if "_results" in self.__dict__ and name in self._results:
             return self._results[name]
         raise AttributeError(
             f"'{type(self).__name__}' object has no attribute '{name}'"

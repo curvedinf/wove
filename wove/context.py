@@ -2,6 +2,11 @@ import asyncio
 import inspect
 import functools
 import time
+import threading
+import tempfile
+import subprocess
+import sys
+import cloudpickle
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
@@ -35,6 +40,9 @@ class WoveContextManager:
         *,
         debug: bool = False,
         max_workers: Optional[int] = 256,
+        background: bool = False,
+        fork: bool = False,
+        on_done: Optional[Callable] = None,
         **kwargs,
     ) -> None:
         """
@@ -42,6 +50,9 @@ class WoveContextManager:
         """
         self._debug = debug
         self._max_workers = max_workers
+        self._background = background
+        self._fork = fork
+        self._on_done_callback = on_done
         self._executor: Optional[ThreadPoolExecutor] = None
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult()
@@ -114,12 +125,64 @@ class WoveContextManager:
             self._load_from_parent(instance_to_load)
         return self
 
+    def _start_threaded_process(self):
+        """
+        Executes the weave in a new thread.
+        """
+        def thread_target():
+            asyncio.run(self._run_background_weave())
+
+        thread = threading.Thread(target=thread_target)
+        thread.start()
+
+    def _start_forked_process(self):
+        """
+        Executes the weave in a new process.
+        """
+        # The executor and context tokens are not pickleable and should be
+        # recreated in the new process.
+        self._executor = None
+        self._executor_token = None
+        self._merge_token = None
+
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            cloudpickle.dump(self, f)
+            context_file = f.name
+
+        command = [sys.executable, "-m", "wove.background", context_file]
+        subprocess.Popen(command)
+
+    async def _run_background_weave(self):
+        """
+        A helper function to run the weave and the on_done callback.
+        """
+        # Temporarily disable background mode to allow execution in __aexit__
+        self._background = False
+        try:
+            async with self:
+                pass
+        finally:
+            # Restore the flag
+            self._background = True
+
+        if self._on_done_callback:
+            if asyncio.iscoroutinefunction(self._on_done_callback):
+                await self._on_done_callback(self.result)
+            else:
+                self._on_done_callback(self.result)
+
     async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
     ) -> None:
+        if self._background:
+            if self._fork:
+                self._start_forked_process()
+            else:
+                self._start_threaded_process()
+            return
         if exc_type:
             if self._executor:
                 self._executor.shutdown(wait=False)
