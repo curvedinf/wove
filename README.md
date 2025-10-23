@@ -1,7 +1,12 @@
 # ![Wove](wove.png)
 
-[![Python 3.6](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-6)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.7](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-7)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![PyPI](https://img.shields.io/pypi/v/wove)](https://pypi.org/project/wove/)
+[![GitHub license](https://img.shields.io/github/license/curvedinf/wove)](LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/curvedinf/wove)](https://github.com/curvedinf/wove/commits/main)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/wove)](https://pypi.org/project/wove/)
+[![GitHub stars](https://img.shields.io/github/stars/curvedinf/wove)](https://github.com/curvedinf/wove/stargazers)
+[![Ko-fi Link](kofi.webp)](https://ko-fi.com/A0A31B6VB6)
+
 [![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-8)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.9](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-9)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.10](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-10)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
