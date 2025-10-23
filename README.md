@@ -1,4 +1,21 @@
 # ![Wove](wove.png)
+
+[![PyPI](https://img.shields.io/pypi/v/wove)](https://pypi.org/project/wove/)
+[![GitHub license](https://img.shields.io/github/license/curvedinf/wove)](LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/curvedinf/wove)](https://github.com/curvedinf/wove/commits/main)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/wove)](https://pypi.org/project/wove/)
+[![GitHub stars](https://img.shields.io/github/stars/curvedinf/wove)](https://github.com/curvedinf/wove/stargazers)
+[![Ko-fi Link](kofi.webp)](https://ko-fi.com/A0A31B6VB6)
+
+[![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-8)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.9](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-9)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.10](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-10)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.11](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-11)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.12](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-12)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.13](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-13)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.14](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.14t](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14t)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+
 Beautiful Python async.
 ## What is Wove For?
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
