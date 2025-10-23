@@ -1,6 +1,5 @@
 # ![Wove](wove.png)
 
-[![Python 3.5](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-5)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.6](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-6)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.7](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-7)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-8)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
@@ -10,7 +9,7 @@
 [![Python 3.12](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-12)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.13](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-13)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.14](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.14 (free-threaded)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14-freethreaded)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.14t](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14t)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 
 Beautiful Python async.
 ## What is Wove For?
