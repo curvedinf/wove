@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/wove)](https://pypi.org/project/wove/)
 [![GitHub license](https://img.shields.io/github/license/curvedinf/wove)](LICENSE)
-[![Coverage](coverage.svg)](https://github.com/curvedinf/wove/actions/workflows/coverage.yml)
+[![coverage](coverage.svg)](https://github.com/curvedinf/wove/actions/workflows/coverage.yml)
 [![GitHub last commit](https://img.shields.io/github/last-commit/curvedinf/wove)](https://github.com/curvedinf/wove/commits/main)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/wove)](https://pypi.org/project/wove/)
 [![GitHub stars](https://img.shields.io/github/stars/curvedinf/wove)](https://github.com/curvedinf/wove/stargazers)
