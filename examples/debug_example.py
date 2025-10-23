@@ -80,7 +80,7 @@ async def run_debug_example():
     assert "process_b" in w.result.timings
     assert "combine_results" in w.result.timings
     # Note: Tiers can have varying order for items at the same level
-    assert w.execution_plan["tiers"][0] == ["initial_data"]
+    assert set(w.execution_plan["tiers"][0]) == {"data", "initial_data"}
     assert set(w.execution_plan["tiers"][1]) == {"process_a", "process_b"}
     assert w.execution_plan["tiers"][2] == ["combine_results"]
 
