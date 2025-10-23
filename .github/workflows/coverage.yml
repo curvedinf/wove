@@ -1,0 +1,35 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,examples]
+    - name: Run tests and generate coverage report
+      run: ./run_tests_and_log.sh
+    - name: Generate coverage badge
+      uses: elysiumrealms/coverage-badge-action@v1
+      with:
+        path: coverage.json
+        output: coverage.svg
+        thresholds: '{"50": "red", "70": "orange", "90": "yellow", "95": "green"}'
+    - name: Commit coverage badge
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "docs: update coverage badge"
+        file_pattern: coverage.svg

@@ -25,6 +25,7 @@ classifiers = [
 dev = [
     "pytest-asyncio",
     "ruff",
+    "pytest-cov",
 ]
 examples = [
     "httpx",

@@ -6,15 +6,16 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/wove)](https://pypi.org/project/wove/)
 [![GitHub stars](https://img.shields.io/github/stars/curvedinf/wove)](https://github.com/curvedinf/wove/stargazers)
 [![Ko-fi Link](kofi.webp)](https://ko-fi.com/A0A31B6VB6)
+[![Coverage](coverage.svg)](https://github.com/curvedinf/wove/actions/workflows/coverage.yml)
 
-[![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-8)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.9](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-9)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.10](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-10)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.11](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-11)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.12](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-12)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.13](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-13)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.14](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
-[![Python 3.14t](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-14t)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
+[![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/python-3-8.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-8.yml)
+[![Python 3.9](https://github.com/curvedinf/wove/actions/workflows/python-3-9.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-9.yml)
+[![Python 3.10](https://github.com/curvedinf/wove/actions/workflows/python-3-10.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-10.yml)
+[![Python 3.11](https://github.com/curvedinf/wove/actions/workflows/python-3-11.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-11.yml)
+[![Python 3.12](https://github.com/curvedinf/wove/actions/workflows/python-3-12.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-12.yml)
+[![Python 3.13](https://github.com/curvedinf/wove/actions/workflows/python-3-13.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-13.yml)
+[![Python 3.14](https://github.com/curvedinf/wove/actions/workflows/python-3-14.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-14.yml)
+[![Python 3.14 (free-threaded)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml)
 
 Beautiful Python async.
 ## What is Wove For?
