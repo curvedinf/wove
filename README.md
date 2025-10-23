@@ -45,7 +45,7 @@ Improvements compared to asyncio include:
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
--   **Free Threading Compatible**: Running a modern GIL-less Python? Enable true multithreading easily with a `weave`.
+-   **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading easily with a `weave`.
 -   **Zero Dependencies**: Wove is pure Python, using only the standard library. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
 ## Installation
 Download wove with pip:
