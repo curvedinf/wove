@@ -30,10 +30,13 @@ async def retry_timeout_wrapper(
                     return await asyncio.wait_for(coro, timeout=timeout)
                 else:
                     return await coro
+            except asyncio.TimeoutError:
+                result._add_cancelled(task_name)
+                raise asyncio.CancelledError from None
             except asyncio.CancelledError:
                 result._add_cancelled(task_name)
                 raise
-            except (Exception, asyncio.TimeoutError) as e:
+            except Exception as e:
                 last_exception = e
         raise last_exception from None
     finally:

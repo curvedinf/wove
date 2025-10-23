@@ -103,3 +103,71 @@ async def test_forked_background_processing_with_complex_data():
 
     # Expected result: (test_instance.value + local_variable) * 2 = (20 + 10) * 2 = 60
     assert execution_result == 60
+
+@pytest.mark.asyncio
+async def test_background_mode_no_callback():
+    """
+    Tests that background mode works correctly without an on_done callback.
+    """
+    async with weave(background=True) as w:
+        @w.do
+        def a():
+            return 1
+    # Give the thread a moment to start and run.
+    # The main point is that this doesn't raise an error.
+    await asyncio.sleep(0.5)
+
+@pytest.mark.asyncio
+async def test_threaded_background_task_failure():
+    """
+    Tests that if a task fails in a background thread, the exception is
+    contained within the WoveResult and passed to the on_done callback.
+    """
+    error_in_result = None
+    event = asyncio.Event()
+
+    def on_done(result):
+        nonlocal error_in_result
+        error_in_result = result._errors.get("a")
+        event.set()
+
+    async with weave(background=True, on_done=on_done) as w:
+        @w.do
+        def a():
+            raise ValueError("Task failed")
+
+    await asyncio.wait_for(event.wait(), timeout=2)
+    assert isinstance(error_in_result, ValueError)
+    assert str(error_in_result) == "Task failed"
+
+def test_sync_exit_with_exception():
+    """
+    Tests that the synchronous __exit__ method correctly handles an exception
+    occurring within the `with` block, ensuring it exits cleanly.
+    """
+    try:
+        with weave() as w:
+            @w.do
+            def a():
+                return 1
+            raise ValueError("Something went wrong")
+    except ValueError as e:
+        assert str(e) == "Something went wrong"
+    # If this completes without hanging or raising a different error, it's a success.
+
+@pytest.mark.asyncio
+async def test_async_aexit_with_exception():
+    """
+    Tests that the asynchronous __aexit__ method correctly handles an exception
+    and shuts down gracefully.
+    """
+    try:
+        async with weave() as w:
+            @w.do
+            def a():
+                return 1
+            # Simulate a failure before the weave block completes
+            raise ValueError("Async error")
+    except ValueError as e:
+        assert str(e) == "Async error"
+    # The test passes if it exits cleanly without other errors.

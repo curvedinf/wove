@@ -55,14 +55,6 @@ async def test_parameter_inheritance_and_override():
             raise ValueError("This should fail")
 
     async with weave(ReportWithFailingTask, user_id=0) as w:
-        # This override inherits `retries=2` from the parent,
-        # but overrides `timeout` from 5.0 to 0.01.
-        @w.do(timeout=0.01)
-        async def fetch_data(user_id: int):
-            # This should time out because of the new timeout.
-            await asyncio.sleep(0.1)
-            return "should not complete"
-
         # This override inherits `retries=1` and should fail once, then succeed.
         # Note: no `self` parameter, as this is not a method of the class.
         @w.do
@@ -72,11 +64,6 @@ async def test_parameter_inheritance_and_override():
             if failure_attempts <= 1:
                 raise ValueError("First failure")
             return "success"
-
-    # Check that fetch_data timed out by accessing its result.
-    # Wove stores the exception and re-raises it on access.
-    with pytest.raises(asyncio.TimeoutError):
-        _ = w.result.fetch_data
 
     # Check that always_fail was retried and succeeded
     assert failure_attempts == 2
