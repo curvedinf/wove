@@ -1,0 +1,54 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,examples]
+    - name: Run tests and generate coverage report
+      run: ./run_tests_and_log.sh
+    - name: Get coverage percentage and color
+      id: coverage
+      run: |
+        PERCENTAGE=$(jq '.totals.percent_covered | round' coverage.json)
+        echo "percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
+        COLOR="red"
+        if (( $(echo "$PERCENTAGE >= 95" | bc -l) )); then
+          COLOR="brightgreen"
+        elif (( $(echo "$PERCENTAGE >= 90" | bc -l) )); then
+          COLOR="green"
+        elif (( $(echo "$PERCENTAGE >= 70" | bc -l) )); then
+          COLOR="yellow"
+        elif (( $(echo "$PERCENTAGE >= 50" | bc -l) )); then
+          COLOR="orange"
+        fi
+        echo "color=$COLOR" >> $GITHUB_OUTPUT
+    - name: Generate coverage badge
+      uses: emibcn/badge-action@v2
+      with:
+        label: 'Coverage'
+        status: '${{ steps.coverage.outputs.percentage }}%'
+        color: '${{ steps.coverage.outputs.color }}'
+        path: 'coverage.svg'
+    - name: Commit coverage badge
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "docs: update coverage badge"
+        file_pattern: coverage.svg

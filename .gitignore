@@ -112,3 +112,4 @@ venv.bak
 # Test files
 test_debug_logs.txt
 test_exit_code.txt
+coverage.json
