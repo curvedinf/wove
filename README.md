@@ -1,5 +1,6 @@
 # ![Wove](wove.png)
 
+[![Python 3.5](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-5)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.6](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-6)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.7](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-7)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
 [![Python 3.8](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml/badge.svg?branch=main&event=push&job=test-3-8)](https://github.com/curvedinf/wove/actions/workflows/release-testing.yml)
