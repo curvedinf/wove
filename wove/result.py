@@ -17,6 +17,7 @@ class WoveResult:
         self._cancelled: set[str] = set()
         self._definition_order: List[str] = []
         self.timings: Dict[str, float] = {}
+        self.exception: Exception | None = None
 
     @property
     def cancelled(self) -> set[str]:
@@ -95,6 +96,8 @@ class WoveResult:
 
     def _add_error(self, key: str, error: Exception) -> None:
         """Adds an error for a given task key."""
+        if self.exception is None:
+            self.exception = error
         self._errors[key] = error
 
     def _add_cancelled(self, key: str) -> None:
