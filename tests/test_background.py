@@ -171,3 +171,58 @@ async def test_async_aexit_with_exception():
     except ValueError as e:
         assert str(e) == "Async error"
     # The test passes if it exits cleanly without other errors.
+
+
+@pytest.mark.asyncio
+async def test_threaded_background_exception_attribute():
+    """
+    Tests that result.exception is set correctly in threaded background mode.
+    """
+    execution_exception = None
+    event = asyncio.Event()
+
+    def on_done(result):
+        nonlocal execution_exception
+        execution_exception = result.exception
+        event.set()
+
+    async with weave(background=True, on_done=on_done) as w:
+        @w.do
+        def a():
+            raise ValueError("Threaded background task failed")
+
+    await asyncio.wait_for(event.wait(), timeout=2)
+    assert isinstance(execution_exception, ValueError)
+    assert str(execution_exception) == "Threaded background task failed"
+
+
+@pytest.mark.asyncio
+async def test_forked_background_exception_attribute():
+    """
+    Tests that result.exception is set correctly in forked background mode.
+    """
+    completion_file = "fork_exception_completion.txt"
+    if os.path.exists(completion_file):
+        os.remove(completion_file)
+
+    def on_done(result):
+        if result.exception:
+            with open(completion_file, "w") as f:
+                f.write(str(result.exception))
+
+    async with weave(background=True, fork=True, on_done=on_done) as w:
+        @w.do
+        def a():
+            raise ValueError("Forked background task failed")
+
+    for _ in range(40):
+        if os.path.exists(completion_file):
+            break
+        await asyncio.sleep(0.1)
+
+    with open(completion_file, "r") as f:
+        execution_result = f.read()
+
+    os.remove(completion_file)
+
+    assert execution_result == "Forked background task failed"
