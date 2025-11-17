@@ -101,7 +101,16 @@ async def execute_plan(
                     limit_per_minute = task_info.get("limit_per_minute")
                     delay = 60.0 / limit_per_minute if limit_per_minute else 0
 
-                    async def mapped_task_runner(item, index):
+                    async def mapped_task_runner(
+                        item,
+                        index,
+                        task_name=task_name,
+                        task_func=task_func,
+                        item_param=item_param,
+                        args=args,
+                        limit_per_minute=limit_per_minute,
+                        delay=delay,
+                    ):
                         if limit_per_minute and index > 0:
                             await asyncio.sleep(index * delay)
 
