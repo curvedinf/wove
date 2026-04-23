@@ -1,9 +1,4 @@
-# Wove Documentation
-
-```{image} _static/wove.svg
-:alt: Wove logo
-:class: wove-home-logo
-```
+# [![Wove](_static/wove.svg)](index.md)
 
 Beautiful Python async.
 
@@ -44,21 +39,27 @@ Improvements compared to asyncio include:
 
 Reference is for exact behavior: public imports, configuration shape, environment resolution, executor contracts, and backend adapter setup.
 
-Start with:
+### Core Behavior
+
+These are the reference pages most readers need when they want to check the shape and guarantees of Wove itself.
 
 - [Public API](reference/api/wove.md): stable imports most users should rely on.
 - [Environments](reference/environments/index.md): persistent execution profiles, defaults, and precedence rules.
 - [Executors](reference/executors/index.md): executor choices, frame contracts, and remote callback flow.
 - [Executor Errors](reference/executors/executor-errors.md): normalized task errors, delivery timeouts, and cancellation behavior.
 
-Configuration and runtime:
+### Runtime Modules
+
+These pages map the public concepts back to the modules that implement them.
 
 - [`wove.runtime`](reference/api/wove.runtime.md): process-wide `wove.config(...)` behavior.
 - [`wove.environment`](reference/api/wove.environment.md): executor interfaces, runtime delivery errors, and executor runtime classes.
 - [`wove.remote`](reference/api/wove.remote.md): callback receiver, payload serialization, and remote worker helpers.
 - [`wove.integrations`](reference/api/wove.integrations.md): adapter registry, adapter base interface, and worker entrypoints.
 
-Backend adapters:
+### Backend Adapters
+
+Each adapter page shows the configuration keys, worker setup, and network assumptions for that backend.
 
 - [Celery](reference/executors/celery.md)
 - [Temporal](reference/executors/temporal.md)

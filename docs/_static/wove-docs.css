@@ -15,13 +15,25 @@ html.dark .sy-head-brand img {
   padding: 0.12rem 0.35rem;
 }
 
-.wove-home-logo {
-  display: block;
-  width: min(18rem, 70vw);
-  margin: 0 0 1.5rem;
+.yue h1:has(img[alt="Wove"]) {
+  margin-bottom: 1.5rem;
 }
 
-html.dark .wove-home-logo {
+.yue h1 a.reference:has(img[alt="Wove"]) {
+  display: inline-block;
+  border-bottom: 0;
+}
+
+.yue h1 img[alt="Wove"] {
+  width: min(18rem, 70vw);
+  max-width: 100%;
+}
+
+.yue h1:has(img[alt="Wove"]) .headerlink {
+  display: none;
+}
+
+html.dark .yue h1 img[alt="Wove"] {
   background: rgba(255, 255, 255, 0.92);
   border-radius: 1rem;
   padding: 0.75rem 1rem;
