@@ -3,6 +3,7 @@ import unittest.mock
 import pytest
 import pickle
 from wove.background import main
+import cloudpickle
 
 @pytest.fixture
 def mock_dependencies():
@@ -48,3 +49,61 @@ def test_main_no_args():
          pytest.raises(SystemExit) as e:
         main()
     assert e.value.code == 1
+
+
+def test_main_executes_sync_on_done_callback(tmp_path):
+    events = []
+
+    class FakeWCM:
+        def __init__(self):
+            self._background = True
+            self.result = {"ok": True}
+            self._on_done_callback = lambda result: events.append(("sync", result))
+
+        async def __aenter__(self):
+            events.append(("enter_background", self._background))
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            del exc_type, exc_val, exc_tb
+            events.append(("exit_background", self._background))
+
+    fake = FakeWCM()
+    with unittest.mock.patch("sys.argv", ["wove/background.py", str(tmp_path / "ctx.pkl")]), \
+         unittest.mock.patch("builtins.open", unittest.mock.mock_open()), \
+         unittest.mock.patch("cloudpickle.load", return_value=fake), \
+         unittest.mock.patch("os.path.exists", return_value=False):
+        main()
+
+    assert ("enter_background", False) in events
+    assert ("exit_background", False) in events
+    assert ("sync", {"ok": True}) in events
+
+
+def test_main_executes_async_on_done_callback(tmp_path):
+    events = []
+
+    class FakeWCM:
+        def __init__(self):
+            self._background = True
+            self.result = {"ok": True}
+
+            async def callback(result):
+                events.append(("async", result))
+
+            self._on_done_callback = callback
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            del exc_type, exc_val, exc_tb
+
+    fake = FakeWCM()
+    with unittest.mock.patch("sys.argv", ["wove/background.py", str(tmp_path / "ctx.pkl")]), \
+         unittest.mock.patch("builtins.open", unittest.mock.mock_open()), \
+         unittest.mock.patch("cloudpickle.load", return_value=fake), \
+         unittest.mock.patch("os.path.exists", return_value=False):
+        main()
+
+    assert ("async", {"ok": True}) in events

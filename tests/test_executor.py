@@ -1,5 +1,6 @@
 import pytest
 import time
+import asyncio
 from wove import weave
 
 @pytest.mark.asyncio
@@ -134,3 +135,62 @@ async def test_closure_bug_multiple_map_tasks_in_same_tier():
     assert w.result.map_task_1 == [101, 102, 103]
     assert w.result.map_task_2 == [204, 205, 206]
     assert w.result.map_task_3 == [307, 308, 309]
+
+
+@pytest.mark.asyncio
+async def test_map_source_not_iterable_propagates_to_dependents():
+    async with weave() as w:
+        @w.do
+        def source():
+            return 123
+
+        @w.do("source")
+        def mapped(item):
+            return item
+
+        @w.do
+        def dependent(mapped):
+            return mapped
+
+    with pytest.raises(TypeError, match="is not iterable"):
+        _ = w.result.mapped
+    with pytest.raises(TypeError, match="is not iterable"):
+        _ = w.result.dependent
+
+
+@pytest.mark.asyncio
+async def test_max_pending_propagates_to_dependents():
+    async with weave(max_pending=1) as w:
+        @w.do
+        def items():
+            return [1, 2]
+
+        @w.do("items")
+        def mapped(item):
+            return item
+
+        @w.do
+        def dependent(mapped):
+            return mapped
+
+    with pytest.raises(RuntimeError, match="exceeds max_pending"):
+        _ = w.result.mapped
+    with pytest.raises(RuntimeError, match="exceeds max_pending"):
+        _ = w.result.dependent
+
+
+@pytest.mark.asyncio
+async def test_first_exception_wait_has_pending_completion_path():
+    async with weave() as w:
+        @w.do
+        async def fast():
+            await asyncio.sleep(0.01)
+            return "fast"
+
+        @w.do
+        async def slow():
+            await asyncio.sleep(0.05)
+            return "slow"
+
+    assert w.result.fast == "fast"
+    assert w.result.slow == "slow"

@@ -15,16 +15,26 @@ from .helpers import sync_to_async
 
 
 async def retry_timeout_wrapper(
-    task_name: str, task_func: Callable, args: Dict, tasks: Dict, result: Any
+    task_name: str,
+    task_func: Callable,
+    args: Dict,
+    tasks: Dict,
+    result: Any,
+    context: Any,
 ) -> Any:
     task_info = tasks[task_name]
-    retries = task_info.get("retries", 0)
+    retries = task_info.get("retries", 0) or 0
     timeout = task_info.get("timeout")
     last_exception = None
     start_time = time.monotonic()
     try:
         for attempt in range(retries + 1):
-            coro = task_func(**args)
+            coro = context._executor_runtime.run_task(
+                task_name=task_name,
+                task_func=task_func,
+                task_args=args,
+                task_info=task_info,
+            )
             try:
                 if timeout is not None:
                     return await asyncio.wait_for(coro, timeout=timeout)
@@ -58,6 +68,12 @@ async def execute_plan(
 
         globally_failed_tasks: Set[str] = set()
         semaphores: Dict[str, asyncio.Semaphore] = {}
+        
+        def _future_exception(future: asyncio.Future):
+            try:
+                return future.exception()
+            except asyncio.CancelledError:
+                return asyncio.CancelledError()
 
         for i, tier in enumerate(tiers):
             tier_pre_execution_start = time.monotonic()
@@ -71,7 +87,9 @@ async def execute_plan(
                 map_source_name = task_info.get("map_source") if isinstance(task_info.get("map_source"), str) else None
                 args = {p: result._results[p] for p in task_deps if p != map_source_name}
 
-                if not asyncio.iscoroutinefunction(task_func):
+                environment_name = task_info.get("environment")
+                use_local_wrapper = context._executor_runtime.is_local_environment(environment_name)
+                if use_local_wrapper and not asyncio.iscoroutinefunction(task_func):
                     task_func = sync_to_async(task_func)
 
                 map_source = task_info.get("map_source")
@@ -81,6 +99,26 @@ async def execute_plan(
 
                     if not isinstance(iterable_source, Iterable):
                         e = TypeError(f"result of type '{type(iterable_source).__name__}' is not iterable")
+                        result._add_error(task_name, e)
+                        tasks_to_fail = deque([task_name])
+                        processed_for_failure = {task_name}
+                        while tasks_to_fail:
+                            current_failed_task = tasks_to_fail.popleft()
+                            globally_failed_tasks.add(current_failed_task)
+                            for dep in dependents.get(current_failed_task, []):
+                                if dep not in processed_for_failure:
+                                    result._add_error(dep, e)
+                                    tasks_to_fail.append(dep)
+                                    processed_for_failure.add(dep)
+                        continue
+
+                    iterable_items = list(iterable_source)
+                    max_pending = context._max_pending
+                    if max_pending is not None and len(iterable_items) > max_pending:
+                        e = RuntimeError(
+                            f"Mapped task '{task_name}' has {len(iterable_items)} items, "
+                            f"which exceeds max_pending={max_pending}."
+                        )
                         result._add_error(task_name, e)
                         tasks_to_fail = deque([task_name])
                         processed_for_failure = {task_name}
@@ -117,14 +155,33 @@ async def execute_plan(
                         semaphore = semaphores.get(task_name)
                         if semaphore:
                             async with semaphore:
-                                return await retry_timeout_wrapper(task_name, task_func, {**args, item_param: item}, tasks, result)
-                        return await retry_timeout_wrapper(task_name, task_func, {**args, item_param: item}, tasks, result)
+                                return await retry_timeout_wrapper(
+                                    task_name,
+                                    task_func,
+                                    {**args, item_param: item},
+                                    tasks,
+                                    result,
+                                    context,
+                                )
+                        return await retry_timeout_wrapper(
+                            task_name,
+                            task_func,
+                            {**args, item_param: item},
+                            tasks,
+                            result,
+                            context,
+                        )
 
-                    mapped_futures = [asyncio.create_task(mapped_task_runner(item, i)) for i, item in enumerate(iterable_source)]
+                    mapped_futures = [
+                        asyncio.create_task(mapped_task_runner(item, i))
+                        for i, item in enumerate(iterable_items)
+                    ]
                     tier_futures[task_name] = mapped_futures
                     all_created_tasks.update(mapped_futures)
                 else:
-                    future = asyncio.create_task(retry_timeout_wrapper(task_name, task_func, args, tasks, result))
+                    future = asyncio.create_task(
+                        retry_timeout_wrapper(task_name, task_func, args, tasks, result, context)
+                    )
                     tier_futures[task_name] = future
                     all_created_tasks.add(future)
 
@@ -149,15 +206,16 @@ async def execute_plan(
 
             exception_found = None
             for f in done:
-                exc = f.exception()
+                exc = _future_exception(f)
                 if exc and not isinstance(exc, asyncio.CancelledError):
                     exception_found = exc
                     break
 
             if not exception_found:
                 for f in done:
-                    if f.exception():
-                        exception_found = f.exception()
+                    exc = _future_exception(f)
+                    if exc:
+                        exception_found = exc
                         break
 
             if exception_found:
@@ -185,16 +243,18 @@ async def execute_plan(
                 for task_name, f_or_list in tier_futures.items():
                     if isinstance(f_or_list, list):
                         for i, f in enumerate(f_or_list):
-                            if _exc_match(f.exception(), exception_found):
+                            if _exc_match(_future_exception(f), exception_found):
                                 source_of_failure = task_name
                                 break
                     else:
-                        if _exc_match(f_or_list.exception(), exception_found):
+                        if _exc_match(_future_exception(f_or_list), exception_found):
                             source_of_failure = task_name
                     if source_of_failure:
                         break
 
                 if source_of_failure:
+                    if isinstance(exception_found, asyncio.CancelledError):
+                        result._add_cancelled(source_of_failure)
                     result._add_error(source_of_failure, exception_found)
                     tasks_to_fail = deque([source_of_failure])
                     processed_for_failure = {source_of_failure}
@@ -206,6 +266,9 @@ async def execute_plan(
                                 result._add_error(dep, exception_found)
                                 tasks_to_fail.append(dep)
                                 processed_for_failure.add(dep)
+
+                if isinstance(exception_found, asyncio.CancelledError):
+                    raise exception_found
                 continue
 
             if pending:

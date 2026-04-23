@@ -22,6 +22,8 @@ Beautiful Python async.
 ## Table of Contents
 - [What is Wove For?](#what-is-wove-for)
 - [Installation](#installation)
+- [Documentation](#documentation)
+- [Project Configuration](#project-configuration)
 - [The Basics](#the-basics)
 - [Wove's Design Pattern](#woves-design-pattern)
 - [Core API](#core-api)
@@ -41,17 +43,47 @@ Improvements compared to asyncio include:
 -   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
 -   **Automatic Scheduling**: Wove builds a dependency graph from your task signatures and runs independent tasks concurrently as soon as possible.
 -   **Automatic Detachment**: Wove can run your inline code in a forked detached process so you can return your current process back to your server's pool.
+-   **Remote Execution Environments**: Route selected tasks to existing task systems like Celery, Temporal, Ray, RQ, Taskiq, ARQ, Dask, Kubernetes Jobs, AWS Batch, or Slurm while keeping the weave inline and task code unchanged.
 -   **Extensibility**: Define parallelized workflow templates that can be overridden inline.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
 -   **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading easily with a `weave`.
--   **Zero Dependencies**: Wove is pure Python, using only the standard library. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
+-   **Zero Required Backend Dependencies**: Wove's core is pure Python with optional integrations for remote task systems. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
 ## Installation
 Download wove with pip:
 ```bash
 pip install wove
 ```
+## Documentation
+Wove ships with a Sphinx + Shibuya docs site in `docs/`.
+
+Build it locally:
+```bash
+pip install -e .[docs]
+./build_docs.sh
+```
+## Project Configuration
+Use `wove.config(...)` to define project-wide defaults and environments:
+```python
+import wove
+
+wove.config(
+    default_environment="default",
+    environments={
+        "default": {"executor": "local", "max_workers": 64},
+        "temporal_prod": {
+            "executor": "temporal",
+            "executor_config": {"task_queue": "wove-prod"},
+            "delivery_timeout": 20.0,
+            "delivery_cancel_mode": "best_effort",
+        },
+    },
+    delivery_heartbeat_seconds=5.0,
+)
+```
+For `stdio` and adapter executors, `executor_config.command` is optional.
+If omitted, Wove launches the built-in gateway (`python -m wove.gateway`).
 ## The Basics
 The core of Wove's functionality is the `weave` context manager. It is used in a `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters. The result of the last task that runs are available in `w.result.final`.
 ```python
@@ -118,6 +150,7 @@ We suggest naming `weave` tasks with nouns instead of verbs. Since `weave` tasks
 The two core Wove tools are:
 -   `weave()`: An `async` context manager used in either a `with` or `async with` block that creates the execution environment for your tasks. When the `weave` block ends, all tasks will be executed in the order of their dependency graph. The `weave` object has a `result` attribute that contains the results of all tasks and a `.final` attribute that contains the result of the last task.
 -   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can be used on both `def` and `async def` functions interchangeably, with non-async functions being run in a background thread pool to avoid blocking the event loop. It can optionally be passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of the named task.
+-   `wove.config()`: A process-wide configuration entrypoint for registering named environments and runtime defaults.
 ## More Spice
 This example demonstrates Wove's advanced features, including inheritable overridable Weaves, static task mapping, dynamic task mapping, merging an external function, and a complex task graph.
 ```python
@@ -186,9 +219,18 @@ print(f"Pipeline complete. Results: {w.result.final}")
 The `weave()` context manager has several optional parameters:
 -   **`parent_weave: Weave`**: A `Weave` class to inherit tasks from.
 -   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
+-   **`environment: str`**: Optional environment name to use for tasks in this weave by default.
 -   **`max_workers: int`**: The maximum number of threads for running synchronous tasks in the background.
 -   **`background: bool`**: If `True`, runs the entire weave in a background thread.
 -   **`fork: bool`**: If `True` and `background` is `True`, runs the weave in a forked process instead of a thread.
+-   **`max_pending: int`**: Optional cap on mapped task input size.
+-   **`error_mode: str`**: `"raise"` (default) or `"return"` for result error access behavior.
+-   **`delivery_timeout: float`**: Optional delivery timeout for remote completion/ack.
+-   **`delivery_idempotency_key: str|callable`**: Optional idempotency key template or factory for remote delivery dedupe.
+-   **`delivery_cancel_mode: str`**: `"best_effort"` (default) or `"require_ack"` cancel contract.
+-   **`delivery_heartbeat_seconds: float`**: Optional expected heartbeat interval for remote execution sessions.
+-   **`delivery_max_in_flight: int`**: Optional per-environment in-flight remote dispatch cap.
+-   **`delivery_orphan_policy: str`**: Optional policy hint for remote orphan handling.
 -   **`on_done: callable`**: A callback function to be executed when a background weave is complete.
 -   **`**kwargs`**: Any additional keyword arguments passed to `weave()` become initialization data that can be used as task parameters.
 ### Task parameters
@@ -197,6 +239,13 @@ The `@w.do` decorator has several optional parameters for convenience:
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
+-   **`environment: str`**: Optional environment name override for this task.
+-   **`delivery_timeout: float`**: Optional delivery timeout for this task attempt.
+-   **`delivery_idempotency_key: str|callable`**: Optional per-task idempotency key.
+-   **`delivery_cancel_mode: str`**: Optional cancel contract for this task (`"best_effort"` or `"require_ack"`).
+-   **`delivery_heartbeat_seconds: float`**: Optional heartbeat expectation for this task dispatch.
+-   **`delivery_max_in_flight: int`**: Optional per-task/per-environment in-flight cap override.
+-   **`delivery_orphan_policy: str`**: Optional per-task orphan-handling policy hint.
 ### Local Task Mapping
 You can map a task to a local iterable by passing the iterable to the `@w.do` decorator. Wove will run instances of the task concurrently for each item in the iterable and collect the results as a list after all instances have completed. The result list will be passed to any dependent tasks through the same-named parameter.
 ```python

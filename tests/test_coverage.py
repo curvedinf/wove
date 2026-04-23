@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from wove import weave, WoveResult
+from wove import weave, WoveResult, Weave
 
 @pytest.mark.asyncio
 async def test_task_name_conflict():
@@ -88,3 +88,43 @@ async def test_task_retries():
             return "Success"
     assert w.result.a == "Success"
     assert attempts == 3
+
+
+def test_wove_result_additional_branches():
+    with pytest.raises(ValueError, match="error_mode"):
+        WoveResult(error_mode="invalid")
+
+    result = WoveResult(error_mode="return")
+    result._add_result("x", 1)
+    result._definition_order.append("x")
+    result._add_error("y", ValueError("bad"))
+    result._definition_order.append("y")
+
+    assert len(result) == 1
+    assert result.y.__class__ is ValueError
+    assert result.final.__class__ is ValueError
+
+    with pytest.raises(AttributeError):
+        _ = result.missing
+
+
+def test_weave_class_do_validates_delivery_contracts():
+    with pytest.raises(ValueError, match="delivery_cancel_mode"):
+        @Weave.do(delivery_cancel_mode="invalid")
+        def a(self):
+            return 1
+
+    with pytest.raises(ValueError, match="delivery_orphan_policy"):
+        @Weave.do(delivery_orphan_policy="invalid")
+        def b(self):
+            return 1
+
+
+def test_weave_invalid_error_mode_raises():
+    with pytest.raises(ValueError, match="error_mode"):
+        weave(error_mode="invalid")
+
+
+def test_weave_initial_value_name_conflicts():
+    with pytest.raises(NameError, match="conflicts with a built-in attribute"):
+        weave(final=1)

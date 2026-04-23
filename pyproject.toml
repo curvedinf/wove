@@ -30,6 +30,23 @@ dev = [
     "ruff",
     "pytest-cov",
 ]
+docs = [
+    "sphinx>=8.0",
+    "myst-parser>=4.0",
+    "shibuya>=2025.9.25; python_version >= '3.10'",
+]
+dev-executors = [
+    "celery",
+    "temporalio",
+    "ray",
+    "rq",
+    "taskiq",
+    "arq",
+    "dask[distributed]",
+    "kubernetes",
+    "boto3",
+    "pyslurm; platform_system == 'Linux'",
+]
 examples = [
     "httpx",
     "numpy",

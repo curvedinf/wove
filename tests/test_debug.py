@@ -2,7 +2,9 @@ import pytest
 import asyncio
 import re
 import time
+import functools
 from wove import weave
+from wove.debug import print_debug_report
 
 def strip_ansi(text):
     """Helper to clean ANSI color codes from output for easier comparison."""
@@ -151,3 +153,38 @@ async def test_debug_report_essentials(capsys):
     assert "--- Wove Debug Report ---" in output
     assert "Dependency Graph:" in output
     assert "Execution Plan:" in output
+
+
+def test_debug_report_no_tasks_and_partial_map_source(capsys):
+    def fn():
+        return 1
+
+    execution_plan = {
+        "sorted_tasks": ["data", "mapped"],
+        "dependencies": {"mapped": set()},
+        "dependents": {"mapped": set()},
+        "tiers": [["data"], ["mapped"]],
+    }
+    tasks = {
+        "data": {"seed": True, "func": lambda: {}},
+        "mapped": {"seed": False, "func": functools.partial(fn), "map_source": "missing"},
+    }
+    result = {}
+
+    print_debug_report(execution_plan, tasks, result)
+    output = strip_ansi(capsys.readouterr().out)
+    assert "No tasks to execute." not in output
+    assert "[map over: missing]" in output
+
+
+def test_debug_report_no_executable_tiers(capsys):
+    execution_plan = {
+        "sorted_tasks": ["data"],
+        "dependencies": {},
+        "dependents": {},
+        "tiers": [["data"]],
+    }
+    tasks = {"data": {"seed": True, "func": lambda: {}}}
+    print_debug_report(execution_plan, tasks, {})
+    output = strip_ansi(capsys.readouterr().out)
+    assert "No tasks to execute." in output

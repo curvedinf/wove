@@ -3,6 +3,9 @@ from typing import Optional, Callable, Union, Iterable
 
 from .vars import executor_context
 
+_KNOWN_DELIVERY_CANCEL_MODES = {"best_effort", "require_ack"}
+_KNOWN_ORPHAN_POLICIES = {"fail", "cancel", "requeue", "detach"}
+
 
 class Weave:
     """
@@ -24,10 +27,17 @@ class Weave:
     def do(
         arg: Optional[Union[Callable, str, Iterable]] = None,
         *,
-        retries: int = 0,
+        retries: Optional[int] = None,
         timeout: Optional[float] = None,
         workers: Optional[int] = None,
         limit_per_minute: Optional[int] = None,
+        environment: Optional[str] = None,
+        delivery_timeout: Optional[float] = None,
+        delivery_idempotency_key: Optional[object] = None,
+        delivery_cancel_mode: Optional[str] = None,
+        delivery_heartbeat_seconds: Optional[float] = None,
+        delivery_max_in_flight: Optional[int] = None,
+        delivery_orphan_policy: Optional[str] = None,
     ) -> Callable:
         """
         A decorator for defining a task within a Weave class.
@@ -37,6 +47,11 @@ class Weave:
         """
 
         def decorator(func: Callable) -> Callable:
+            if delivery_cancel_mode is not None and delivery_cancel_mode not in _KNOWN_DELIVERY_CANCEL_MODES:
+                raise ValueError("delivery_cancel_mode must be one of: 'best_effort', 'require_ack'")
+            if delivery_orphan_policy is not None and delivery_orphan_policy not in _KNOWN_ORPHAN_POLICIES:
+                allowed = "', '".join(sorted(_KNOWN_ORPHAN_POLICIES))
+                raise ValueError(f"delivery_orphan_policy must be one of: '{allowed}'")
             # Attach the parameters to the function object itself.
             # The WoveContextManager will inspect the Weave class
             # for these attributes to build the initial task set.
@@ -47,6 +62,13 @@ class Weave:
                 "timeout": timeout,
                 "workers": workers,
                 "limit_per_minute": limit_per_minute,
+                "environment": environment,
+                "delivery_timeout": delivery_timeout,
+                "delivery_idempotency_key": delivery_idempotency_key,
+                "delivery_cancel_mode": delivery_cancel_mode,
+                "delivery_heartbeat_seconds": delivery_heartbeat_seconds,
+                "delivery_max_in_flight": delivery_max_in_flight,
+                "delivery_orphan_policy": delivery_orphan_policy,
             }
             return func
 

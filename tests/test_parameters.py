@@ -148,3 +148,21 @@ async def test_limit_per_minute_throttling():
     # Allow for some overhead, but it should not be much faster than expected.
     assert total_time > expected_time * 0.9
     assert total_time < expected_time * 1.5
+
+
+@pytest.mark.asyncio
+async def test_invalid_delivery_cancel_mode_raises():
+    with pytest.raises(ValueError, match="delivery_cancel_mode"):
+        async with weave() as w:
+            @w.do(delivery_cancel_mode="invalid")
+            async def task():
+                return 1
+
+
+@pytest.mark.asyncio
+async def test_invalid_delivery_orphan_policy_raises():
+    with pytest.raises(ValueError, match="delivery_orphan_policy"):
+        async with weave() as w:
+            @w.do(delivery_orphan_policy="invalid")
+            async def task():
+                return 1

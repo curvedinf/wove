@@ -1,0 +1,25 @@
+name: Executor Adapters
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  adapter-smoke:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,dev-executors]
+    - name: Run adapter tests
+      run: |
+        pytest -q tests/test_environment_runtime.py tests/test_runtime_config.py

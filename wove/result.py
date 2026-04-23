@@ -8,10 +8,13 @@ class WoveResult:
     and a `.final` shortcut to the last-defined task's result.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, error_mode: str = "raise") -> None:
         """
         Initializes the result container.
         """
+        if error_mode not in {"raise", "return"}:
+            raise ValueError("error_mode must be one of: 'raise', 'return'")
+        self._error_mode = error_mode
         self._results: Dict[str, Any] = {}
         self._errors: Dict[str, Exception] = {}
         self._cancelled: set[str] = set()
@@ -36,6 +39,8 @@ class WoveResult:
             The result of the specified task.
         """
         if key in self._errors:
+            if self._error_mode == "return":
+                return self._errors[key]
             raise self._errors[key]
         return self._results[key]
 
@@ -67,6 +72,8 @@ class WoveResult:
         # Access __dict__ directly to prevent recursion, and check for attribute
         # existence to ensure safety during unpickling.
         if "_errors" in self.__dict__ and name in self._errors:
+            if self._error_mode == "return":
+                return self._errors[name]
             raise self._errors[name]
         if "_results" in self.__dict__ and name in self._results:
             return self._results[name]
@@ -86,6 +93,8 @@ class WoveResult:
             return None
         final_key = self._definition_order[-1]
         if final_key in self._errors:
+            if self._error_mode == "return":
+                return self._errors[final_key]
             raise self._errors[final_key]
         # It's possible the final task failed and thus isn't in results.
         return self._results.get(final_key)
