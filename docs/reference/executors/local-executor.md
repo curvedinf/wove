@@ -7,7 +7,7 @@
 - You want the fastest startup path.
 - Tasks are I/O-bound or lightweight enough to run in the submitting process.
 - You do not need a broker, worker pool, cluster, or durable scheduler.
-- You are developing locally and want remote routing to be opt-in per task.
+- You are developing locally and want backend routing to be opt-in per task.
 
 ## Configure Wove
 
@@ -34,7 +34,7 @@ wove.config(
 
 ## Limits
 
-`local` is not durable. If the process exits, running work exits with it. Use a remote task-system adapter when work needs to survive process restarts or run on separate infrastructure.
+`local` is not durable. If the process exits, running work exits with it. Use a network executor or backend adapter when work needs to run on separate infrastructure; use a backend adapter when another system should own durability or scheduling.
 
 ## Related Pages
 

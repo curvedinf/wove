@@ -1,8 +1,10 @@
 import asyncio
 import sys
-import cloudpickle
 import os
 import pickle
+
+from .errors import MissingDispatchFeatureError
+from .serialization import dispatch_load
 
 
 def main():
@@ -19,8 +21,11 @@ def main():
 
     try:
         with open(context_file, "rb") as f:
-            wcm = cloudpickle.load(f)
-    except (FileNotFoundError, pickle.UnpicklingError) as e:
+            wcm = dispatch_load(
+                f,
+                reason="forked background execution loads a serialized weave context in a detached process.",
+            )
+    except (FileNotFoundError, pickle.UnpicklingError, MissingDispatchFeatureError) as e:
         print(f"Error deserializing context: {e}", file=sys.stderr)
         sys.exit(1)
     finally:

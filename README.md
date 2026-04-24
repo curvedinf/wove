@@ -37,23 +37,29 @@ Beautiful Python async.
 Wove is for running high latency async tasks like web requests and database queries concurrently in the same way as 
 asyncio, but with a drastically improved user experience.
 Improvements compared to asyncio include:
--   **Reads Top-to-Bottom**: The code in a `weave` block is declared in the order it is executed inline in your code instead of in disjointed functions.
+-   **Reads Top-to-Bottom**: The workflow is declared in the order it runs, inline with the code that needs the result.
 -   **Implicit Parallelism**: Parallelism and execution order are implicit based on function and parameter naming.
--   **Sync or Async**: Mix `async def` and `def` freely. A `weave` block can be inside or outside an async context. Sync functions are run in a background thread pool to avoid blocking the event loop.
--   **Normal Python Data**: Wove's task data looks like normal Python variables because it is. This is because of inherent multithreaded data safety produced in the same way as map-reduce.
+-   **Sync or Async**: Mix `async def` and `def` freely without restructuring the call site around one concurrency style.
+-   **Normal Python Data**: Task outputs behave like normal Python values without making you manage shared mutable state.
 -   **Automatic Scheduling**: Wove builds a dependency graph from your task signatures and runs independent tasks concurrently as soon as possible.
--   **Automatic Detachment**: Wove can run your inline code in a forked detached process so you can return your current process back to your server's pool.
--   **Remote Execution Environments**: Route selected tasks to existing task systems like Celery, Temporal, Ray, RQ, Taskiq, ARQ, Dask, Kubernetes Jobs, AWS Batch, or Slurm while keeping the weave inline and task code unchanged.
+-   **Automatic Detachment**: Run inline workflows outside the current request, command, or worker when waiting would be the wrong user experience.
+-   **Remote Task Environments**: Keep quick work local while sending selected long-running or infrastructure-heavy tasks to your worker service, queue, workflow engine, cluster, or scheduler.
 -   **Extensibility**: Define parallelized workflow templates that can be overridden inline.
 -   **High Visibility**: Wove includes debugging tools that allow you to identify where exceptions and deadlocks occur across parallel tasks, and inspect inputs and outputs at each stage of execution.
 -   **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 -   **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
--   **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading easily with a `weave`.
--   **Zero Required Backend Dependencies**: Wove's core is pure Python with optional integrations for remote task systems. It can be easily integrated into any Python project whether the project uses `asyncio` or not.
+-   **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading without changing the workflow shape.
+-   **Zero Required Dispatch/Backend Dependencies**: Local Wove stays lightweight. Extra serialization and backend libraries are only needed when work leaves the current process.
 ## Installation
 Download wove with pip:
 ```bash
 pip install wove
+```
+
+Most projects start with the base package. Add dispatch support only when Wove needs to carry work across a process or network boundary, such as forked background work, stdio worker processes, network executors, remote task environments, or workers that execute dispatched payloads:
+
+```bash
+pip install "wove[dispatch]"
 ```
 ## Documentation
 Wove ships with a Sphinx + Shibuya docs site in `docs/`.
@@ -64,26 +70,15 @@ pip install -e .[docs]
 ./build_docs.sh
 ```
 ## Project Configuration
-Use `wove.config(...)` to define project-wide defaults and environments:
+You do not need project configuration for a first weave. Use it when a project wants shared defaults or named execution profiles instead of repeating the same options at every call site:
+
 ```python
 import wove
 
-wove.config(
-    default_environment="default",
-    environments={
-        "default": {"executor": "local", "max_workers": 64},
-        "temporal_prod": {
-            "executor": "temporal",
-            "executor_config": {"task_queue": "wove-prod"},
-            "delivery_timeout": 20.0,
-            "delivery_cancel_mode": "best_effort",
-        },
-    },
-    delivery_heartbeat_seconds=5.0,
-)
+wove.config(max_workers=64)
 ```
-For `stdio` and adapter executors, `executor_config.command` is optional.
-If omitted, Wove launches the built-in gateway (`python -m wove.gateway`).
+
+Remote execution environments, network executors, backend adapters, and delivery policies are covered in the dedicated docs. The rest of this README introduces the core `weave` pattern before those policies.
 ## The Basics
 The core of Wove's functionality is the `weave` context manager. It is used in a `with` block to define a list of tasks that will be executed as concurrently and as soon as possible. When Python closes the `weave` block, the tasks are executed immediately based on a dependency graph that Wove builds from the function signatures. Results of a task are passed to any same-named function parameters. The result of the last task that runs are available in `w.result.final`.
 ```python
@@ -152,7 +147,7 @@ The two core Wove tools are:
 -   `@w.do`: A decorator that registers a function as a task to be run within the `weave` block. It can be used on both `def` and `async def` functions interchangeably, with non-async functions being run in a background thread pool to avoid blocking the event loop. It can optionally be passed an iterable, and if so, the task will be run concurrently for each item in the iterable. It can also be passed a string of another task's name, and if so, the task will be run concurrently for each item in the iterable result of the named task.
 -   `wove.config()`: A process-wide configuration entrypoint for registering named environments and runtime defaults.
 ## More Spice
-This example demonstrates Wove's advanced features, including inheritable overridable Weaves, static task mapping, dynamic task mapping, merging an external function, and a complex task graph.
+When a workflow starts to repeat across call sites, Wove's advanced features let you keep the graph reusable without losing inline overrides, task mapping, external function merging, or clear dependency flow.
 ```python
 import time
 import numpy as np
@@ -217,6 +212,7 @@ print(f"Pipeline complete. Results: {w.result.final}")
 ## Advanced Features
 ### Context parameters
 The `weave()` context manager has several optional parameters:
+
 -   **`parent_weave: Weave`**: A `Weave` class to inherit tasks from.
 -   **`debug: bool`**: If `True`, prints a detailed execution plan to the console before running.
 -   **`environment: str`**: Optional environment name to use for tasks in this weave by default.
@@ -225,28 +221,23 @@ The `weave()` context manager has several optional parameters:
 -   **`fork: bool`**: If `True` and `background` is `True`, runs the weave in a forked process instead of a thread.
 -   **`max_pending: int`**: Optional cap on mapped task input size.
 -   **`error_mode: str`**: `"raise"` (default) or `"return"` for result error access behavior.
--   **`delivery_timeout: float`**: Optional delivery timeout for remote completion/ack.
--   **`delivery_idempotency_key: str|callable`**: Optional idempotency key template or factory for remote delivery dedupe.
--   **`delivery_cancel_mode: str`**: `"best_effort"` (default) or `"require_ack"` cancel contract.
--   **`delivery_heartbeat_seconds: float`**: Optional expected heartbeat interval for remote execution sessions.
--   **`delivery_max_in_flight: int`**: Optional per-environment in-flight remote dispatch cap.
--   **`delivery_orphan_policy: str`**: Optional policy hint for remote orphan handling.
 -   **`on_done: callable`**: A callback function to be executed when a background weave is complete.
 -   **`**kwargs`**: Any additional keyword arguments passed to `weave()` become initialization data that can be used as task parameters.
+
+Delivery options are only relevant when work crosses into a remote execution environment. The full docs introduce those policies alongside remote task environments and delivery failure handling.
+
 ### Task parameters
 The `@w.do` decorator has several optional parameters for convenience:
+
 -   **`retries: int`**: The number of times to re-run a task if it raises an exception.
 -   **`timeout: float`**: The maximum number of seconds a task can run before being cancelled.
 -   **`workers: int`**: For mapped tasks only, this limits the number of concurrent instances of the task running at a time.
 -   **`limit_per_minute: int`**: For mapped tasks only, this creates an interval between launching new task instances.
 -   **`environment: str`**: Optional environment name override for this task.
--   **`delivery_timeout: float`**: Optional delivery timeout for this task attempt.
--   **`delivery_idempotency_key: str|callable`**: Optional per-task idempotency key.
--   **`delivery_cancel_mode: str`**: Optional cancel contract for this task (`"best_effort"` or `"require_ack"`).
--   **`delivery_heartbeat_seconds: float`**: Optional heartbeat expectation for this task dispatch.
--   **`delivery_max_in_flight: int`**: Optional per-task/per-environment in-flight cap override.
--   **`delivery_orphan_policy: str`**: Optional per-task orphan-handling policy hint.
-### Local Task Mapping
+### Task Mapping
+Task mapping is for running the same task once for each item in an iterable. Wove runs those task instances concurrently, collects their results into a list, and passes that list to downstream tasks through the mapped task's normal result name.
+
+#### Mapping over a local iterable
 You can map a task to a local iterable by passing the iterable to the `@w.do` decorator. Wove will run instances of the task concurrently for each item in the iterable and collect the results as a list after all instances have completed. The result list will be passed to any dependent tasks through the same-named parameter.
 ```python
 from wove import weave
@@ -266,8 +257,8 @@ print(w.result.final)
 # Expected output:
 # Sum of squares: 1400
 ```
-### Dependent Task Mapping
-You can also map a task over the result of another task or over initialization data by passing the dependency's name as a string to the decorator. This is especially useful when an iterable needs to be generated dynamically. If the mapped dependency is a task, Wove ensures the upstream task completes before starting the mapped tasks.
+#### Mapping over task results
+You can also map a task over the result of another task or over initialization data by passing the dependency's name as a string to the decorator. That fits cases where the iterable needs to be generated dynamically. If the mapped dependency is a task, Wove ensures the upstream task completes before starting the mapped tasks.
 ```python
 import asyncio
 from wove import weave
@@ -434,21 +425,20 @@ Need to see what's going on under the hood?
 -   `with weave(debug=True) as w:`: Prints a detailed, color-coded execution plan to the console before running.
 -   `w.execution_plan`: After the block, this dictionary contains the full dependency graph and execution tiers.
 -   `w.result.timings`: A dictionary mapping each task name to its execution duration in seconds.
-### Data-Shaping Helper Functions
-Wove provides a set of simple, composable helper functions for common data manipulation patterns.
--   **`flatten(list_of_lists)`**: Converts a 2D iterable into a 1D list.
--   **`fold(a_list, size)`**: Converts a 1D list into N smaller lists of `size` length.
--   **`batch(a_list, count)`**: Converts a 1D list into `count` smaller lists of N length.
--   **`undict(a_dict)`**: Converts a dictionary into a list of `[key, value]` pairs.
--   **`redict(list_of_pairs)`**: Converts a list of key-value pairs back into a dictionary.
--   **`denone(an_iterable)`**: Removes all `None` values from an iterable.
+### Helper Functions
+Wove includes helper functions for data-shaping, sync/async interop, and mapping external callables. See the documentation's Helper Functions topic for examples.
 
 ## Background Processing
-Wove supports running the entire weave in the background, either in a separate thread or a forked process. This is useful for fire-and-forget tasks where you don't want to wait for results.
+Wove can run an entire weave in the background when the current request, command, or script should continue without waiting for every task result. Background work can stay attached to the current Python process in a thread or move into a detached forked process.
 
 To enable background processing, set `background=True` in the `weave()` call. Wove's background processing supports two modes:
 -   **Embedded mode (default)**: `weave(background=True)` will run the weave in a new background thread using the `threading` module attached to the current Python process.
--   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new detached Python process. This is useful for persisting the background process past when the main Python process ends. For instance when running Wove in an HTTP server worker, it is ideal to complete the request as fast as possible and return the worker to the server's pool. Forking Wove allows the background process to continue processing after the worker completes the request and is returned to the pool.
+-   **Forked mode**: `weave(background=True, fork=True)` will run the weave in a new detached Python process. Choose forked mode when the background work should continue after the current process or server worker returns. In an HTTP server worker, for example, the request can finish quickly while the forked Wove process continues processing outside the worker pool.
+
+Embedded mode stays inside the current Python process, so the base install is enough. Forked mode has to carry the weave context into a separate Python process, which requires Wove's optional dispatch serializer:
+```bash
+pip install "wove[dispatch]"
+```
 
 Both modes can be provided an optional `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
 
@@ -470,7 +460,7 @@ print("Main program continues to run...")
 # After 2 seconds, the callback will be executed.
 ```
 
-There are important considerations when running a weave in the background. Firstly, you are responsible for signaling when a background weave process ends via the callback you provide. With embedded mode, your callback can access the global environment of your Python process, but when using forked mode, your callback will be run from the forked process, so you will need to use a signaling system, database, or file to transmit data back to your original process if that is desired. Secondly, when forking, Wove serializes your entire local Python context to a file to enable all features and ensure maximal compatibility in the remote forked process. This does mean that you must be careful about the size of data stored in local variables in the scope of your `with` statement while using forked mode, as all local variables will be deepcopied to the fork.
+Before you fork a weave, decide how the child process should report completion. Embedded callbacks can access the current Python process, but forked callbacks run in the child process; use a database, file, queue, or other signaling system when the original process needs the result. Forked mode also serializes the local Python context around the `with` block so the child can preserve task behavior, so keep large local variables out of that scope when you do not want them copied into the fork.
 
 ## Benchmarks
 Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is available in the `/examples` directory.

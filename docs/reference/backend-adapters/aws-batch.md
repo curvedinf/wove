@@ -1,6 +1,6 @@
 # AWS Batch
 
-AWS Batch is for queueing Wove tasks onto managed Batch compute environments. Wove submits a Batch job, injects the payload into `WOVE_REMOTE_PAYLOAD`, and the container runs `python -m wove.remote_worker`.
+AWS Batch is for queueing Wove tasks onto managed Batch compute environments. Wove submits a Batch job, injects the payload into `WOVE_BACKEND_PAYLOAD`, and the container runs `python -m wove.backend_worker`.
 
 ## Use When
 
@@ -11,14 +11,16 @@ AWS Batch is for queueing Wove tasks onto managed Batch compute environments. Wo
 ## Execution Shape
 
 1. Wove calls `submit_job(...)` on a boto3 Batch client.
-2. The job receives the payload as the `WOVE_REMOTE_PAYLOAD` environment variable.
-3. The container runs `python -m wove.remote_worker`.
+2. The job receives the payload as the `WOVE_BACKEND_PAYLOAD` environment variable.
+3. The container runs `python -m wove.backend_worker`.
 4. The worker posts Wove event frames back to the callback URL.
 
 ## Dependency
 
+Install dispatch support and boto3 in the submitting process. The worker image must also include Wove with dispatch support.
+
 ```bash
-pip install boto3
+pip install "wove[dispatch]" boto3
 ```
 
 ## Configure Wove
@@ -42,10 +44,10 @@ wove.config(
 )
 ```
 
-The job definition should run Wove's remote worker, either as the image command or through `container_overrides`.
+The job definition should run Wove's dispatched worker, either as the image command or through `container_overrides`.
 
 ```bash
-python -m wove.remote_worker
+python -m wove.backend_worker
 ```
 
 ## Container Requirements
@@ -60,12 +62,12 @@ The container must have Wove and the application code installed, and it must be 
 | `client_options` | Keyword arguments passed to `boto3.client('batch', ...)`. |
 | `job_queue` | AWS Batch job queue. |
 | `job_definition` | AWS Batch job definition. |
-| `container_overrides` | Base container overrides; Wove appends `WOVE_REMOTE_PAYLOAD`. |
+| `container_overrides` | Base container overrides; Wove appends `WOVE_BACKEND_PAYLOAD`. |
 | `command` | Optional command inserted into `containerOverrides`. |
 | `submit_job_options` | Extra keyword arguments passed to `submit_job(...)`. |
 | `job_name_prefix` | Generated job name prefix. Defaults to `wove`. |
 
 ## Related Pages
 
-- [`wove.remote`](../api/wove.remote.md): `remote_worker` payload behavior.
-- [Executors](index.md): remote callback flow.
+- [`wove.backend`](../api/wove.backend.md): backend payload worker behavior.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.

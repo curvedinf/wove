@@ -5,14 +5,14 @@ import pytest
 
 from wove import config, weave
 from wove.environment import (
+    BackendAdapterEnvironmentExecutor,
     DeliveryOrphanedError,
     DeliveryTimeoutError,
     EnvironmentExecutor,
     ExecutorRuntime,
-    RemoteAdapterEnvironmentExecutor,
 )
-from wove.integrations.base import RemoteTaskAdapter
-from wove.remote import run_remote_payload_async
+from wove.integrations.base import BackendAdapter
+from wove.backend import run_backend_payload_async
 from wove.runtime import runtime
 
 
@@ -27,6 +27,77 @@ def restore_runtime():
         for key, value in snapshot.items()
         if key not in {"default_environment", "environments"}
     }
+
+
+class InlineRemoteExecutor(EnvironmentExecutor):
+    def __init__(self):
+        self.events = asyncio.Queue()
+        self.frames = []
+        self.tasks = []
+        self.environment_name = None
+        self.environment_config = None
+        self.run_config = None
+
+    async def start(self, *, environment_name, environment_config, run_config):
+        self.environment_name = environment_name
+        self.environment_config = environment_config
+        self.run_config = run_config
+
+    async def send(self, frame):
+        self.frames.append(frame)
+        if frame.get("type") != "run_task":
+            return
+        task = asyncio.create_task(self._run_frame(frame))
+        self.tasks.append(task)
+
+    async def recv(self):
+        return await self.events.get()
+
+    async def stop(self):
+        if self.tasks:
+            await asyncio.gather(*self.tasks, return_exceptions=True)
+
+    async def _run_frame(self, frame):
+        await self.events.put(
+            {
+                "type": "task_started",
+                "run_id": frame["run_id"],
+                "task_id": frame["task_id"],
+            }
+        )
+        try:
+            value = frame["callable"](**frame["args"])
+            if asyncio.iscoroutine(value):
+                value = await value
+        except Exception as exc:
+            await self.events.put(
+                {
+                    "type": "task_error",
+                    "run_id": frame["run_id"],
+                    "task_id": frame["task_id"],
+                    "exception": exc,
+                }
+            )
+            return
+        await self.events.put(
+            {
+                "type": "task_result",
+                "run_id": frame["run_id"],
+                "task_id": frame["task_id"],
+                "result": value,
+            }
+        )
+
+
+class InlineBackendAdapter(BackendAdapter):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.submissions = []
+
+    async def submit(self, payload, frame):
+        self.submissions.append((payload, frame))
+        task = asyncio.create_task(run_backend_payload_async(payload))
+        return task
 
 
 def test_unknown_weave_environment_raises(restore_runtime):
@@ -50,6 +121,184 @@ async def test_local_environment_executor_runs(restore_runtime):
 
 
 @pytest.mark.asyncio
+async def test_remote_environment_task_reintegrates_into_local_weave(restore_runtime):
+    remote = InlineRemoteExecutor()
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "remote": {"executor": remote, "executor_config": {"region": "test"}},
+        },
+    )
+
+    async with weave(environment="local", seed=4) as w:
+        @w.do
+        def local_input(seed):
+            return seed + 1
+
+        @w.do(environment="remote")
+        def remote_profile(local_input):
+            return {"id": local_input, "score": local_input * 10}
+
+        @w.do
+        async def local_flags(local_input):
+            await asyncio.sleep(0)
+            return ["vip"] if local_input > 3 else []
+
+        @w.do
+        def response(remote_profile, local_flags):
+            return {
+                "id": remote_profile["id"],
+                "score": remote_profile["score"],
+                "flags": local_flags,
+            }
+
+    assert w.result.response == {"id": 5, "score": 50, "flags": ["vip"]}
+    assert remote.environment_name == "remote"
+    assert remote.environment_config == {"region": "test"}
+
+    run_frames = [frame for frame in remote.frames if frame.get("type") == "run_task"]
+    assert len(run_frames) == 1
+    assert run_frames[0]["task_id"] == "remote_profile"
+    assert run_frames[0]["args"] == {"local_input": 5}
+
+
+@pytest.mark.asyncio
+async def test_mapped_remote_environment_task_reintegrates_list_result(restore_runtime):
+    remote = InlineRemoteExecutor()
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "remote": {"executor": remote},
+        },
+    )
+
+    async with weave(environment="local") as w:
+        @w.do
+        def customer_ids():
+            return [3, 4, 5]
+
+        @w.do("customer_ids", workers=2, environment="remote")
+        def enrichment(item):
+            return {"customer_id": item, "score": item * 100}
+
+        @w.do
+        def score_total(enrichment):
+            return sum(row["score"] for row in enrichment)
+
+    assert w.result.enrichment == [
+        {"customer_id": 3, "score": 300},
+        {"customer_id": 4, "score": 400},
+        {"customer_id": 5, "score": 500},
+    ]
+    assert w.result.score_total == 1200
+
+    run_frames = [frame for frame in remote.frames if frame.get("type") == "run_task"]
+    assert [frame["task_id"] for frame in run_frames] == ["enrichment", "enrichment", "enrichment"]
+    assert sorted(frame["args"]["item"] for frame in run_frames) == [3, 4, 5]
+
+
+@pytest.mark.asyncio
+async def test_stdio_remote_environment_reintegrates_into_local_weave(restore_runtime):
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "subprocess": {"executor": "stdio"},
+        },
+    )
+
+    async with weave(seed=8) as w:
+        @w.do
+        def local_input(seed):
+            return seed + 2
+
+        @w.do(environment="subprocess")
+        def remote_double(local_input):
+            return local_input * 2
+
+        @w.do
+        def combined(local_input, remote_double):
+            return {"local": local_input, "remote": remote_double}
+
+    assert w.result.combined == {"local": 10, "remote": 20}
+
+
+@pytest.mark.asyncio
+async def test_backend_adapter_remote_task_reintegrates_into_local_weave(restore_runtime):
+    executor = BackendAdapterEnvironmentExecutor(
+        "inline",
+        adapter_class=InlineBackendAdapter,
+        required_modules=(),
+    )
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "backend": {"executor": executor},
+        },
+    )
+
+    async with weave(seed=6) as w:
+        @w.do
+        def local_payload(seed):
+            return {"value": seed}
+
+        @w.do(environment="backend")
+        def remote_square(local_payload):
+            return local_payload["value"] ** 2
+
+        @w.do
+        def combined(local_payload, remote_square):
+            return local_payload["value"] + remote_square
+
+    assert w.result.remote_square == 36
+    assert w.result.combined == 42
+
+
+@pytest.mark.asyncio
+async def test_mapped_backend_adapter_task_reintegrates_list_result(restore_runtime):
+    executor = BackendAdapterEnvironmentExecutor(
+        "inline",
+        adapter_class=InlineBackendAdapter,
+        required_modules=(),
+    )
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "backend": {"executor": executor},
+        },
+    )
+
+    async with weave(environment="local") as w:
+        @w.do
+        def customer_ids():
+            return [2, 3, 4]
+
+        @w.do("customer_ids", workers=2, environment="backend")
+        def enrichment(item):
+            return {"customer_id": item, "score": item * 100}
+
+        @w.do
+        def score_total(enrichment):
+            return sum(row["score"] for row in enrichment)
+
+        @w.do("enrichment")
+        def score_labels(item):
+            return f"{item['customer_id']}:{item['score']}"
+
+    assert w.result.enrichment == [
+        {"customer_id": 2, "score": 200},
+        {"customer_id": 3, "score": 300},
+        {"customer_id": 4, "score": 400},
+    ]
+    assert w.result.score_total == 900
+    assert w.result.score_labels == ["2:200", "3:300", "4:400"]
+
+
+@pytest.mark.asyncio
 async def test_optional_adapter_missing_dependency_fails_fast(restore_runtime, monkeypatch):
     monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
     config(
@@ -57,7 +306,7 @@ async def test_optional_adapter_missing_dependency_fails_fast(restore_runtime, m
         environments={
             "celery_env": {
                 "executor": "celery",
-                "executor_config": {"command": ["python", "-m", "fake_gateway"]},
+                "executor_config": {"command": ["python", "-m", "fake_stdio_worker"]},
             }
         },
     )
@@ -70,15 +319,15 @@ async def test_optional_adapter_missing_dependency_fails_fast(restore_runtime, m
 
 
 @pytest.mark.asyncio
-async def test_remote_adapter_uses_callback_delivery(restore_runtime):
-    class InlineRemoteAdapter(RemoteTaskAdapter):
+async def test_backend_adapter_uses_callback_delivery(restore_runtime):
+    class InlineBackendAdapter(BackendAdapter):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             self.tasks = []
 
         async def submit(self, payload, frame):
             del frame
-            task = asyncio.create_task(run_remote_payload_async(payload))
+            task = asyncio.create_task(run_backend_payload_async(payload))
             self.tasks.append(task)
             return task
 
@@ -86,15 +335,15 @@ async def test_remote_adapter_uses_callback_delivery(restore_runtime):
             if self.tasks:
                 await asyncio.gather(*self.tasks, return_exceptions=True)
 
-    executor = RemoteAdapterEnvironmentExecutor(
+    executor = BackendAdapterEnvironmentExecutor(
         "inline",
-        adapter_class=InlineRemoteAdapter,
+        adapter_class=InlineBackendAdapter,
         required_modules=(),
     )
     config(
-        default_environment="remote",
+        default_environment="backend",
         environments={
-            "remote": {
+            "backend": {
                 "executor": executor,
                 "executor_config": {},
             }
@@ -124,7 +373,7 @@ async def test_recv_loop_failure_propagates_to_pending_tasks(restore_runtime):
 
         async def recv(self):
             await self._run_sent.wait()
-            raise RuntimeError("gateway crashed")
+            raise RuntimeError("stdio worker crashed")
 
         async def stop(self):
             return None
@@ -140,12 +389,12 @@ async def test_recv_loop_failure_propagates_to_pending_tasks(restore_runtime):
             return 1
 
     assert isinstance(w.result.exception, RuntimeError)
-    assert "gateway crashed" in str(w.result.exception)
-    assert any("gateway crashed" in str(err) for err in w.result._errors.values())
+    assert "stdio worker crashed" in str(w.result.exception)
+    assert any("stdio worker crashed" in str(err) for err in w.result._errors.values())
 
 
 @pytest.mark.asyncio
-async def test_remote_environment_receives_raw_sync_callable(restore_runtime):
+async def test_backend_environment_receives_raw_sync_callable(restore_runtime):
     class CaptureExecutor(EnvironmentExecutor):
         def __init__(self):
             self._events = asyncio.Queue()
@@ -178,8 +427,8 @@ async def test_remote_environment_receives_raw_sync_callable(restore_runtime):
 
     capture = CaptureExecutor()
     config(
-        default_environment="remote",
-        environments={"remote": {"executor": capture}},
+        default_environment="backend",
+        environments={"backend": {"executor": capture}},
     )
 
     async with weave() as w:
@@ -226,9 +475,9 @@ async def test_delivery_prefixed_options_are_forwarded(restore_runtime):
 
     capture = CaptureDeliveryExecutor()
     config(
-        default_environment="remote",
+        default_environment="backend",
         environments={
-            "remote": {
+            "backend": {
                 "executor": capture,
                 "delivery_timeout": 7.5,
                 "delivery_cancel_mode": "require_ack",
@@ -252,7 +501,7 @@ async def test_delivery_prefixed_options_are_forwarded(restore_runtime):
 
 
 @pytest.mark.asyncio
-async def test_delivery_timeout_cancels_remote_attempt(restore_runtime):
+async def test_delivery_timeout_cancels_backend_attempt(restore_runtime):
     class SlowAckExecutor(EnvironmentExecutor):
         def __init__(self):
             self.frames = []
@@ -285,9 +534,9 @@ async def test_delivery_timeout_cancels_remote_attempt(restore_runtime):
 
     silent = SlowAckExecutor()
     config(
-        default_environment="remote",
+        default_environment="backend",
         environments={
-            "remote": {
+            "backend": {
                 "executor": silent,
                 "delivery_timeout": 0.01,
             }
@@ -305,7 +554,7 @@ async def test_delivery_timeout_cancels_remote_attempt(restore_runtime):
 
 
 @pytest.mark.asyncio
-async def test_stdio_executor_uses_default_gateway_command(restore_runtime):
+async def test_stdio_executor_uses_default_worker_command(restore_runtime):
     config(
         default_environment="stdio_env",
         environments={"stdio_env": {"executor": "stdio"}},
@@ -320,7 +569,7 @@ async def test_stdio_executor_uses_default_gateway_command(restore_runtime):
 
 
 @pytest.mark.asyncio
-async def test_delivery_heartbeat_timeout_cancels_remote_attempt(restore_runtime):
+async def test_delivery_heartbeat_timeout_cancels_backend_attempt(restore_runtime):
     class SilentExecutor(EnvironmentExecutor):
         def __init__(self):
             self.frames = []
@@ -360,9 +609,9 @@ async def test_delivery_heartbeat_timeout_cancels_remote_attempt(restore_runtime
 
     silent = SilentExecutor()
     config(
-        default_environment="remote",
+        default_environment="backend",
         environments={
-            "remote": {
+            "backend": {
                 "executor": silent,
                 "delivery_heartbeat_seconds": 0.02,
             }
@@ -401,7 +650,7 @@ async def test_delivery_orphan_policy_requeue_marks_pending_as_orphaned():
     idle = IdleExecutor()
     runtime_exec = ExecutorRuntime(
         environment_definitions={
-            "remote": {
+            "backend": {
                 "executor": idle,
                 "delivery_orphan_policy": "requeue",
             }
@@ -412,8 +661,8 @@ async def test_delivery_orphan_policy_requeue_marks_pending_as_orphaned():
 
     loop = asyncio.get_running_loop()
     pending = loop.create_future()
-    runtime_exec._pending["remote"]["run-1"] = pending
-    runtime_exec._run_metadata["remote"]["run-1"] = {
+    runtime_exec._pending["backend"]["run-1"] = pending
+    runtime_exec._run_metadata["backend"]["run-1"] = {
         "task_id": "task_a",
         "delivery_cancel_mode": "best_effort",
         "delivery_orphan_policy": "requeue",

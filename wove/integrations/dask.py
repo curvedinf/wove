@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter, maybe_await
+from .base import BackendAdapter, maybe_await
 from .worker import run
 
 
-class DaskAdapter(RemoteTaskAdapter):
+class DaskAdapter(BackendAdapter):
     required_modules = ("distributed",)
     install_hint = "dask[distributed]"
 

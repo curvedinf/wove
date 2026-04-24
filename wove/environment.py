@@ -1,31 +1,46 @@
 import abc
 import asyncio
 import base64
+import inspect
+import importlib
 import importlib.util
 import json
 import shlex
 import sys
 import time
 import traceback
+import urllib.parse
+import urllib.request
 from asyncio.subprocess import Process
 from typing import Any, Dict, Optional, Set, Tuple, Type
 from uuid import uuid4
 
-import cloudpickle
+from .integrations import (
+    get_backend_adapter_class,
+    get_backend_adapter_dependencies,
+    get_backend_adapter_install_hints,
+)
+from .integrations.base import BackendAdapter
+from .backend import BackendCallbackServer, build_backend_payload
+from .security import (
+    NetworkExecutorSecurity,
+    _canonical_http_target,
+    _ensure_network_executor_security,
+    _is_local_grpc_target,
+    _is_local_http_url,
+)
+from .serialization import dispatch_dumps, dispatch_loads, require_dispatch
 
-from .integrations import get_adapter_class, get_adapter_dependencies, get_adapter_install_hints
-from .integrations.base import RemoteTaskAdapter
-from .remote import RemoteCallbackServer, build_remote_payload
-
-_ADAPTER_DEPENDENCIES: Dict[str, Tuple[str, ...]] = get_adapter_dependencies()
-_ADAPTER_INSTALL_HINTS: Dict[str, str] = get_adapter_install_hints()
+_BACKEND_ADAPTER_DEPENDENCIES: Dict[str, Tuple[str, ...]] = get_backend_adapter_dependencies()
+_BACKEND_ADAPTER_INSTALL_HINTS: Dict[str, str] = get_backend_adapter_install_hints()
 _KNOWN_ORPHAN_POLICIES: Set[str] = {"fail", "cancel", "requeue", "detach"}
 _KNOWN_CANCEL_MODES: Set[str] = {"best_effort", "require_ack"}
+_GRPC_DEFAULT_METHOD = "/wove.network_executor.WorkerService/Send"
 
 
 class EnvironmentExecutionError(RuntimeError):
     """
-    Error raised when an executor reports a remote/normalized error payload.
+    Error raised when an executor reports a normalized error payload.
     """
 
     def __init__(self, payload: Dict[str, Any]) -> None:
@@ -36,13 +51,13 @@ class EnvironmentExecutionError(RuntimeError):
 
 class DeliveryTimeoutError(RuntimeError):
     """
-    Raised when remote delivery does not complete within configured delivery_timeout.
+    Raised when backend delivery does not complete within configured delivery_timeout.
     """
 
 
 class DeliveryOrphanedError(RuntimeError):
     """
-    Raised when a remote run becomes orphaned during runtime shutdown/failure handling.
+    Raised when a backend run becomes orphaned during runtime shutdown/failure handling.
     """
 
 
@@ -58,6 +73,118 @@ def normalize_exception(
         "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
         "retryable": retryable,
         "source": source,
+    }
+
+
+def _network_dispatch_reason(executor_name: str) -> str:
+    return (
+        f"the {executor_name} network executor serializes task frames for a remote worker service."
+    )
+
+
+def _encode_dispatch_value(value: Any, *, reason: str) -> str:
+    return base64.b64encode(dispatch_dumps(value, reason=reason)).decode("ascii")
+
+
+def _decode_dispatch_value(value: str, *, reason: str) -> Any:
+    return dispatch_loads(base64.b64decode(value.encode("ascii")), reason=reason)
+
+
+def _serialize_network_executor_frame(frame: Dict[str, Any], *, reason: str) -> Dict[str, Any]:
+    payload = dict(frame)
+    if "callable" in payload:
+        payload["callable_pickle"] = _encode_dispatch_value(payload.pop("callable"), reason=reason)
+    if "args" in payload:
+        payload["args_pickle"] = _encode_dispatch_value(payload.pop("args"), reason=reason)
+    if "result" in payload:
+        payload["result_pickle"] = _encode_dispatch_value(payload.pop("result"), reason=reason)
+    if "exception" in payload:
+        payload["exception_pickle"] = _encode_dispatch_value(payload.pop("exception"), reason=reason)
+    if "error" in payload:
+        payload["error_pickle"] = _encode_dispatch_value(payload.pop("error"), reason=reason)
+    return payload
+
+
+def _deserialize_network_executor_frame(payload: Dict[str, Any], *, reason: str) -> Dict[str, Any]:
+    frame = dict(payload)
+    if "callable_pickle" in frame:
+        frame["callable"] = _decode_dispatch_value(frame.pop("callable_pickle"), reason=reason)
+    if "args_pickle" in frame:
+        frame["args"] = _decode_dispatch_value(frame.pop("args_pickle"), reason=reason)
+    if "result_pickle" in frame:
+        frame["result"] = _decode_dispatch_value(frame.pop("result_pickle"), reason=reason)
+    if "exception_pickle" in frame:
+        frame["exception"] = _decode_dispatch_value(frame.pop("exception_pickle"), reason=reason)
+    if "error_pickle" in frame:
+        frame["error"] = _decode_dispatch_value(frame.pop("error_pickle"), reason=reason)
+    return frame
+
+
+def _dump_network_executor_message(frame: Dict[str, Any], *, reason: str) -> bytes:
+    payload = _serialize_network_executor_frame(frame, reason=reason)
+    return json.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+
+def _load_network_executor_events(data: Any, *, reason: str) -> Tuple[Dict[str, Any], ...]:
+    if isinstance(data, bytes):
+        data = data.decode("utf-8")
+    if isinstance(data, str):
+        data = json.loads(data)
+
+    if isinstance(data, dict) and "events" in data:
+        raw_events = data["events"]
+    elif isinstance(data, list):
+        raw_events = data
+    else:
+        raw_events = [data]
+
+    if not isinstance(raw_events, list):
+        raise TypeError("Network executor response events must be a list.")
+
+    events = []
+    for raw_event in raw_events:
+        if not isinstance(raw_event, dict):
+            raise TypeError("Network executor events must be dictionaries.")
+        events.append(_deserialize_network_executor_frame(raw_event, reason=reason))
+    return tuple(events)
+
+
+def _normalize_headers(headers: Any) -> Dict[str, str]:
+    if headers is None:
+        return {}
+    elif isinstance(headers, dict):
+        return {str(key): str(value) for key, value in headers.items()}
+    else:
+        raise TypeError("executor_config.headers must be a dictionary.")
+
+
+def _normalize_metadata(metadata: Any) -> Tuple[Tuple[str, str], ...]:
+    if metadata is None:
+        return ()
+    elif isinstance(metadata, dict):
+        return tuple((str(key), str(value)) for key, value in metadata.items())
+    elif isinstance(metadata, (list, tuple)):
+        return tuple((str(key), str(value)) for key, value in metadata)
+    else:
+        raise TypeError("executor_config.metadata must be a dictionary or sequence of pairs.")
+
+
+def _require_optional_module(module_name: str, *, executor_name: str, install_hint: str) -> Any:
+    try:
+        return importlib.import_module(module_name)
+    except ImportError as exc:
+        raise RuntimeError(
+            f"{executor_name} executor requested, but dependency `{module_name}` is not installed. "
+            f"Install with: pip install {install_hint}"
+        ) from exc
+
+
+def _transport_error_frame(command: Dict[str, Any], exc: BaseException) -> Dict[str, Any]:
+    return {
+        "type": "task_error",
+        "run_id": command.get("run_id"),
+        "task_id": command.get("task_id"),
+        "error": normalize_exception(exc, source="transport", retryable=True),
     }
 
 
@@ -204,13 +331,14 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
         del environment_name, run_config
         command = environment_config.get("command")
         if not command:
-            command = [sys.executable, "-m", "wove.gateway"]
+            command = [sys.executable, "-m", "wove.stdio_worker"]
 
         if isinstance(command, str):
             command = shlex.split(command)
         if not isinstance(command, list) or not command:
             raise TypeError("executor_config.command must be a non-empty list or command string.")
 
+        require_dispatch("the stdio executor serializes task frames across a worker process.")
         self._process = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE,
@@ -232,7 +360,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
             raise RuntimeError("Stdio executor is not started.")
         raw = await self._process.stdout.readline()
         if not raw:
-            raise RuntimeError("Gateway process closed stdout unexpectedly.")
+            raise RuntimeError("Worker process closed stdout unexpectedly.")
         payload = json.loads(raw.decode("utf-8"))
         return self._deserialize_frame(payload)
 
@@ -254,39 +382,437 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
     def _serialize_frame(self, frame: Dict[str, Any]) -> Dict[str, Any]:
         payload = dict(frame)
         if "callable" in payload:
-            payload["callable_pickle"] = base64.b64encode(cloudpickle.dumps(payload.pop("callable"))).decode("ascii")
+            payload["callable_pickle"] = base64.b64encode(
+                dispatch_dumps(
+                    payload.pop("callable"),
+                    reason="the stdio executor serializes task callables across a worker process.",
+                )
+            ).decode("ascii")
         if "args" in payload:
-            payload["args_pickle"] = base64.b64encode(cloudpickle.dumps(payload.pop("args"))).decode("ascii")
+            payload["args_pickle"] = base64.b64encode(
+                dispatch_dumps(
+                    payload.pop("args"),
+                    reason="the stdio executor serializes task arguments across a worker process.",
+                )
+            ).decode("ascii")
         return payload
 
     def _deserialize_frame(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         frame = dict(payload)
         if "result_pickle" in frame:
-            frame["result"] = cloudpickle.loads(base64.b64decode(frame.pop("result_pickle")))
+            frame["result"] = dispatch_loads(
+                base64.b64decode(frame.pop("result_pickle")),
+                reason="the stdio executor deserializes task results from a worker process.",
+            )
         if "exception_pickle" in frame:
-            frame["exception"] = cloudpickle.loads(base64.b64decode(frame.pop("exception_pickle")))
+            frame["exception"] = dispatch_loads(
+                base64.b64decode(frame.pop("exception_pickle")),
+                reason="the stdio executor deserializes task exceptions from a worker process.",
+            )
         if "error_pickle" in frame:
-            frame["error"] = cloudpickle.loads(base64.b64decode(frame.pop("error_pickle")))
+            frame["error"] = dispatch_loads(
+                base64.b64decode(frame.pop("error_pickle")),
+                reason="the stdio executor deserializes normalized task errors from a worker process.",
+            )
         return frame
 
 
-class RemoteAdapterEnvironmentExecutor(EnvironmentExecutor):
+class HttpEnvironmentExecutor(EnvironmentExecutor):
+    """
+    Network executor that sends Wove frames to a worker service over HTTP or HTTPS.
+    """
+
+    def __init__(self, *, require_https: bool = False) -> None:
+        self._require_https = require_https
+        self._name = "https" if require_https else "http"
+        self._url: Optional[str] = None
+        self._headers: Dict[str, str] = {}
+        self._security = NetworkExecutorSecurity()
+        self._timeout: Optional[float] = None
+        self._events: asyncio.Queue = asyncio.Queue()
+        self._requests: Dict[str, asyncio.Task] = {}
+
+    async def start(
+        self,
+        *,
+        environment_name: str,
+        environment_config: Dict[str, Any],
+        run_config: Dict[str, Any],
+    ) -> None:
+        del environment_name, run_config
+        require_dispatch(_network_dispatch_reason(self._name))
+
+        url = environment_config.get("url")
+        if not isinstance(url, str) or not url:
+            raise TypeError("executor_config.url must be a non-empty HTTP or HTTPS URL.")
+
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("executor_config.url must be an HTTP or HTTPS URL.")
+        if self._require_https and parsed.scheme != "https":
+            raise ValueError("The https executor requires an https:// URL.")
+
+        self._security = NetworkExecutorSecurity.from_config(environment_config.get("security"))
+        _ensure_network_executor_security(
+            executor_name=self._name,
+            security=self._security,
+            secure_transport=parsed.scheme == "https",
+            local_target=_is_local_http_url(url),
+            insecure=bool(environment_config.get("insecure", False)),
+        )
+        self._url = url
+        self._headers = _normalize_headers(environment_config.get("headers"))
+        timeout = environment_config.get("timeout")
+        self._timeout = float(timeout) if timeout is not None else None
+
+    async def send(self, frame: Dict[str, Any]) -> None:
+        if self._url is None:
+            raise RuntimeError(f"{self._name} executor is not started.")
+
+        frame_type = frame.get("type")
+        if frame_type in {"run_task", "cancel_task"}:
+            tracking_id = self._request_tracking_id(frame)
+            request = asyncio.create_task(self._post_frame(frame, tracking_id))
+            self._requests[tracking_id] = request
+            return
+
+        if frame_type == "shutdown":
+            for request in list(self._requests.values()):
+                request.cancel()
+            return
+
+        raise ValueError(f"Unsupported frame type: {frame_type}")
+
+    async def recv(self) -> Dict[str, Any]:
+        if self._url is None:
+            raise RuntimeError(f"{self._name} executor is not started.")
+        return await self._events.get()
+
+    async def stop(self) -> None:
+        for request in list(self._requests.values()):
+            request.cancel()
+        if self._requests:
+            await asyncio.gather(*self._requests.values(), return_exceptions=True)
+        self._requests.clear()
+        self._url = None
+
+    def _request_tracking_id(self, frame: Dict[str, Any]) -> str:
+        run_id = frame.get("run_id")
+        if frame.get("type") == "run_task" and isinstance(run_id, str):
+            return run_id
+        return f"{frame.get('type', 'request')}:{run_id or uuid4().hex}:{uuid4().hex}"
+
+    async def _post_frame(self, frame: Dict[str, Any], tracking_id: str) -> None:
+        try:
+            response = await asyncio.to_thread(self._post_json, frame)
+            if not response:
+                if frame.get("type") == "run_task":
+                    raise RuntimeError("HTTP worker service returned an empty response.")
+                return
+            for event in _load_network_executor_events(response, reason=_network_dispatch_reason(self._name)):
+                await self._events.put(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if frame.get("run_id"):
+                await self._events.put(_transport_error_frame(frame, exc))
+        finally:
+            self._requests.pop(tracking_id, None)
+
+    def _post_json(self, frame: Dict[str, Any]) -> bytes:
+        if self._url is None:
+            raise RuntimeError(f"{self._name} executor is not started.")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            **self._headers,
+        }
+        body = _dump_network_executor_message(frame, reason=_network_dispatch_reason(self._name))
+        headers.update(
+            self._security.headers_for(
+                transport="http",
+                target=_canonical_http_target(self._url),
+                body=body,
+            )
+        )
+        request = urllib.request.Request(
+            self._url,
+            data=body,
+            method="POST",
+            headers=headers,
+        )
+        with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            return response.read()
+
+
+class GrpcEnvironmentExecutor(EnvironmentExecutor):
+    """
+    Network executor that sends Wove frames through a generic gRPC method.
+    """
+
+    def __init__(self) -> None:
+        self._grpc: Any = None
+        self._channel: Any = None
+        self._rpc: Any = None
+        self._method = _GRPC_DEFAULT_METHOD
+        self._timeout: Optional[float] = None
+        self._metadata: Tuple[Tuple[str, str], ...] = ()
+        self._security = NetworkExecutorSecurity()
+        self._events: asyncio.Queue = asyncio.Queue()
+        self._requests: Dict[str, asyncio.Task] = {}
+
+    async def start(
+        self,
+        *,
+        environment_name: str,
+        environment_config: Dict[str, Any],
+        run_config: Dict[str, Any],
+    ) -> None:
+        del environment_name, run_config
+        require_dispatch(_network_dispatch_reason("grpc"))
+        self._grpc = _require_optional_module("grpc", executor_name="grpc", install_hint='"wove[dispatch]" grpcio')
+
+        target = environment_config.get("target")
+        if not isinstance(target, str) or not target:
+            raise TypeError("executor_config.target must be a non-empty gRPC target.")
+
+        method = environment_config.get("method", _GRPC_DEFAULT_METHOD)
+        if not isinstance(method, str) or not method.startswith("/"):
+            raise TypeError("executor_config.method must be a fully-qualified gRPC method path.")
+
+        self._method = method
+        timeout = environment_config.get("timeout")
+        self._timeout = float(timeout) if timeout is not None else None
+        self._metadata = _normalize_metadata(environment_config.get("metadata"))
+        self._security = NetworkExecutorSecurity.from_config(environment_config.get("security"))
+        secure_channel = bool(environment_config.get("secure"))
+        _ensure_network_executor_security(
+            executor_name="grpc",
+            security=self._security,
+            secure_transport=secure_channel,
+            local_target=_is_local_grpc_target(target),
+            insecure=bool(environment_config.get("insecure", False)),
+        )
+
+        if secure_channel:
+            root_certificates = environment_config.get("root_certificates")
+            if isinstance(root_certificates, str):
+                root_certificates = root_certificates.encode("utf-8")
+            credentials = self._grpc.ssl_channel_credentials(root_certificates=root_certificates)
+            self._channel = self._grpc.aio.secure_channel(target, credentials)
+        else:
+            self._channel = self._grpc.aio.insecure_channel(target)
+
+        self._rpc = self._channel.unary_unary(
+            self._method,
+            request_serializer=lambda value: value,
+            response_deserializer=lambda value: value,
+        )
+
+    async def send(self, frame: Dict[str, Any]) -> None:
+        if self._rpc is None:
+            raise RuntimeError("grpc executor is not started.")
+
+        frame_type = frame.get("type")
+        if frame_type in {"run_task", "cancel_task"}:
+            tracking_id = self._request_tracking_id(frame)
+            request = asyncio.create_task(self._call_frame(frame, tracking_id))
+            self._requests[tracking_id] = request
+            return
+
+        if frame_type == "shutdown":
+            for request in list(self._requests.values()):
+                request.cancel()
+            return
+
+        raise ValueError(f"Unsupported frame type: {frame_type}")
+
+    async def recv(self) -> Dict[str, Any]:
+        if self._rpc is None:
+            raise RuntimeError("grpc executor is not started.")
+        return await self._events.get()
+
+    async def stop(self) -> None:
+        for request in list(self._requests.values()):
+            request.cancel()
+        if self._requests:
+            await asyncio.gather(*self._requests.values(), return_exceptions=True)
+        self._requests.clear()
+
+        if self._channel is not None:
+            close_result = self._channel.close()
+            if inspect.isawaitable(close_result):
+                await close_result
+        self._channel = None
+        self._rpc = None
+
+    def _request_tracking_id(self, frame: Dict[str, Any]) -> str:
+        run_id = frame.get("run_id")
+        if frame.get("type") == "run_task" and isinstance(run_id, str):
+            return run_id
+        return f"{frame.get('type', 'request')}:{run_id or uuid4().hex}:{uuid4().hex}"
+
+    async def _call_frame(self, frame: Dict[str, Any], tracking_id: str) -> None:
+        try:
+            kwargs: Dict[str, Any] = {}
+            if self._timeout is not None:
+                kwargs["timeout"] = self._timeout
+            request = _dump_network_executor_message(frame, reason=_network_dispatch_reason("grpc"))
+            metadata = (
+                *self._metadata,
+                *self._security.metadata_for(transport="grpc", target=self._method, body=request),
+            )
+            if metadata:
+                kwargs["metadata"] = metadata
+
+            response = await self._rpc(
+                request,
+                **kwargs,
+            )
+            if not response:
+                if frame.get("type") == "run_task":
+                    raise RuntimeError("gRPC worker service returned an empty response.")
+                return
+            for event in _load_network_executor_events(response, reason=_network_dispatch_reason("grpc")):
+                await self._events.put(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if frame.get("run_id"):
+                await self._events.put(_transport_error_frame(frame, exc))
+        finally:
+            self._requests.pop(tracking_id, None)
+
+
+class WebSocketEnvironmentExecutor(EnvironmentExecutor):
+    """
+    Network executor that exchanges Wove frames with a worker service over WebSocket.
+    """
+
+    def __init__(self) -> None:
+        self._websockets: Any = None
+        self._websocket: Any = None
+        self._url: Optional[str] = None
+        self._headers: Dict[str, str] = {}
+        self._security = NetworkExecutorSecurity()
+        self._events: asyncio.Queue = asyncio.Queue()
+
+    async def start(
+        self,
+        *,
+        environment_name: str,
+        environment_config: Dict[str, Any],
+        run_config: Dict[str, Any],
+    ) -> None:
+        del environment_name, run_config
+        require_dispatch(_network_dispatch_reason("websocket"))
+        self._websockets = _require_optional_module(
+            "websockets",
+            executor_name="websocket",
+            install_hint='"wove[dispatch]" websockets',
+        )
+
+        url = environment_config.get("url")
+        if not isinstance(url, str) or not url:
+            raise TypeError("executor_config.url must be a non-empty ws:// or wss:// URL.")
+
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
+            raise ValueError("executor_config.url must be a ws:// or wss:// URL.")
+
+        self._security = NetworkExecutorSecurity.from_config(environment_config.get("security"))
+        _ensure_network_executor_security(
+            executor_name="websocket",
+            security=self._security,
+            secure_transport=parsed.scheme == "wss",
+            local_target=_is_local_http_url(url),
+            insecure=bool(environment_config.get("insecure", False)),
+        )
+        self._url = url
+        self._headers = _normalize_headers(environment_config.get("headers"))
+        await self._connect(environment_config)
+
+    async def send(self, frame: Dict[str, Any]) -> None:
+        if self._websocket is None:
+            raise RuntimeError("websocket executor is not started.")
+
+        frame_type = frame.get("type")
+        if frame_type not in {"run_task", "cancel_task", "shutdown"}:
+            raise ValueError(f"Unsupported frame type: {frame_type}")
+
+        payload = _dump_network_executor_message(frame, reason=_network_dispatch_reason("websocket")).decode("utf-8")
+        await self._websocket.send(payload)
+
+    async def recv(self) -> Dict[str, Any]:
+        if self._websocket is None:
+            raise RuntimeError("websocket executor is not started.")
+
+        if self._events.empty():
+            message = await self._websocket.recv()
+            for event in _load_network_executor_events(message, reason=_network_dispatch_reason("websocket")):
+                await self._events.put(event)
+
+        return await self._events.get()
+
+    async def stop(self) -> None:
+        if self._websocket is not None:
+            close_result = self._websocket.close()
+            if inspect.isawaitable(close_result):
+                await close_result
+        self._websocket = None
+        self._url = None
+
+    async def _connect(self, environment_config: Dict[str, Any]) -> None:
+        connect_kwargs: Dict[str, Any] = {}
+        open_timeout = environment_config.get("open_timeout")
+        if open_timeout is not None:
+            connect_kwargs["open_timeout"] = float(open_timeout)
+
+        headers = dict(self._headers)
+        if self._url is not None:
+            headers.update(
+                self._security.headers_for(
+                    transport="websocket",
+                    target=_canonical_http_target(self._url),
+                    body=b"",
+                )
+            )
+
+        if headers:
+            try:
+                self._websocket = await self._websockets.connect(
+                    self._url,
+                    additional_headers=headers,
+                    **connect_kwargs,
+                )
+            except TypeError:
+                self._websocket = await self._websockets.connect(
+                    self._url,
+                    extra_headers=headers,
+                    **connect_kwargs,
+                )
+        else:
+            self._websocket = await self._websockets.connect(self._url, **connect_kwargs)
+
+
+class BackendAdapterEnvironmentExecutor(EnvironmentExecutor):
     """
     Executor that submits Wove task payloads to a backend adapter and receives
-    remote worker frames over a callback server.
+    worker frames over a callback server.
     """
 
     def __init__(
         self,
         name: str,
-        adapter_class: Optional[Type[RemoteTaskAdapter]] = None,
+        adapter_class: Optional[Type[BackendAdapter]] = None,
         required_modules: Optional[Tuple[str, ...]] = None,
     ) -> None:
         self._name = name
-        self._adapter_class = adapter_class or get_adapter_class(name)
+        self._adapter_class = adapter_class or get_backend_adapter_class(name)
         self._required_modules = required_modules or self._adapter_class.required_modules
-        self._callback_server: Optional[RemoteCallbackServer] = None
-        self._adapter: Optional[RemoteTaskAdapter] = None
+        self._callback_server: Optional[BackendCallbackServer] = None
+        self._adapter: Optional[BackendAdapter] = None
         self._submissions: Dict[str, Any] = {}
 
     async def start(
@@ -300,13 +826,16 @@ class RemoteAdapterEnvironmentExecutor(EnvironmentExecutor):
         missing = [module for module in self._required_modules if importlib.util.find_spec(module) is None]
         if missing:
             quoted = ", ".join(f"`{name}`" for name in missing)
-            install_hint = _ADAPTER_INSTALL_HINTS.get(self._name, " ".join(missing))
+            install_hint = _BACKEND_ADAPTER_INSTALL_HINTS.get(self._name, " ".join(missing))
             raise RuntimeError(
                 f"{self._name} executor requested, but dependency {quoted} is not installed. "
                 f"Install with: pip install {install_hint}"
             )
+        require_dispatch(
+            f"the {self._name} executor serializes task payloads for execution outside the current process."
+        )
 
-        self._callback_server = RemoteCallbackServer(
+        self._callback_server = BackendCallbackServer(
             host=environment_config.get("callback_host", "127.0.0.1"),
             port=environment_config.get("callback_port", 0),
             public_url=environment_config.get("callback_url"),
@@ -334,7 +863,7 @@ class RemoteAdapterEnvironmentExecutor(EnvironmentExecutor):
 
         frame_type = frame.get("type")
         if frame_type == "run_task":
-            payload = build_remote_payload(
+            payload = build_backend_payload(
                 frame,
                 callback_url=self._callback_server.callback_url,
                 adapter=self._name,
@@ -370,22 +899,21 @@ class RemoteAdapterEnvironmentExecutor(EnvironmentExecutor):
             self._submissions.clear()
 
 
-class OptionalDependencyExecutor(RemoteAdapterEnvironmentExecutor):
-    """
-    Backwards-compatible alias for older tests/imports.
-    """
-
-    def __init__(self, name: str, required_modules: Tuple[str, ...]) -> None:
-        super().__init__(name, required_modules=required_modules)
-
-
 def build_executor_from_name(name: str) -> EnvironmentExecutor:
     if name == "local":
         return LocalEnvironmentExecutor()
     if name == "stdio":
         return StdioEnvironmentExecutor()
-    if name in _ADAPTER_DEPENDENCIES:
-        return RemoteAdapterEnvironmentExecutor(name)
+    if name == "http":
+        return HttpEnvironmentExecutor()
+    if name == "https":
+        return HttpEnvironmentExecutor(require_https=True)
+    if name == "grpc":
+        return GrpcEnvironmentExecutor()
+    if name == "websocket":
+        return WebSocketEnvironmentExecutor()
+    if name in _BACKEND_ADAPTER_DEPENDENCIES:
+        return BackendAdapterEnvironmentExecutor(name)
     raise ValueError(f"Unknown executor '{name}'.")
 
 

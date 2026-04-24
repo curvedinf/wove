@@ -17,8 +17,10 @@ Dask is for distributed Python execution through an existing Dask scheduler and 
 
 ## Dependency
 
+Install dispatch support and Dask distributed in the submitting process and on Dask workers.
+
 ```bash
-pip install "dask[distributed]"
+pip install "wove[dispatch]" "dask[distributed]"
 ```
 
 ## Configure Wove
@@ -58,5 +60,5 @@ Dask workers must have Wove installed and must be able to import the application
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints.

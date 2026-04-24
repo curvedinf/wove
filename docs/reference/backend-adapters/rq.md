@@ -16,8 +16,10 @@ RQ is for Redis Queue deployments where selected Wove tasks should run in an exi
 
 ## Dependency
 
+Install dispatch support and RQ in the submitting process and in RQ workers.
+
 ```bash
-pip install rq
+pip install "wove[dispatch]" rq
 ```
 
 ## Configure Wove
@@ -62,5 +64,5 @@ rq worker wove
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints.

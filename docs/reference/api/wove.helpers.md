@@ -2,7 +2,7 @@
 
 `wove.helpers` contains small data-shaping utilities that make task dependencies easier to express. They are exported from `wove` for normal use.
 
-These helpers keep common data-shaping work inside the weave without forcing extra task functions for every list, dictionary, batch, or optional-value transformation.
+Use helpers when a small list, dictionary, batch, or optional-value transformation belongs inside the weave but does not deserve a throwaway task function.
 
 ## Common Helpers
 

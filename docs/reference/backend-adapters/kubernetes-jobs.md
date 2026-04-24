@@ -1,6 +1,6 @@
 # Kubernetes Jobs
 
-Kubernetes Jobs are for isolated pod-per-task execution. Wove creates a Job, injects the payload into `WOVE_REMOTE_PAYLOAD`, and the container runs `python -m wove.remote_worker`.
+Kubernetes Jobs are for isolated pod-per-task execution. Wove creates a Job, injects the payload into `WOVE_BACKEND_PAYLOAD`, and the container runs `python -m wove.backend_worker`.
 
 ## Use When
 
@@ -11,14 +11,16 @@ Kubernetes Jobs are for isolated pod-per-task execution. Wove creates a Job, inj
 ## Execution Shape
 
 1. Wove builds a Kubernetes Job object.
-2. The Job receives the payload as the `WOVE_REMOTE_PAYLOAD` environment variable.
-3. The container runs `python -m wove.remote_worker`.
+2. The Job receives the payload as the `WOVE_BACKEND_PAYLOAD` environment variable.
+3. The container runs `python -m wove.backend_worker`.
 4. The worker posts Wove event frames back to the callback URL.
 
 ## Dependency
 
+Install dispatch support and the Kubernetes client in the submitting process. The worker image must also include Wove with dispatch support.
+
 ```bash
-pip install kubernetes
+pip install "wove[dispatch]" kubernetes
 ```
 
 ## Configure Wove
@@ -47,7 +49,7 @@ The image must contain Wove, your application code, and a Python runtime that ca
 ## Default Container Command
 
 ```bash
-python -m wove.remote_worker
+python -m wove.backend_worker
 ```
 
 ## Custom Job Shape
@@ -77,7 +79,7 @@ wove.config(
 | --- | --- |
 | `namespace` | Kubernetes namespace. Defaults to `default`. |
 | `image` | Image used by the default Job factory. |
-| `command` | Container command. Defaults to `['python', '-m', 'wove.remote_worker']`. |
+| `command` | Container command. Defaults to `['python', '-m', 'wove.backend_worker']`. |
 | `job_factory` | Callable that returns a Kubernetes Job object. |
 | `batch_api` | Existing `BatchV1Api` client. |
 | `load_config` | Set to `False` if Kubernetes config is already loaded. |
@@ -88,5 +90,5 @@ wove.config(
 
 ## Related Pages
 
-- [`wove.remote`](../api/wove.remote.md): `remote_worker` payload behavior.
-- [Executors](index.md): remote callback flow.
+- [`wove.backend`](../api/wove.backend.md): backend payload worker behavior.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.

@@ -9,9 +9,9 @@ async def maybe_await(value: Any) -> Any:
     return value
 
 
-class RemoteTaskAdapter:
+class BackendAdapter:
     """
-    Backend-specific submit/cancel bridge used by RemoteAdapterEnvironmentExecutor.
+    Backend-specific submit/cancel bridge used by BackendAdapterEnvironmentExecutor.
     """
 
     required_modules: Tuple[str, ...] = ()

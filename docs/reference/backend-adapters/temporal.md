@@ -17,8 +17,10 @@ Temporal is for work that should enter an existing Temporal task queue while the
 
 ## Dependency
 
+Install dispatch support and Temporal in the submitting process and in Temporal workers that execute Wove payloads.
+
 ```bash
-pip install temporalio
+pip install "wove[dispatch]" temporalio
 ```
 
 ## Configure Wove
@@ -87,5 +89,5 @@ Temporal workflows must remain deterministic. Keep Wove payload execution inside
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
-- [`wove.remote`](../api/wove.remote.md): callback transport.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
+- [`wove.backend`](../api/wove.backend.md): backend callback transport.

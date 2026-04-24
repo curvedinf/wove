@@ -3,10 +3,14 @@ import types
 
 import pytest
 
-from wove.integrations import get_adapter_class, get_adapter_dependencies, get_adapter_install_hints
+from wove.integrations import (
+    get_backend_adapter_class,
+    get_backend_adapter_dependencies,
+    get_backend_adapter_install_hints,
+)
 from wove.integrations.arq import ARQAdapter
 from wove.integrations.aws_batch import AWSBatchAdapter
-from wove.integrations.base import RemoteTaskAdapter
+from wove.integrations.base import BackendAdapter
 from wove.integrations.celery import CeleryAdapter
 from wove.integrations.dask import DaskAdapter
 from wove.integrations.kubernetes_jobs import KubernetesJobsAdapter
@@ -30,14 +34,14 @@ def make_module(name, **attrs):
 
 @pytest.mark.asyncio
 async def test_adapter_registry_and_base_contract():
-    assert get_adapter_class("celery") is CeleryAdapter
-    assert get_adapter_dependencies()["celery"] == ("celery",)
-    assert get_adapter_install_hints()["dask"] == "dask[distributed]"
+    assert get_backend_adapter_class("celery") is CeleryAdapter
+    assert get_backend_adapter_dependencies()["celery"] == ("celery",)
+    assert get_backend_adapter_install_hints()["dask"] == "dask[distributed]"
 
     with pytest.raises(ValueError, match="Unknown executor"):
-        get_adapter_class("missing")
+        get_backend_adapter_class("missing")
 
-    adapter = make_adapter(RemoteTaskAdapter, "base", {})
+    adapter = make_adapter(BackendAdapter, "base", {})
     assert adapter.missing_dependencies() == ()
     await adapter.start()
     await adapter.cancel("run", None, {})
@@ -63,7 +67,7 @@ async def test_celery_adapter_submits_payload_to_named_task():
     result = await adapter.submit({"payload": True}, {"run_id": "r1"})
 
     assert result == "submission"
-    assert app.calls == [("wove.run_remote_payload", [{"payload": True}], {"queue": "wove"})]
+    assert app.calls == [("wove.run_backend_payload", [{"payload": True}], {"queue": "wove"})]
 
 
 @pytest.mark.asyncio
@@ -289,7 +293,7 @@ async def test_taskiq_and_arq_adapters_enqueue_payloads():
     await arq.start()
     assert await arq.submit({"payload": "arq"}, {"run_id": "r6"}) == "job"
     await arq.close()
-    assert pool.calls == [("wove_run_remote_payload", {"payload": "arq"}, {"_job_id": "r6", "_queue_name": "wove"})]
+    assert pool.calls == [("wove_run_backend_payload", {"payload": "arq"}, {"_job_id": "r6", "_queue_name": "wove"})]
     assert pool.closed is False
 
 
@@ -458,7 +462,8 @@ async def test_kubernetes_and_aws_batch_adapters_submit_payload_env():
 
     assert client.submitted["jobQueue"] == "queue"
     assert client.submitted["jobDefinition"] == "definition"
-    assert client.submitted["containerOverrides"]["environment"][0]["name"] == "WOVE_REMOTE_PAYLOAD"
+    environment = client.submitted["containerOverrides"]["environment"]
+    assert environment[0]["name"] == "WOVE_BACKEND_PAYLOAD"
     assert client.cancelled == {"jobId": "aws-job", "reason": "Cancelled by Wove."}
 
 

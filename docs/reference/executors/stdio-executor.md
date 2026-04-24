@@ -7,7 +7,15 @@
 - You want to prototype a custom executor without writing a full backend adapter.
 - Work should run in a separate Python process.
 - You need a process boundary but not a broker-backed task system.
-- You want to build or debug a custom gateway using streams.
+- You want to build or debug a custom worker process using streams.
+
+## Dependency
+
+`stdio` is a dispatch feature because Wove serializes task frames across a worker process.
+
+```bash
+pip install "wove[dispatch]"
+```
 
 ## Configure Wove
 
@@ -15,27 +23,27 @@
 import wove
 
 wove.config(
-    default_environment="gateway",
+    default_environment="worker",
     environments={
-        "gateway": {
+        "worker": {
             "executor": "stdio",
             "executor_config": {
-                "command": ["python", "-m", "my_gateway"],
+                "command": ["python", "-m", "my_worker"],
             },
         }
     },
 )
 ```
 
-If `executor_config.command` is omitted, Wove launches the built-in gateway:
+If `executor_config.command` is omitted, Wove launches the built-in stdio worker:
 
 ```bash
-python -m wove.gateway
+python -m wove.stdio_worker
 ```
 
-## Gateway Responsibilities
+## Worker Process Responsibilities
 
-A gateway process must:
+A worker process must:
 
 - Read one JSON command frame per line from stdin.
 - Decode task callables and args from Wove's serialized frame fields.
@@ -43,9 +51,9 @@ A gateway process must:
 - Write one JSON event frame per line to stdout.
 - Emit `task_error` frames for task or transport failures.
 
-## Built-In Gateway
+## Built-In Worker
 
-The built-in gateway runs the task in the subprocess and emits the normal frame set. It is useful as a reference implementation for custom stream-based executors.
+The built-in stdio worker runs the task in the subprocess and emits the normal frame set. It is useful as a reference implementation for custom stream-based executors. Its module path remains `python -m wove.stdio_worker`.
 
 ## Related Pages
 

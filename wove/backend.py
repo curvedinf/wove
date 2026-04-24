@@ -8,15 +8,23 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
-import cloudpickle
+from .serialization import dispatch_dumps, dispatch_loads
 
 
 def _encode_pickle(value: Any) -> str:
-    return base64.b64encode(cloudpickle.dumps(value)).decode("ascii")
+    return base64.b64encode(
+        dispatch_dumps(
+            value,
+            reason="dispatch serialization moves task payloads, results, and errors across process or network boundaries.",
+        )
+    ).decode("ascii")
 
 
 def _decode_pickle(value: str) -> Any:
-    return cloudpickle.loads(base64.b64decode(value.encode("ascii")))
+    return dispatch_loads(
+        base64.b64decode(value.encode("ascii")),
+        reason="dispatch serialization moves task payloads, results, and errors across process or network boundaries.",
+    )
 
 
 def serialize_frame(frame: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,14 +62,14 @@ def payload_from_b64(value: str) -> Dict[str, Any]:
     return json.loads(base64.b64decode(value.encode("ascii")).decode("utf-8"))
 
 
-def build_remote_payload(
+def build_backend_payload(
     frame: Dict[str, Any],
     *,
     callback_url: str,
     adapter: str,
 ) -> Dict[str, Any]:
     """
-    Build the JSON-safe payload that a remote backend worker executes.
+    Build the JSON-safe payload that a backend worker executes.
     """
 
     return {
@@ -89,9 +97,9 @@ def post_event(callback_url: str, frame: Dict[str, Any], *, timeout: Optional[fl
         response.read()
 
 
-async def run_remote_payload_async(payload: Dict[str, Any]) -> Any:
+async def run_backend_payload_async(payload: Dict[str, Any]) -> Any:
     """
-    Execute a Wove remote payload and deliver the result to its callback URL.
+    Execute a backend payload and deliver the result to its callback URL.
     """
 
     callback_url = payload["callback_url"]
@@ -133,21 +141,21 @@ async def run_remote_payload_async(payload: Dict[str, Any]) -> Any:
     return result
 
 
-def run_remote_payload(payload: Dict[str, Any]) -> Any:
+def run_backend_payload(payload: Dict[str, Any]) -> Any:
     """
-    Synchronous worker entrypoint for Celery/RQ/Ray/Dask/job runners.
+    Synchronous worker entrypoint for backend workers.
     """
 
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(run_remote_payload_async(payload))
-    raise RuntimeError("run_remote_payload_async must be used when already inside an event loop.")
+        return asyncio.run(run_backend_payload_async(payload))
+    raise RuntimeError("run_backend_payload_async must be used when already inside an event loop.")
 
 
-class RemoteCallbackServer:
+class BackendCallbackServer:
     """
-    Small HTTP receiver that turns remote worker callbacks into executor frames.
+    Small HTTP receiver that turns backend worker callbacks into executor frames.
     """
 
     def __init__(
@@ -218,7 +226,7 @@ class RemoteCallbackServer:
 
     async def recv(self) -> Dict[str, Any]:
         if self._queue is None:
-            raise RuntimeError("Remote callback server is not started.")
+            raise RuntimeError("Backend callback server is not started.")
         return await self._queue.get()
 
     async def stop(self) -> None:
@@ -233,3 +241,16 @@ class RemoteCallbackServer:
         self._queue = None
         self._loop = None
         self.callback_url = None
+
+
+__all__ = [
+    "BackendCallbackServer",
+    "build_backend_payload",
+    "deserialize_frame",
+    "payload_from_b64",
+    "payload_to_b64",
+    "post_event",
+    "run_backend_payload",
+    "run_backend_payload_async",
+    "serialize_frame",
+]

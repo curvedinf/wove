@@ -1,18 +1,17 @@
-import sys
 import unittest.mock
 import pytest
 import pickle
 from wove.background import main
-import cloudpickle
 
 @pytest.fixture
 def mock_dependencies():
     with unittest.mock.patch('sys.argv', ['wove/background.py', 'test_file']), \
          unittest.mock.patch('builtins.open', unittest.mock.mock_open()), \
-         unittest.mock.patch('cloudpickle.load') as mock_load, \
+         unittest.mock.patch('wove.background.dispatch_load') as mock_load, \
          unittest.mock.patch('os.remove') as mock_remove, \
          unittest.mock.patch('os.path.exists', return_value=True), \
          unittest.mock.patch('asyncio.run') as mock_run:
+        mock_run.side_effect = lambda coro: coro.close()
         yield mock_load, mock_remove, mock_run
 
 def test_main_success(mock_dependencies):
@@ -71,7 +70,7 @@ def test_main_executes_sync_on_done_callback(tmp_path):
     fake = FakeWCM()
     with unittest.mock.patch("sys.argv", ["wove/background.py", str(tmp_path / "ctx.pkl")]), \
          unittest.mock.patch("builtins.open", unittest.mock.mock_open()), \
-         unittest.mock.patch("cloudpickle.load", return_value=fake), \
+         unittest.mock.patch("wove.background.dispatch_load", return_value=fake), \
          unittest.mock.patch("os.path.exists", return_value=False):
         main()
 
@@ -102,7 +101,7 @@ def test_main_executes_async_on_done_callback(tmp_path):
     fake = FakeWCM()
     with unittest.mock.patch("sys.argv", ["wove/background.py", str(tmp_path / "ctx.pkl")]), \
          unittest.mock.patch("builtins.open", unittest.mock.mock_open()), \
-         unittest.mock.patch("cloudpickle.load", return_value=fake), \
+         unittest.mock.patch("wove.background.dispatch_load", return_value=fake), \
          unittest.mock.patch("os.path.exists", return_value=False):
         main()
 

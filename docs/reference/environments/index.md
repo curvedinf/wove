@@ -17,7 +17,7 @@ Every environment is a plain dictionary. Every key is optional.
 
 ```python
 {
-    "executor": "local" | "stdio" | "celery" | "temporal" | "ray" | ...,
+    "executor": "local" | "stdio" | "http" | "grpc" | "websocket" | "celery" | ...,
     "executor_config": { ... },
     "max_workers": 32,
     "background": False,
@@ -42,15 +42,18 @@ Every environment is a plain dictionary. Every key is optional.
 `executor` decides where task frames are sent.
 
 - `local`: run tasks in the current Python process.
-- `stdio`: run tasks through a JSON-lines subprocess gateway.
-- `celery`, `temporal`, `ray`, `rq`, `taskiq`, `arq`, `dask`, `kubernetes_jobs`, `aws_batch`, `slurm`: submit tasks to a remote task system and receive callback frames.
+- `stdio`: run tasks through a JSON-lines worker process.
+- `http`, `https`, `grpc`, `websocket`: send tasks to a Wove-compatible worker service over the network.
+- `celery`, `temporal`, `ray`, `rq`, `taskiq`, `arq`, `dask`, `kubernetes_jobs`, `aws_batch`, `slurm`: use backend adapters to submit tasks to external systems and receive callback frames.
 - `EnvironmentExecutor` instance: custom executor object.
 
 `executor_config` belongs to the executor. Wove treats it as backend-specific data and passes it to the selected executor during startup.
 
+Network executors use `executor_config.security` for authentication. Use `security="env:VARIABLE"` to sign outgoing HTTP, gRPC, or WebSocket executor requests with a shared secret from the environment.
+
 ## Execution Defaults
 
-These settings affect normal task execution and use the same naming style as `weave(...)` and `@w.do(...)` arguments.
+Use execution defaults when normal task behavior should be consistent across a project. The keys follow the same naming style as `weave(...)` and `@w.do(...)` arguments so project configuration reads like the call sites it replaces.
 
 | Key | Effect |
 | --- | --- |
@@ -70,11 +73,11 @@ Delivery settings only affect executor delivery behavior, so their names use the
 
 | Key | Effect |
 | --- | --- |
-| `delivery_timeout` | Maximum time to wait for a remote delivery result. |
+| `delivery_timeout` | Maximum time to wait for a backend delivery result. |
 | `delivery_idempotency_key` | Optional dedupe key or format string. |
 | `delivery_cancel_mode` | `best_effort` or `require_ack`. |
 | `delivery_heartbeat_seconds` | Expected heartbeat interval before timeout handling. |
-| `delivery_max_in_flight` | In-flight dispatch cap for an environment. |
+| `delivery_max_in_flight` | In-flight backend task cap for an environment. |
 | `delivery_orphan_policy` | `fail`, `cancel`, `requeue`, or `detach`. |
 
 ## Resolution Order
@@ -123,10 +126,12 @@ WOVE = {
 - Invalid `delivery_cancel_mode` values raise `ValueError`.
 - Invalid `delivery_orphan_policy` values raise `ValueError`.
 - Unknown executor names raise `ValueError` during executor construction.
+- Missing dispatch support raises `MissingDispatchFeatureError` with the `wove[dispatch]` install command.
 - Missing optional backend libraries raise a startup error with an install hint.
 
 ## Related Pages
 
 - [`wove.runtime`](../api/wove.runtime.md): process-wide configuration implementation.
-- [Executors](../executors/index.md): executor names, frame contract, and remote callback behavior.
-- [Advanced/Remote Execution Environments](../../how-to/advanced-remote-execution-environments.md): guided setup narrative.
+- [Executors](../executors/index.md): executor names, frame contract, and delivery errors.
+- [Backend Adapters](../backend-adapters/index.md): adapter names, callback flow, and external task-system requirements.
+- [Remote Task Environments](../../how-to/remote-task-environments.md): guided setup narrative.

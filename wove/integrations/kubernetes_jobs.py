@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-from ..remote import payload_to_b64
-from .base import RemoteTaskAdapter, maybe_await
+from ..backend import payload_to_b64
+from .base import BackendAdapter, maybe_await
 
 
-class KubernetesJobsAdapter(RemoteTaskAdapter):
+class KubernetesJobsAdapter(BackendAdapter):
     required_modules = ("kubernetes",)
     install_hint = "kubernetes"
 
@@ -56,11 +56,12 @@ class KubernetesJobsAdapter(RemoteTaskAdapter):
         from kubernetes import client
 
         name = self._job_name(frame["run_id"])
-        env = [client.V1EnvVar(name="WOVE_REMOTE_PAYLOAD", value=payload_to_b64(payload))]
+        payload_b64 = payload_to_b64(payload)
+        env = [client.V1EnvVar(name="WOVE_BACKEND_PAYLOAD", value=payload_b64)]
         container = client.V1Container(
             name="wove",
             image=image,
-            command=self.config.get("command") or ["python", "-m", "wove.remote_worker"],
+            command=self.config.get("command") or ["python", "-m", "wove.backend_worker"],
             env=env,
         )
         spec = client.V1PodSpec(restart_policy="Never", containers=[container])

@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter, maybe_await
+from .base import BackendAdapter, maybe_await
 
 
-class TaskiqAdapter(RemoteTaskAdapter):
+class TaskiqAdapter(BackendAdapter):
     required_modules = ("taskiq",)
     install_hint = "taskiq"
 
@@ -17,7 +17,7 @@ class TaskiqAdapter(RemoteTaskAdapter):
             return
 
         broker = self.config.get("broker")
-        task_name = self.config.get("task_name", "wove.run_remote_payload")
+        task_name = self.config.get("task_name", "wove.run_backend_payload")
         if broker is None or not hasattr(broker, "find_task"):
             raise TypeError("taskiq executor_config requires `task` or a `broker` with find_task().")
         self._task = broker.find_task(task_name)

@@ -10,14 +10,13 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Optional, Type
 
-import cloudpickle
-
 from .debug import print_debug_report
 from .environment import ExecutorRuntime
 from .executor import execute_plan
 from .graph import build_graph_and_plan
 from .result import WoveResult
 from .runtime import runtime
+from .serialization import dispatch_dump
 from .task import do as do_decorator, merge as merge_func
 from .weave import Weave
 from .vars import executor_context, merge_context
@@ -247,7 +246,11 @@ class WoveContextManager:
         self._executor_runtime = None
 
         with tempfile.NamedTemporaryFile(delete=False) as f:
-            cloudpickle.dump(self, f)
+            dispatch_dump(
+                self,
+                f,
+                reason="forked background execution serializes the weave context into a detached process.",
+            )
             context_file = f.name
 
         command = [sys.executable, "-m", "wove.background", context_file]

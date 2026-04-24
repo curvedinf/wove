@@ -2,39 +2,56 @@
 
 Executors are the transport boundary between a weave and the place where a task actually runs. The weave builds a task graph; the executor decides how a single task frame is delivered, executed, cancelled, and reported back.
 
-## Choose An Executor
+## Terminology
+
+`dispatch`
+: The capability layer that lets Wove serialize task callables, arguments, results, and errors across a process or network boundary.
+
+`execution environment`
+: A named Wove configuration selected with `environment=...`. It defines where matching tasks run and which execution defaults apply.
+
+`executor`
+: The Wove-side object that receives task frames for an execution environment and reports task events back to the weave.
+
+`network executor`
+: An executor selected with `executor="http"`, `executor="https"`, `executor="grpc"`, or `executor="websocket"`. It sends Wove frames to a remote worker service instead of running the task in the weave process.
+
+`remote worker service`
+: The service you own on the other side of a network executor. It implements Wove's executor protocol by receiving command frames, running or forwarding the task, and returning event frames.
+
+## Core Executors
 
 | Executor | Use when |
 | --- | --- |
-| `local` | Tasks should run in the current Python process. This is the default and fastest path. |
-| `stdio` | You want a custom process boundary that speaks Wove's JSON-lines frame protocol. |
-| `celery` | You already have Celery workers and a broker. |
-| `temporal` | Work should enter a Temporal workflow/task queue. |
-| `ray` | Work should run on a Ray cluster. |
-| `rq` | Work should run on Redis Queue workers. |
-| `taskiq` | Work should run through a Taskiq broker/task. |
-| `arq` | Work should run on async Redis ARQ workers. |
-| `dask` | Work should run on a Dask distributed scheduler. |
-| `kubernetes_jobs` | Each task should run as an isolated Kubernetes Job. |
-| `aws_batch` | Each task should run as an AWS Batch job. |
-| `slurm` | Each task should run through an HPC Slurm scheduler. |
+| [`local`](local-executor.md) | Tasks should run in the current Python process. This is the default and fastest path. |
+| [`stdio`](stdio-executor.md) | You want a custom process boundary that speaks Wove's JSON-lines frame protocol. |
+
+## Network Executor Names
+
+Network executors are for projects that already have a worker service boundary, but do not need Wove to submit work through a queue, workflow engine, cluster scheduler, or batch system. The remote worker service receives Wove command frames, runs or forwards the task, and sends Wove event frames back.
+
+| Executor value | Worker service shape |
+| --- | --- |
+| [`http`](http-executor.md) | POST command frames to an HTTP or HTTPS endpoint and receive event frames in the response. |
+| [`https`](http-executor.md) | Same as `http`, but the configured URL must use `https://`. |
+| [`grpc`](grpc-executor.md) | Call a generic unary gRPC method with serialized command bytes and receive serialized event bytes. |
+| [`websocket`](websocket-executor.md) | Keep a bidirectional WebSocket open for command and event frames. |
+
+## Custom Executors
+
+Use a custom executor when Wove should talk directly to a process, service, or runtime that is not covered by the built-in executor names. The custom executor page documents the frame contract, the four-method interface, and the event guarantees Wove expects.
+
+- [Custom Executors](custom-executors.md)
 
 ```{toctree}
 :maxdepth: 1
 
-executor-errors
 local-executor
 stdio-executor
-celery
-temporal
-ray
-rq
-taskiq
-arq
-dask
-kubernetes-jobs
-aws-batch
-slurm
+http-executor
+grpc-executor
+websocket-executor
+custom-executors
 ```
 
 ## Executor Interface
@@ -60,7 +77,7 @@ Method responsibilities:
 
 | Method | Responsibility |
 | --- | --- |
-| `start(...)` | Open clients, processes, callback receivers, queues, or other run-scoped resources. |
+| `start(...)` | Open clients, processes, network connections, or other run-scoped resources. |
 | `send(frame)` | Accept one runtime command frame. |
 | `recv()` | Return one event frame back to Wove. |
 | `stop()` | Shut down resources and stop accepting work. |
@@ -90,7 +107,7 @@ Requests execution for one task.
 
 ### `cancel_task`
 
-Asks the executor or backend to cancel one submitted run.
+Asks the executor to cancel one submitted run.
 
 ```python
 {
@@ -112,53 +129,99 @@ Executors return these frames from `recv()`.
 
 | Frame | Meaning |
 | --- | --- |
-| `task_started` | Backend accepted or started the task. |
+| `task_started` | Executor or worker service accepted or started the task. |
 | `task_result` | Task completed successfully and includes `result`. |
 | `task_error` | Task failed and includes a normalized `error` payload. |
 | `task_cancelled` | Task cancellation completed. |
 | `heartbeat` | Optional liveness update for heartbeat-based delivery policies. |
 
-## Remote Callback Flow
+## Executor Errors
 
-Remote task systems usually run outside the weave process. Wove handles that by embedding a callback URL in each remote payload.
+Executor errors are normalized so Wove can treat local exceptions, subprocess failures, and network transport failures consistently.
 
-1. `RemoteAdapterEnvironmentExecutor` starts a callback receiver.
-2. The adapter submits a JSON-safe payload to the backend.
-3. A backend worker calls `wove.integrations.worker.run(payload)` or `await wove.integrations.worker.arun(payload)`.
-4. The worker posts event frames back to the callback URL.
-5. The executor runtime receives those frames and resolves the task result.
+### Normalized Error Frame
 
-For workers on another host or network, set a reachable URL explicitly:
+Executors should report task failures with `task_error`.
 
 ```python
-wove.config(
-    environments={
-        "reports": {
-            "executor": "celery",
-            "executor_config": {
-                "broker_url": "redis://redis:6379/0",
-                "task_name": "myapp.wove_task",
-                "callback_token": "shared-secret",
-                "callback_url": "https://wove-runner.internal/wove/events/shared-secret",
-            },
-        },
+{
+    "type": "task_error",
+    "run_id": "task_name:uuid",
+    "task_id": "task_name",
+    "error": {
+        "kind": "TimeoutError",
+        "message": "Task timed out",
+        "traceback": "...",
+        "retryable": True,
+        "source": "task",
     },
-)
+}
 ```
 
-`callback_host` and `callback_port` control where the local receiver binds. `callback_url` is what remote workers receive in the payload.
+In-process executors may also include an `exception` object. Process and network executors usually send either a serialized exception payload or a normalized error payload. Wove converts normalized error payloads into `EnvironmentExecutionError` when needed.
+
+### Error Sources
+
+| Source | Meaning |
+| --- | --- |
+| `task` | User task code raised an exception. |
+| `executor` | Executor implementation failed while handling a frame. |
+| `transport` | Subprocess or network delivery failed. |
+| `config` | Executor or environment configuration is invalid. |
+
+### Public Delivery Exceptions
+
+| Exception | Raised when |
+| --- | --- |
+| `DeliveryTimeoutError` | `delivery_timeout` is exceeded or heartbeat expiry triggers timeout handling. |
+| `DeliveryOrphanedError` | Pending remote work is orphaned while the runtime is stopping. |
+| `EnvironmentExecutionError` | A normalized remote error needs to surface as an exception. |
+| `MissingDispatchFeatureError` | A dispatch-only feature was used without installing `wove[dispatch]`. |
+
+### Cancellation Contract
+
+Wove sends `cancel_task` when delivery timeout, heartbeat timeout, explicit cancellation, or orphan handling requires cancellation.
+
+Executor responsibility:
+
+- `best_effort`: attempt cancellation if the executor supports it.
+- `require_ack`: emit `task_cancelled` only after cancellation is known to have succeeded.
+- Orphan policies are hints for shutdown handling and remote cleanup.
+
+## Network Executor Flow
+
+Network executors send Wove's executor protocol directly to a remote worker service you own. That service is responsible for running the task or forwarding it to whatever local execution model it wants.
+
+1. Wove serializes the `run_task` command frame.
+2. The selected network executor signs or authenticates the request when `executor_config.security` is configured.
+3. The network executor sends the frame to the worker service.
+4. The worker service verifies the network executor request before decoding task payloads.
+5. The worker service returns or streams `task_started`, `task_result`, `task_error`, `task_cancelled`, and optional `heartbeat` frames.
+6. Wove resolves the task result from those event frames.
+
+The direct worker-service shape is useful when a project already exposes internal worker APIs and wants Wove to speak to that service directly.
+
+Non-local network executor targets require TLS and authentication by default. The normal configuration is `security="env:WOVE_WORKER_SECRET"`, which signs outgoing requests with a shared secret. Plaintext or unauthenticated non-local targets must set `executor_config.insecure=True` explicitly.
 
 ## Dependency Policy
 
-Adapter modules ship with Wove. Backend libraries do not become required package dependencies.
+Local in-process execution has no required third-party runtime dependencies. Dispatch features are opt-in because they serialize task callables, arguments, results, and errors across a process or network boundary.
 
-- If `executor` is `local` or `stdio`, no backend package is needed.
-- If `executor` is a task-system adapter, Wove checks for that backend package at executor startup.
-- Missing packages fail with a message that names the package and install command.
+Install dispatch support for forked background execution, `stdio`, network executors, and workers that execute dispatched payloads:
+
+```bash
+pip install "wove[dispatch]"
+```
+
+- If `executor` is `local`, no optional package is needed.
+- If `executor` is `stdio`, `wove[dispatch]` is required.
+- If `executor` is `http` or `https`, `wove[dispatch]` is required but no transport package is needed.
+- If `executor` is `grpc`, install `wove[dispatch]` and `grpcio`.
+- If `executor` is `websocket`, install `wove[dispatch]` and `websockets`.
+- Missing dispatch support raises `MissingDispatchFeatureError` with the `wove[dispatch]` install command.
+- Missing network transport packages fail with a message that names the package and install command.
 
 ## Related Pages
 
-- [Executor Errors](executor-errors.md): error payloads, timeouts, and cancellation behavior.
 - [`wove.environment`](../api/wove.environment.md): executor classes and runtime implementation.
-- [`wove.remote`](../api/wove.remote.md): callback server and payload helpers.
-- [`wove.integrations`](../api/wove.integrations.md): adapter registry and base interface.
+- [`wove.security`](../api/wove.security.md): shared request signing and verification helpers for network executors.

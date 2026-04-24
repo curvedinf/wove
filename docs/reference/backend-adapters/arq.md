@@ -17,8 +17,10 @@ ARQ is for async Redis worker deployments. Wove enqueues a named ARQ function wi
 
 ## Dependency
 
+Install dispatch support and ARQ in the submitting process and in ARQ workers.
+
 ```bash
-pip install arq
+pip install "wove[dispatch]" arq
 ```
 
 ## Configure Wove
@@ -34,7 +36,7 @@ wove.config(
             "executor": "arq",
             "executor_config": {
                 "redis_settings": RedisSettings(host="redis"),
-                "function_name": "wove_run_remote_payload",
+                "function_name": "myapp_wove_task",
                 "queue_name": "wove",
                 "callback_token": "shared-secret",
                 "callback_url": "https://wove-runner.internal/wove/events/shared-secret",
@@ -52,12 +54,12 @@ You can pass an existing ARQ pool as `executor_config["pool"]`. If `pool` is omi
 from wove.integrations.worker import arun
 
 
-async def wove_run_remote_payload(ctx, payload):
+async def myapp_wove_task(ctx, payload):
     return await arun(payload)
 
 
 class WorkerSettings:
-    functions = [wove_run_remote_payload]
+    functions = [myapp_wove_task]
     queue_name = "wove"
 ```
 
@@ -67,11 +69,11 @@ class WorkerSettings:
 | --- | --- |
 | `pool` | Existing ARQ Redis pool. |
 | `redis_settings` | Settings used when Wove creates the pool. |
-| `function_name` | ARQ function name. Defaults to `wove_run_remote_payload`. |
+| `function_name` | ARQ function name. Defaults to `wove_run_backend_payload`. |
 | `queue_name` | Optional ARQ queue name. |
 | `enqueue_options` | Extra keyword arguments passed to `enqueue_job(...)`. |
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints.

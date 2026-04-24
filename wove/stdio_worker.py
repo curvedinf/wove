@@ -6,15 +6,16 @@ import sys
 import traceback
 from typing import Any, Dict, Optional
 
-import cloudpickle
+from .serialization import dispatch_dumps, dispatch_loads, require_dispatch
 
 
-class GatewayRuntime:
+class StdioWorkerRuntime:
     """
-    Default JSON-lines execution gateway used by stdio/adapters.
+    Default JSON-lines worker used by the stdio executor and backend adapters.
     """
 
     def __init__(self, *, adapter: str = "stdio") -> None:
+        require_dispatch("the stdio worker decodes dispatched task frames.")
         self._adapter = adapter
         self._active: Dict[str, asyncio.Task] = {}
         self._write_lock = asyncio.Lock()
@@ -30,7 +31,7 @@ class GatewayRuntime:
             try:
                 frame = json.loads(raw.decode("utf-8"))
             except Exception as exc:
-                await self._emit_log(f"Invalid gateway frame: {exc}")
+                await self._emit_log(f"Invalid stdio worker frame: {exc}")
                 continue
 
             frame_type = frame.get("type")
@@ -166,20 +167,28 @@ class GatewayRuntime:
     def _decode_pickle(value: Optional[str]) -> Any:
         if value is None:
             return None
-        return cloudpickle.loads(base64.b64decode(value))
+        return dispatch_loads(
+            base64.b64decode(value),
+            reason="the stdio worker decodes dispatched task frames.",
+        )
 
     @staticmethod
     def _encode_pickle(value: Any) -> str:
-        return base64.b64encode(cloudpickle.dumps(value)).decode("ascii")
+        return base64.b64encode(
+            dispatch_dumps(
+                value,
+                reason="the stdio worker serializes dispatched task results and errors.",
+            )
+        ).decode("ascii")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Wove stdio execution gateway")
+    parser = argparse.ArgumentParser(description="Wove stdio worker")
     parser.add_argument("--adapter", default="stdio", help="Adapter name used for metadata/logging.")
     args = parser.parse_args()
 
-    gateway = GatewayRuntime(adapter=args.adapter)
-    asyncio.run(gateway.run())
+    stdio_worker = StdioWorkerRuntime(adapter=args.adapter)
+    asyncio.run(stdio_worker.run())
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional
 
-from .base import RemoteTaskAdapter
+from .base import BackendAdapter
 
 
-class CeleryAdapter(RemoteTaskAdapter):
+class CeleryAdapter(BackendAdapter):
     required_modules = ("celery",)
     install_hint = "celery"
 
@@ -27,7 +27,7 @@ class CeleryAdapter(RemoteTaskAdapter):
 
     async def submit(self, payload: Dict[str, Any], frame: Dict[str, Any]) -> Any:
         del frame
-        task_name = self.config.get("task_name", "wove.run_remote_payload")
+        task_name = self.config.get("task_name", "wove.run_backend_payload")
         options = dict(self.config.get("send_task_options") or {})
         queue: Optional[str] = self.config.get("queue")
         if queue is not None:

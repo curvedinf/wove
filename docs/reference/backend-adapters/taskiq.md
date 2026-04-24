@@ -17,8 +17,10 @@ Taskiq is for async task queues where the worker task should stay explicit. Wove
 
 ## Dependency
 
+Install dispatch support and Taskiq in the submitting process and in Taskiq workers.
+
 ```bash
-pip install taskiq
+pip install "wove[dispatch]" taskiq
 ```
 
 ## Configure Wove
@@ -34,7 +36,7 @@ wove.config(
             "executor": "taskiq",
             "executor_config": {
                 "broker": broker,
-                "task_name": "wove.run_remote_payload",
+                "task_name": "myapp.wove_task",
                 "callback_token": "shared-secret",
                 "callback_url": "https://wove-runner.internal/wove/events/shared-secret",
             },
@@ -54,7 +56,7 @@ from wove.integrations.worker import arun
 broker = InMemoryBroker()
 
 
-@broker.task(task_name="wove.run_remote_payload")
+@broker.task(task_name="myapp.wove_task")
 async def run_wove_payload(payload):
     return await arun(payload)
 ```
@@ -67,9 +69,9 @@ Use your production broker in real deployments; the in-memory broker is only for
 | --- | --- |
 | `task` | Explicit Taskiq task object. |
 | `broker` | Broker used to find the task. |
-| `task_name` | Task name passed to `broker.find_task(...)`. Defaults to `wove.run_remote_payload`. |
+| `task_name` | Task name passed to `broker.find_task(...)`. Defaults to `wove.run_backend_payload`. |
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints.

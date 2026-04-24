@@ -7,8 +7,8 @@ from contextlib import suppress
 import cloudpickle
 import pytest
 
-from wove import gateway
-from wove.gateway import GatewayRuntime
+from wove import stdio_worker
+from wove.stdio_worker import StdioWorkerRuntime
 
 
 class _LoopFeeder:
@@ -22,9 +22,9 @@ class _LoopFeeder:
 
 
 @pytest.mark.asyncio
-async def test_gateway_run_handles_invalid_unknown_and_shutdown(monkeypatch):
+async def test_stdio_worker_run_handles_invalid_unknown_and_shutdown(monkeypatch):
     frames = []
-    rt = GatewayRuntime(adapter="custom")
+    rt = StdioWorkerRuntime(adapter="custom")
 
     async def capture_emit(frame):
         frames.append(frame)
@@ -36,17 +36,17 @@ async def test_gateway_run_handles_invalid_unknown_and_shutdown(monkeypatch):
         json.dumps({"type": "unknown"}).encode("utf-8") + b"\n",
         json.dumps({"type": "shutdown"}).encode("utf-8") + b"\n",
     ]
-    monkeypatch.setattr(gateway.asyncio, "get_running_loop", lambda: _LoopFeeder(payloads))
+    monkeypatch.setattr(stdio_worker.asyncio, "get_running_loop", lambda: _LoopFeeder(payloads))
 
     await rt.run()
 
-    assert any(frame.get("type") == "log" and "Invalid gateway frame" in frame.get("message", "") for frame in frames)
+    assert any(frame.get("type") == "log" and "Invalid stdio worker frame" in frame.get("message", "") for frame in frames)
     assert any(frame.get("type") == "log" and "Unknown frame type" in frame.get("message", "") for frame in frames)
 
 
 @pytest.mark.asyncio
-async def test_gateway_run_cleans_up_active_tasks(monkeypatch):
-    rt = GatewayRuntime()
+async def test_stdio_worker_run_cleans_up_active_tasks(monkeypatch):
+    rt = StdioWorkerRuntime()
     blocker = asyncio.Event()
 
     async def blocked():
@@ -55,7 +55,7 @@ async def test_gateway_run_cleans_up_active_tasks(monkeypatch):
     active_task = asyncio.create_task(blocked())
     rt._active["r1"] = active_task
 
-    monkeypatch.setattr(gateway.asyncio, "get_running_loop", lambda: _LoopFeeder([b""]))
+    monkeypatch.setattr(stdio_worker.asyncio, "get_running_loop", lambda: _LoopFeeder([b""]))
 
     await rt.run()
     assert active_task.cancelled()
@@ -65,7 +65,7 @@ async def test_gateway_run_cleans_up_active_tasks(monkeypatch):
 @pytest.mark.asyncio
 async def test_handle_run_task_emits_result_and_unpickles_args(monkeypatch):
     emitted = []
-    rt = GatewayRuntime()
+    rt = StdioWorkerRuntime()
 
     async def capture_emit(frame):
         emitted.append(frame)
@@ -96,7 +96,7 @@ async def test_handle_run_task_emits_result_and_unpickles_args(monkeypatch):
 @pytest.mark.asyncio
 async def test_execute_task_emits_error_payload(monkeypatch):
     emitted = []
-    rt = GatewayRuntime(adapter="ray")
+    rt = StdioWorkerRuntime(adapter="ray")
 
     async def capture_emit(frame):
         emitted.append(frame)
@@ -125,7 +125,7 @@ async def test_execute_task_emits_error_payload(monkeypatch):
 @pytest.mark.asyncio
 async def test_execute_task_emits_heartbeat_and_handles_cancellation(monkeypatch):
     emitted = []
-    rt = GatewayRuntime()
+    rt = StdioWorkerRuntime()
 
     async def capture_emit(frame):
         emitted.append(frame)
@@ -166,7 +166,7 @@ async def test_execute_task_emits_heartbeat_and_handles_cancellation(monkeypatch
 
 @pytest.mark.asyncio
 async def test_cancel_and_shutdown_handlers_cancel_active_tasks():
-    rt = GatewayRuntime()
+    rt = StdioWorkerRuntime()
     blocker = asyncio.Event()
 
     async def blocked():
@@ -201,8 +201,8 @@ async def test_emit_writes_json_line(monkeypatch):
         def flush(self):
             written.append("<flushed>")
 
-    rt = GatewayRuntime()
-    monkeypatch.setattr(gateway.sys, "stdout", _Stdout())
+    rt = StdioWorkerRuntime()
+    monkeypatch.setattr(stdio_worker.sys, "stdout", _Stdout())
 
     await rt._emit({"type": "log", "message": "ok"})
     assert written[0].endswith("\n")
@@ -213,7 +213,7 @@ async def test_emit_writes_json_line(monkeypatch):
 def test_main_builds_runtime_and_runs(monkeypatch):
     captured = {}
 
-    class _FakeGateway:
+    class _FakeStdioWorker:
         def __init__(self, *, adapter):
             captured["adapter"] = adapter
 
@@ -225,11 +225,11 @@ def test_main_builds_runtime_and_runs(monkeypatch):
         with suppress(Exception):
             coro.close()
 
-    monkeypatch.setattr(gateway, "GatewayRuntime", _FakeGateway)
-    monkeypatch.setattr(gateway.asyncio, "run", fake_asyncio_run)
-    monkeypatch.setattr(gateway.argparse.ArgumentParser, "parse_args", lambda self: Namespace(adapter="temporal"))
+    monkeypatch.setattr(stdio_worker, "StdioWorkerRuntime", _FakeStdioWorker)
+    monkeypatch.setattr(stdio_worker.asyncio, "run", fake_asyncio_run)
+    monkeypatch.setattr(stdio_worker.argparse.ArgumentParser, "parse_args", lambda self: Namespace(adapter="temporal"))
 
-    gateway.main()
+    stdio_worker.main()
 
     assert captured["adapter"] == "temporal"
     assert captured["asyncio_run_called"] is True

@@ -2,7 +2,7 @@ from typing import Dict, Type
 
 from .arq import ARQAdapter
 from .aws_batch import AWSBatchAdapter
-from .base import RemoteTaskAdapter
+from .base import BackendAdapter
 from .celery import CeleryAdapter
 from .dask import DaskAdapter
 from .kubernetes_jobs import KubernetesJobsAdapter
@@ -13,7 +13,7 @@ from .taskiq import TaskiqAdapter
 from .temporal import TemporalAdapter
 
 
-ADAPTERS: Dict[str, Type[RemoteTaskAdapter]] = {
+BACKEND_ADAPTERS: Dict[str, Type[BackendAdapter]] = {
     "celery": CeleryAdapter,
     "temporal": TemporalAdapter,
     "ray": RayAdapter,
@@ -27,16 +27,38 @@ ADAPTERS: Dict[str, Type[RemoteTaskAdapter]] = {
 }
 
 
-def get_adapter_class(name: str) -> Type[RemoteTaskAdapter]:
+def get_backend_adapter_class(name: str) -> Type[BackendAdapter]:
     try:
-        return ADAPTERS[name]
+        return BACKEND_ADAPTERS[name]
     except KeyError as exc:
         raise ValueError(f"Unknown executor '{name}'.") from exc
 
 
-def get_adapter_dependencies() -> Dict[str, tuple]:
-    return {name: adapter.required_modules for name, adapter in ADAPTERS.items()}
+def get_backend_adapter_dependencies() -> Dict[str, tuple]:
+    return {name: adapter.required_modules for name, adapter in BACKEND_ADAPTERS.items()}
 
 
-def get_adapter_install_hints() -> Dict[str, str]:
-    return {name: adapter.install_hint or " ".join(adapter.required_modules) for name, adapter in ADAPTERS.items()}
+def get_backend_adapter_install_hints() -> Dict[str, str]:
+    return {
+        name: adapter.install_hint or " ".join(adapter.required_modules)
+        for name, adapter in BACKEND_ADAPTERS.items()
+    }
+
+
+__all__ = [
+    "ARQAdapter",
+    "AWSBatchAdapter",
+    "BackendAdapter",
+    "BACKEND_ADAPTERS",
+    "CeleryAdapter",
+    "DaskAdapter",
+    "KubernetesJobsAdapter",
+    "RayAdapter",
+    "RQAdapter",
+    "SlurmAdapter",
+    "TaskiqAdapter",
+    "TemporalAdapter",
+    "get_backend_adapter_class",
+    "get_backend_adapter_dependencies",
+    "get_backend_adapter_install_hints",
+]

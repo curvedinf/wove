@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter, maybe_await
+from .base import BackendAdapter, maybe_await
 
 
-class ARQAdapter(RemoteTaskAdapter):
+class ARQAdapter(BackendAdapter):
     required_modules = ("arq",)
     install_hint = "arq"
 
@@ -27,7 +27,7 @@ class ARQAdapter(RemoteTaskAdapter):
         self._owns_pool = True
 
     async def submit(self, payload: Dict[str, Any], frame: Dict[str, Any]) -> Any:
-        function_name = self.config.get("function_name", "wove_run_remote_payload")
+        function_name = self.config.get("function_name", "wove_run_backend_payload")
         kwargs = dict(self.config.get("enqueue_options") or {})
         kwargs.setdefault("_job_id", frame["run_id"])
         queue_name = self.config.get("queue_name")

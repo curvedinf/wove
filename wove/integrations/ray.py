@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter
+from .base import BackendAdapter
 from .worker import run
 
 
-class RayAdapter(RemoteTaskAdapter):
+class RayAdapter(BackendAdapter):
     required_modules = ("ray",)
     install_hint = "ray"
 

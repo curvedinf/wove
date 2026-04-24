@@ -17,10 +17,10 @@ Celery is for projects that already run broker-backed worker pools and want sele
 
 ## Dependency
 
-Install Celery in the process that submits work and in the workers that execute it.
+Install dispatch support and Celery in the process that submits work and in the workers that execute it.
 
 ```bash
-pip install celery
+pip install "wove[dispatch]" celery
 ```
 
 ## Configure Wove
@@ -72,12 +72,12 @@ The worker must have Wove installed and must be able to import the application c
 | `broker_url` | Broker URL used when Wove creates the app. |
 | `result_backend` or `backend_url` | Result backend used when Wove creates the app. |
 | `app_name` | App name used when Wove creates the app. Defaults to `wove`. |
-| `task_name` | Celery task name to call. Defaults to `wove.run_remote_payload`. |
+| `task_name` | Celery task name to call. Defaults to `wove.run_backend_payload`. |
 | `queue` | Optional Celery queue. |
 | `send_task_options` | Extra keyword arguments passed to `app.send_task(...)`. |
 | `terminate_on_cancel` | Passed to `revoke(..., terminate=...)` during cancellation. |
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints and adapter base class.

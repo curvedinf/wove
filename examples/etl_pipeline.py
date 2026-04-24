@@ -1,10 +1,10 @@
 """
-Example: File-based ETL Pipeline with Dynamic Dispatch
+Example: File-based ETL Pipeline with Dynamic Routing
 This script demonstrates an ETL (Extract, Transform, Load) pipeline that
-processes a local CSV file and uses `wove.merge` to dynamically dispatch
+processes a local CSV file and uses `wove.merge` to dynamically route
 tasks based on data content.
 - Extract: A task reads raw data from a dynamically created `source_data.csv`.
-- Transform (Dispatch): A central dispatcher task inspects each record,
+- Transform (Route): A central router task inspects each record,
   groups records by type, and uses `merge` to concurrently apply different
   transformation functions to each group.
 - Load: A final task waits for all transformations to complete and then
@@ -67,11 +67,11 @@ async def run_etl_pipeline_example():
             print(f"<- [E] Source data extracted ({len(data)} records).")
             return data
 
-        # 2. TRANSFORM (Dispatch): Groups data and uses `merge` to call
+        # 2. TRANSFORM (Route): Groups data and uses `merge` to call
         # the correct transformation function for each group.
         @w.do
-        async def dispatcher_task(extract_source_data):
-            print("-> [T] Dispatcher started. Grouping data by type...")
+        async def router_task(extract_source_data):
+            print("-> [T] Router started. Grouping data by type...")
             premium_users = [u for u in extract_source_data if u["type"] == "premium"]
             standard_users = [u for u in extract_source_data if u["type"] == "standard"]
             print(
@@ -93,12 +93,12 @@ async def run_etl_pipeline_example():
 
         # 3. LOAD: Receives transformed data and writes it to a JSON file.
         @w.do
-        def load_destination_data(dispatcher_task):
+        def load_destination_data(router_task):
             print(f"-> [L] Loading data into destination: {DESTINATION_JSON_PATH}...")
             with open(DESTINATION_JSON_PATH, mode="w", encoding="utf-8") as outfile:
-                json.dump(dispatcher_task, outfile, indent=2)
+                json.dump(router_task, outfile, indent=2)
 
-            num_loaded = len(dispatcher_task)
+            num_loaded = len(router_task)
             print(f"<- [L] Loaded {num_loaded} records.")
             return {
                 "status": "complete",

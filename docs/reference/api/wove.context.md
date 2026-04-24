@@ -2,7 +2,7 @@
 
 `wove.context` contains the context manager implementation behind the public `weave` entrypoint. Most users should import `weave` from `wove`; this module is useful when you need to understand context-manager behavior exactly.
 
-This module explains the lifecycle around an inline weave: what `with weave(...) as w:` creates, what happens when the block exits, and where setup or teardown behavior lives.
+When you need to understand exactly what `with weave(...) as w:` creates, this module shows the lifecycle around setup, task collection, block exit, execution, and teardown.
 
 ## Public Surface
 

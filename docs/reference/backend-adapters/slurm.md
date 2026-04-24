@@ -1,6 +1,6 @@
 # Slurm
 
-Slurm is for HPC environments where selected Wove tasks should run as scheduled batch jobs. The default path submits `sbatch --wrap` with `WOVE_REMOTE_PAYLOAD` and runs `python -m wove.remote_worker`.
+Slurm is for HPC environments where selected Wove tasks should run as scheduled batch jobs. The default path submits `sbatch --wrap` with `WOVE_BACKEND_PAYLOAD` and runs `python -m wove.backend_worker`.
 
 ## Use When
 
@@ -11,14 +11,16 @@ Slurm is for HPC environments where selected Wove tasks should run as scheduled 
 ## Execution Shape
 
 1. Wove submits a Slurm job with `sbatch` or a custom `submit` callable.
-2. The job receives the payload as `WOVE_REMOTE_PAYLOAD`.
-3. The job runs `python -m wove.remote_worker` or your configured command.
+2. The job receives the payload as `WOVE_BACKEND_PAYLOAD`.
+3. The job runs `python -m wove.backend_worker` or your configured command.
 4. The worker posts Wove event frames back to the callback URL.
 
 ## Dependency
 
+Install dispatch support and Slurm client bindings in the submitting process. The job environment must also include Wove with dispatch support.
+
 ```bash
-pip install pyslurm
+pip install "wove[dispatch]" pyslurm
 ```
 
 Wove checks for `pyslurm` so Slurm support fails clearly when the environment is not prepared. The default submission path uses `sbatch` and `scancel` because those commands are the most portable interface across clusters.
@@ -34,7 +36,7 @@ wove.config(
         "slurm": {
             "executor": "slurm",
             "executor_config": {
-                "command": "python -m wove.remote_worker",
+                "command": "python -m wove.backend_worker",
                 "callback_token": "shared-secret",
                 "callback_url": "https://wove-runner.internal/wove/events/shared-secret",
             },
@@ -66,12 +68,12 @@ wove.config(
 | Key | Effect |
 | --- | --- |
 | `submit` | Custom callable that receives `(payload, frame, config)`. |
-| `command` | Command run by the default `sbatch --wrap` path. Defaults to `python -m wove.remote_worker`. |
+| `command` | Command run by the default `sbatch --wrap` path. Defaults to `python -m wove.backend_worker`. |
 | `sbatch` | Base command list for submission. Defaults to `['sbatch', '--parsable']`. |
 | `scancel` | Base command list for cancellation. Defaults to `['scancel']`. |
 | `job_name_prefix` | Generated job name prefix. Defaults to `wove`. |
 
 ## Related Pages
 
-- [`wove.remote`](../api/wove.remote.md): `remote_worker` payload behavior.
-- [Executors](index.md): remote callback flow.
+- [`wove.backend`](../api/wove.backend.md): backend payload worker behavior.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.

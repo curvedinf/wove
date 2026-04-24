@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter, maybe_await
+from .base import BackendAdapter, maybe_await
 
 
-class TemporalAdapter(RemoteTaskAdapter):
+class TemporalAdapter(BackendAdapter):
     required_modules = ("temporalio",)
     install_hint = "temporalio"
 

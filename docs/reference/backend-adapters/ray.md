@@ -17,8 +17,10 @@ Ray is for sending Wove tasks into a Ray cluster without writing a separate back
 
 ## Dependency
 
+Install dispatch support and Ray in the submitting process and on Ray workers that execute Wove payloads.
+
 ```bash
-pip install ray
+pip install "wove[dispatch]" ray
 ```
 
 ## Configure Wove
@@ -58,5 +60,5 @@ Ray workers must have Wove installed and must be able to import the application 
 
 ## Related Pages
 
-- [Executors](index.md): remote callback flow.
+- [Backend Adapters](index.md): callback flow and adapter responsibilities.
 - [`wove.integrations`](../api/wove.integrations.md): worker entrypoints.

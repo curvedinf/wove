@@ -4,18 +4,18 @@ from contextlib import suppress
 import pytest
 
 from wove.environment import (
+    BackendAdapterEnvironmentExecutor,
     DeliveryOrphanedError,
     EnvironmentExecutionError,
     EnvironmentExecutor,
     ExecutorRuntime,
     LocalEnvironmentExecutor,
-    OptionalDependencyExecutor,
     StdioEnvironmentExecutor,
     build_executor_from_name,
     coerce_executor,
     normalize_exception,
 )
-from wove.remote import RemoteCallbackServer, build_remote_payload, post_event, run_remote_payload_async
+from wove.backend import BackendCallbackServer, build_backend_payload, post_event, run_backend_payload_async
 
 
 class QueueExecutor(EnvironmentExecutor):
@@ -115,7 +115,7 @@ async def test_stdio_send_recv_and_not_started_errors():
 
     await ex.start(
         environment_name="s",
-        environment_config={"command": f"{__import__('sys').executable} -m wove.gateway"},
+        environment_config={"command": f"{__import__('sys').executable} -m wove.stdio_worker"},
         run_config={},
     )
 
@@ -155,8 +155,8 @@ async def test_stdio_send_recv_and_not_started_errors():
 
 
 @pytest.mark.asyncio
-async def test_remote_callback_server_receives_frames():
-    server = RemoteCallbackServer()
+async def test_backend_callback_server_receives_frames():
+    server = BackendCallbackServer()
     await server.start()
     assert server.callback_url is not None
 
@@ -173,12 +173,12 @@ async def test_remote_callback_server_receives_frames():
 
 
 @pytest.mark.asyncio
-async def test_run_remote_payload_posts_started_and_result():
-    server = RemoteCallbackServer()
+async def test_run_backend_payload_posts_started_and_result():
+    server = BackendCallbackServer()
     await server.start()
     assert server.callback_url is not None
 
-    payload = build_remote_payload(
+    payload = build_backend_payload(
         {
             "type": "run_task",
             "run_id": "r2",
@@ -190,7 +190,7 @@ async def test_run_remote_payload_posts_started_and_result():
         adapter="test",
     )
 
-    result = await run_remote_payload_async(payload)
+    result = await run_backend_payload_async(payload)
     started = await asyncio.wait_for(server.recv(), timeout=1.0)
     finished = await asyncio.wait_for(server.recv(), timeout=1.0)
 
@@ -259,8 +259,8 @@ async def test_stdio_recv_eof_and_stop_paths(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_optional_dependency_executor_not_started_paths():
-    ex = OptionalDependencyExecutor("celery", ("celery",))
+async def test_backend_adapter_executor_not_started_paths():
+    ex = BackendAdapterEnvironmentExecutor("celery", required_modules=("celery",))
     with pytest.raises(RuntimeError, match="not started"):
         await ex.send({"type": "run_task"})
     with pytest.raises(RuntimeError, match="not started"):

@@ -1,16 +1,29 @@
 """
-Wove: Beautiful Python Async Orchestration
-Wove provides a simple `weave` context manager and `@do` decorator to run
-async and sync functions concurrently, automatically managing dependencies.
-It's designed for I/O-bound tasks like API calls or database queries.
+Wove.
+
+Inline task orchestration for Python code that needs concurrent work without
+restructuring the surrounding function around an event loop. Wove keeps the
+workflow in ordinary Python: define tasks where the result is needed, let
+dependencies come from function signatures, and route selected work through
+named environments when it belongs in another process or service.
 """
 
 from .api import merge
 from .context import WoveContextManager
-from .environment import DeliveryOrphanedError, DeliveryTimeoutError, EnvironmentExecutor, RemoteAdapterEnvironmentExecutor
-from .integrations.base import RemoteTaskAdapter
+from .environment import (
+    BackendAdapterEnvironmentExecutor,
+    DeliveryOrphanedError,
+    DeliveryTimeoutError,
+    EnvironmentExecutor,
+    GrpcEnvironmentExecutor,
+    HttpEnvironmentExecutor,
+    WebSocketEnvironmentExecutor,
+)
+from .errors import MissingDispatchFeatureError
+from .integrations.base import BackendAdapter
 from .result import WoveResult
 from .runtime import config
+from .security import NetworkExecutorSecurity
 from .weave import Weave
 from .helpers import (
     sync_to_async,
@@ -29,8 +42,13 @@ __all__ = [
     "Weave",
     "WoveResult",
     "EnvironmentExecutor",
-    "RemoteAdapterEnvironmentExecutor",
-    "RemoteTaskAdapter",
+    "BackendAdapterEnvironmentExecutor",
+    "HttpEnvironmentExecutor",
+    "GrpcEnvironmentExecutor",
+    "WebSocketEnvironmentExecutor",
+    "BackendAdapter",
+    "NetworkExecutorSecurity",
+    "MissingDispatchFeatureError",
     "DeliveryOrphanedError",
     "DeliveryTimeoutError",
     "config",

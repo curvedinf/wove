@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-from ..remote import payload_to_b64
-from .base import RemoteTaskAdapter, maybe_await
+from ..backend import payload_to_b64
+from .base import BackendAdapter, maybe_await
 
 
-class AWSBatchAdapter(RemoteTaskAdapter):
+class AWSBatchAdapter(BackendAdapter):
     required_modules = ("boto3",)
     install_hint = "boto3"
 
@@ -29,7 +29,8 @@ class AWSBatchAdapter(RemoteTaskAdapter):
 
         overrides = dict(self.config.get("container_overrides") or {})
         env = list(overrides.get("environment") or [])
-        env.append({"name": "WOVE_REMOTE_PAYLOAD", "value": payload_to_b64(payload)})
+        payload_b64 = payload_to_b64(payload)
+        env.append({"name": "WOVE_BACKEND_PAYLOAD", "value": payload_b64})
         overrides["environment"] = env
         if "command" not in overrides and self.config.get("command"):
             overrides["command"] = self.config["command"]

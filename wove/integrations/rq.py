@@ -1,10 +1,10 @@
 from typing import Any, Dict
 
-from .base import RemoteTaskAdapter
+from .base import BackendAdapter
 from .worker import run
 
 
-class RQAdapter(RemoteTaskAdapter):
+class RQAdapter(BackendAdapter):
     required_modules = ("rq",)
     install_hint = "rq"
 
