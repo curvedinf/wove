@@ -48,6 +48,8 @@ wove.config(
 
 You can also pass an existing Celery app as `executor_config["app"]`. If `app` is omitted, Wove creates one from `broker_url`, `result_backend`, and `app_name`.
 
+`callback_host` and `callback_port` configure the callback server Wove starts in the process running the weave. `callback_url` is the address Celery workers call after they execute the payload. In container deployments, that usually means Wove binds to a local port and `callback_url` uses the service name or internal load balancer that reaches that port.
+
 ## Worker Task
 
 ```python
@@ -63,6 +65,8 @@ def wove_task(payload):
 ```
 
 The worker must have Wove installed and must be able to import the application code referenced by the serialized task.
+
+`run(payload)` executes the transported Wove callable and posts the result or error back to Wove's callback server. The Celery task's own return value is not how the inline weave receives the task result.
 
 ## Options
 

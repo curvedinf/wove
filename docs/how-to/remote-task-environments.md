@@ -125,15 +125,21 @@ wove.config(
 
 Direct worker-service routing is useful when the project needs a service boundary, not backend-owned queueing or scheduling. The built-in network executors are `http`, `https`, `grpc`, and `websocket`. For non-local worker services, Wove expects TLS and a `security` setting unless `insecure=True` is set explicitly for development.
 
-## Executor Notes
+## Backend Adapter Lifecycle
 
-The built-in executor names are `local`, `stdio`, `http`, `https`, `grpc`, `websocket`, `celery`, `temporal`, `ray`, `rq`, `taskiq`, `arq`, `dask`, `kubernetes_jobs`, `aws_batch`, and `slurm`.
+Backend adapters are for task systems that already decide how work is queued, scheduled, retried, and placed on workers. Wove's role is narrower: when a selected task becomes ready, Wove packages that one task, submits it into the backend, and keeps the original weave waiting for events from the worker that eventually runs it.
 
-Choose `stdio` when you want a custom process boundary without a queue or workflow engine. Wove launches a JSON-lines worker process and sends task frames through that process boundary, so the `stdio` environment needs the dispatch serializer from `wove[dispatch]`. If `executor_config.command` is omitted, Wove runs `python -m wove.stdio_worker`.
+The callback receiver belongs to Wove. It is not a Django, Flask, Celery, or application route unless the project deliberately proxies traffic to it. When a backend adapter environment starts, Wove opens a small HTTP server and embeds that server's `/wove/events/{token}` URL into every submitted payload. Backend workers post task events to that URL so the local weave can resolve dependencies and continue downstream work.
 
-Backend adapters use a callback shape. Wove starts a small callback receiver, submits the task payload to the backend, and waits for the backend worker to post `task_started`, `task_result`, `task_error`, or `task_cancelled` frames back to the weave.
+### Task Payload Out
 
-The backend worker should call one of Wove's provided worker entrypoints:
+The payload is how a task leaves the local weave. When dependencies for a remote task are satisfied, Wove serializes the selected callable, the resolved task arguments, delivery settings, task identity, run identity, adapter name, and callback URL into a JSON-safe payload. The backend adapter receives that payload and submits it to the configured backend.
+
+The adapter does not execute the Python callable. Celery receives the payload as a Celery task argument, Temporal receives it through a workflow or activity, AWS Batch receives it through the job configuration, and other adapters use the equivalent handoff for their backend. This is the exfiltration step: the ready Wove task becomes a backend-owned unit of work.
+
+### Task Events Back
+
+The worker process must hand the payload back to Wove's worker entrypoint:
 
 ```python
 from wove.integrations.worker import arun, run
@@ -141,7 +147,13 @@ from wove.integrations.worker import arun, run
 
 Use `run(payload)` from synchronous workers such as Celery or RQ. Use `await arun(payload)` from async workers such as Taskiq, ARQ, or async Temporal activities.
 
-Backend workers must be able to reach the callback URL. For workers on another host or network, configure a stable token and a public/internal route back to the Wove process:
+The worker entrypoint decodes the callable and arguments, runs the callable, and posts events to the callback URL embedded in the payload. A normal run sends `task_started` and then `task_result`. Failed and cancelled work sends `task_error` or `task_cancelled`. This is the infiltration step: backend worker events return to the Wove callback server, and the waiting weave turns those events back into the task result, exception, cancellation, or delivery failure seen by downstream tasks.
+
+The value returned by the backend's own job system is not how Wove receives the result. Wove receives the result from the callback event posted to the callback URL.
+
+### Callback Addressing
+
+`callback_host` and `callback_port` describe where Wove listens. `callback_url` describes the address workers should call. Those addresses are often different in containers, private networks, or cloud jobs: Wove might bind to `0.0.0.0:9010`, while workers call `http://web:9010/wove/events/shared-secret`.
 
 ```python
 wove.config(
@@ -152,13 +164,23 @@ wove.config(
             "executor_config": {
                 "broker_url": "redis://redis:6379/0",
                 "task_name": "myapp.wove_task",
+                "callback_host": "0.0.0.0",
+                "callback_port": 9010,
                 "callback_token": "shared-secret",
-                "callback_url": "https://wove-runner.internal/wove/events/shared-secret",
+                "callback_url": "http://web:9010/wove/events/shared-secret",
             },
         },
     },
 )
 ```
+
+If `callback_url` is omitted, Wove builds one from the host, port, and token it binds locally. That default works for local workers and simple single-host development. Remote workers need a worker-reachable URL that routes to the Wove callback server.
+
+## Executor Notes
+
+The built-in executor names are `local`, `stdio`, `http`, `https`, `grpc`, `websocket`, `celery`, `temporal`, `ray`, `rq`, `taskiq`, `arq`, `dask`, `kubernetes_jobs`, `aws_batch`, and `slurm`.
+
+Choose `stdio` when you want a custom process boundary without a queue or workflow engine. Wove launches a JSON-lines worker process and sends task frames through that process boundary, so the `stdio` environment needs the dispatch serializer from `wove[dispatch]`. If `executor_config.command` is omitted, Wove runs `python -m wove.stdio_worker`.
 
 Wove checks remote execution dependencies when the environment starts. If the dispatch serializer, selected network transport package, or selected backend library is missing, startup fails with an install hint before the task is submitted. Referencing an unknown environment name raises `NameError` at runtime.
 

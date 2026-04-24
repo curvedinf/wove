@@ -43,15 +43,17 @@ class BackendAdapter:
 
 ## Payload Flow
 
-Backend adapters do not execute the task directly. They submit the payload Wove built.
+Backend adapters do not execute the task directly. They submit the payload Wove built, and the worker side of the backend executes that payload later.
 
-1. Wove serializes the selected task callable, task arguments, delivery settings, and callback URL into `payload`.
-2. The adapter submits `payload` to the backend.
-3. A backend worker receives `payload`.
-4. The worker calls `wove.integrations.worker.run(payload)` or `await wove.integrations.worker.arun(payload)`.
-5. The worker entrypoint executes the task and posts the terminal completion event back to Wove's callback URL.
+1. A task routed to the adapter becomes ready after its upstream Wove dependencies resolve.
+2. Wove serializes the selected task callable, resolved task arguments, delivery settings, task identity, run identity, adapter name, and callback URL into `payload`.
+3. The adapter submits `payload` to the backend without changing its Wove fields.
+4. A backend worker receives `payload`.
+5. The worker calls `wove.integrations.worker.run(payload)` or `await wove.integrations.worker.arun(payload)`.
+6. The worker entrypoint executes the task and posts `task_started`, `task_result`, `task_error`, or `task_cancelled` back to Wove's callback URL.
+7. Wove's callback server receives the event and the original weave resolves the pending task.
 
-The callback URL is created by `BackendAdapterEnvironmentExecutor`. For workers on another host, configure `callback_url` so the worker can reach the original Wove process.
+The callback URL is created by `BackendAdapterEnvironmentExecutor`. For workers on another host, configure `callback_url` so the worker can reach the Wove process that is running the original weave.
 
 ## Minimal Adapter
 
@@ -110,6 +112,17 @@ async def async_acme_queue_worker(payload):
     return await arun(payload)
 ```
 
+## Callback Contract
+
+The callback event is how data returns to the weave. A backend result store, queue acknowledgement, Kubernetes job status, or scheduler exit code is not enough by itself because Wove needs the task value or task error in the original dependency graph.
+
+A custom backend integration fulfills the callback contract in one of two ways:
+
+- The backend worker calls `run(payload)` or `await arun(payload)`, which executes the callable and posts the required events.
+- The backend worker implements the same event protocol itself and posts serialized `task_started`, `task_result`, `task_error`, or `task_cancelled` frames to `payload["callback_url"]`.
+
+Calling Wove's worker entrypoint is the normal path. Implementing the protocol directly is only useful when the backend must run the task through a non-Python execution layer but can still produce Wove-compatible event frames.
+
 ## Configure The Adapter
 
 Custom adapters are selected by wrapping them in `BackendAdapterEnvironmentExecutor` and using that executor instance in an environment definition.
@@ -166,9 +179,12 @@ These keys are handled by `BackendAdapterEnvironmentExecutor` before the adapter
 
 The adapter also receives those keys in `self.config`, along with any backend-specific settings such as queue names, client objects, credentials, or scheduling options.
 
+`callback_host` and `callback_port` control the server Wove starts. `callback_url` controls what the worker sees inside the payload. In container and cluster deployments, bind Wove to an address reachable from the host process and set `callback_url` to the route workers can call.
+
 ## Contract Checklist
 
 - Submit the `payload` unchanged so the worker can call Wove's worker entrypoint.
+- Make sure the worker either calls `run(payload)` or `await arun(payload)` or posts the same callback event frames itself.
 - Return a backend submission handle from `submit(...)` when cancellation or observability needs it.
 - Use `frame["run_id"]` or `delivery_idempotency_key` as the backend job id when the backend supports idempotency.
 - Keep backend package imports inside `start(...)` or methods so importing Wove does not require backend libraries.

@@ -1,5 +1,9 @@
 import copy
 import asyncio
+import importlib
+import os
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -223,6 +227,111 @@ async def test_stdio_remote_environment_reintegrates_into_local_weave(restore_ru
             return {"local": local_input, "remote": remote_double}
 
     assert w.result.combined == {"local": 10, "remote": 20}
+
+
+@pytest.mark.asyncio
+async def test_stdio_remote_imported_functions_reintegrate_into_inline_weave(
+    restore_runtime,
+    tmp_path,
+    monkeypatch,
+):
+    module_name = "wove_remote_fixture_tasks"
+    support_name = "wove_remote_fixture_support"
+    (tmp_path / f"{support_name}.py").write_text("SCALE = 11\n", encoding="utf-8")
+    (tmp_path / f"{module_name}.py").write_text(
+        """
+import os
+
+from wove_remote_fixture_support import SCALE
+
+
+def remote_profile(local_payload):
+    value = local_payload["value"]
+    return {
+        "base": value * SCALE,
+        "items": [value + 1, value + 2],
+        "worker_pid": os.getpid(),
+    }
+
+
+def remote_enrichment(item, remote_profile):
+    return {
+        "item": item,
+        "score": remote_profile["base"] + item,
+        "module": __name__,
+        "worker_pid": os.getpid(),
+    }
+""",
+        encoding="utf-8",
+    )
+
+    project_root = Path(__file__).resolve().parents[1]
+    existing_pythonpath = os.environ.get("PYTHONPATH")
+    pythonpath_parts = [str(tmp_path), str(project_root)]
+    if existing_pythonpath:
+        pythonpath_parts.append(existing_pythonpath)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(pythonpath_parts))
+    monkeypatch.syspath_prepend(str(tmp_path))
+    for name in (module_name, support_name):
+        sys.modules.pop(name, None)
+    remote_tasks = importlib.import_module(module_name)
+
+    config(
+        default_environment="local",
+        environments={
+            "local": {"executor": "local"},
+            "subprocess": {"executor": "stdio"},
+        },
+    )
+
+    async with weave(seed=5) as w:
+        @w.do
+        def local_payload(seed):
+            return {"value": seed + 1}
+
+        w.do(environment="subprocess")(remote_tasks.remote_profile)
+
+        @w.do
+        def remote_items(remote_profile):
+            return remote_profile["items"]
+
+        w.do("remote_items", workers=2, environment="subprocess")(
+            remote_tasks.remote_enrichment
+        )
+
+        @w.do
+        def combined(local_payload, remote_profile, remote_enrichment):
+            return {
+                "local": local_payload["value"],
+                "remote_base": remote_profile["base"],
+                "scores": [row["score"] for row in remote_enrichment],
+                "modules": [row["module"] for row in remote_enrichment],
+                "remote_pids": [
+                    remote_profile["worker_pid"],
+                    *[row["worker_pid"] for row in remote_enrichment],
+                ],
+            }
+
+    remote_enrichment = w.result.remote_enrichment
+    assert w.result.remote_profile["base"] == 66
+    assert [row["item"] for row in remote_enrichment] == [7, 8]
+    assert [row["score"] for row in remote_enrichment] == [73, 74]
+    assert [row["module"] for row in remote_enrichment] == [module_name, module_name]
+    assert w.result.combined["local"] == 6
+    assert w.result.combined["remote_base"] == 66
+    assert w.result.combined["scores"] == [73, 74]
+    assert w.result.combined["modules"] == [module_name, module_name]
+    assert all(pid != os.getpid() for pid in w.result.combined["remote_pids"])
+
+    tier_for = {
+        task_name: index
+        for index, tier in enumerate(w.execution_plan["tiers"])
+        for task_name in tier
+    }
+    assert tier_for["local_payload"] < tier_for["remote_profile"]
+    assert tier_for["remote_profile"] < tier_for["remote_items"]
+    assert tier_for["remote_items"] < tier_for["remote_enrichment"]
+    assert tier_for["remote_enrichment"] < tier_for["combined"]
 
 
 @pytest.mark.asyncio

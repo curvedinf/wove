@@ -39,17 +39,75 @@ with weave() as w:
 
 In that example, `account` runs locally and `report` is submitted through Celery. The task still appears in the same Wove result object after the backend worker reports completion to Wove.
 
-## Execution Flow
+## Callback Lifecycle
 
-Backend adapters use a callback flow because the selected backend usually runs work outside the weave process.
+Backend adapters use callbacks because the backend, not Wove, owns the worker process that eventually runs the task. The weave process cannot rely on a direct return value from Celery, Temporal, AWS Batch, Slurm, or another backend. Instead, Wove opens a callback receiver, submits a payload that includes the callback address, and waits for worker events to arrive back at that receiver.
 
-1. Wove serializes the selected task into a backend payload.
-2. The adapter submits that payload to the selected backend.
-3. A backend worker executes the payload with `wove.integrations.worker.run(payload)` or `await wove.integrations.worker.arun(payload)`.
-4. The worker posts `task_started`, `task_result`, `task_error`, or `task_cancelled` back to Wove's callback URL.
-5. Wove resolves the task result in the original weave.
+The callback receiver is hosted by Wove in the process running the weave. It listens for `POST` requests at `/wove/events/{callback_token}`. Application frameworks do not need to define that route unless the project intentionally proxies traffic through one.
 
-The backend owns the middle of that flow: queueing, scheduling, retries outside Wove, worker placement, job lifecycle, or cluster execution. Wove owns the task payload shape, callback receiver, result delivery, and delivery errors seen by the weave.
+### Task Payload Out
+
+Task exfiltration starts when a task routed to a backend adapter becomes ready in the local dependency graph. At that point, all upstream Wove dependencies have resolved, so Wove can serialize the selected callable and its concrete arguments into one backend payload.
+
+```json
+{
+  "version": 1,
+  "adapter": "celery",
+  "callback_url": "http://web:9010/wove/events/shared-secret",
+  "run_id": "...",
+  "task_id": "report",
+  "task_name": "report",
+  "callable_pickle": "...",
+  "args_pickle": "...",
+  "delivery": {
+    "delivery_timeout": 30.0
+  }
+}
+```
+
+`callable_pickle` is the selected Python callable. `args_pickle` is the dictionary of resolved arguments Wove would have passed to the callable locally. These fields require `wove[dispatch]` because the callable and its data are crossing a process or network boundary.
+
+The adapter receives this payload and submits it unchanged to the backend. The adapter may add backend-specific delivery metadata such as a Celery queue, a Kubernetes job name, an AWS Batch queue, or a Slurm partition, but the Wove payload itself remains the unit the worker must execute.
+
+### Worker Execution
+
+The backend worker receives the payload through whatever mechanism the selected system provides. The worker then calls Wove's worker entrypoint:
+
+```python
+from wove.integrations.worker import arun, run
+```
+
+Synchronous workers call `run(payload)`. Async workers call `await arun(payload)`. The entrypoint decodes the callable and arguments, runs the callable, and serializes the result or exception into callback events.
+
+The backend job's own return value is not the task result consumed by the weave. The backend return value only satisfies the backend system. Wove consumes the callback event posted by the worker entrypoint.
+
+### Result Events Back
+
+Result infiltration is the reverse path. The worker posts event frames to the `callback_url` embedded in the payload:
+
+- `task_started` marks the remote task as running.
+- `task_result` carries a successful return value.
+- `task_error` carries a task exception or normalized remote error.
+- `task_cancelled` marks the task as cancelled.
+
+Wove's callback receiver deserializes those frames and feeds them back into the same executor event stream used by local, stdio, and network executors. The original weave then resolves the pending task, makes the returned value available to downstream tasks, or raises according to the weave's error policy.
+
+### Callback Addressing
+
+`callback_host` and `callback_port` configure where Wove binds its callback server. `callback_url` configures the URL embedded in submitted payloads. The worker-facing URL must route to the Wove callback server from the worker's network location.
+
+For local development, Wove can generate a callback URL from its bound host and port. For containers, clusters, and cloud workers, set `callback_url` explicitly:
+
+```python
+"executor_config": {
+    "callback_host": "0.0.0.0",
+    "callback_port": 9010,
+    "callback_token": "shared-secret",
+    "callback_url": "http://web:9010/wove/events/shared-secret",
+}
+```
+
+The backend owns queueing, scheduling, backend-level retries, worker placement, job lifecycle, and cluster execution. Wove owns the payload shape, callback receiver, event delivery, task result reintegration, and delivery errors seen by the weave.
 
 ## Install Only What The Environment Uses
 
