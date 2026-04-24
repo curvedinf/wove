@@ -40,21 +40,27 @@ Improvements compared to asyncio include:
 - **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading without changing the workflow shape.
 - **Zero Required Dispatch/Backend Dependencies**: Local Wove stays lightweight. Extra serialization and backend libraries are only needed when work leaves the current process.
 
+## Documentation
+
+The full documentation includes topic guides, API reference pages, executor setup, backend adapter setup, and version history.
+
+[View Documentation](https://curvedinf.github.io/wove/)
+
 ## Topics
 
 The topic path starts with the smallest useful weave, then adds the things real workflows need as they grow: fanout, task policy, reuse, helper glue, failure handling, observability, background work, remote execution, and production patterns.
 
-- [The Basics](docs/how-to/the-basics.md): the core `weave()` and `@w.do` workflow.
-- [Task Mapping](docs/how-to/task-mapping.md): running one task across many inputs and collecting the results.
-- [Task Quality of Life](docs/how-to/task-quality-of-life.md): task options that replace retry, timeout, fanout, and routing boilerplate.
-- [Inheritable Weaves](docs/how-to/inheritable-weaves.md): reusable workflow templates with inline overrides.
-- [Merging External Functions](docs/how-to/merging-external-functions.md): mapping helper callables without turning them into named tasks.
-- [Helper Functions](docs/how-to/helper-functions.md): small data-shaping tools that keep task glue readable.
-- [Error Handling](docs/how-to/error-handling.md): how task, background, and remote delivery failures surface.
-- [Debugging & Introspection](docs/how-to/debugging-introspection.md): graph, timing, mapping, and failure inspection.
-- [Background Processing](docs/how-to/background-processing.md): running a whole weave after the caller continues.
-- [Remote Task Environments](docs/how-to/remote-task-environments.md): sending selected tasks to other processes, services, queues, clusters, or schedulers.
-- [Patterns For Production](docs/how-to/patterns-for-production.md): common production workflow shapes built from Wove's core task, mapping, policy, background, and remote-execution building blocks.
+- [The Basics](https://curvedinf.github.io/wove/how-to/the-basics.html): the core `weave()` and `@w.do` workflow.
+- [Task Mapping](https://curvedinf.github.io/wove/how-to/task-mapping.html): running one task across many inputs and collecting the results.
+- [Task Quality of Life](https://curvedinf.github.io/wove/how-to/task-quality-of-life.html): task options that replace retry, timeout, fanout, and routing boilerplate.
+- [Inheritable Weaves](https://curvedinf.github.io/wove/how-to/inheritable-weaves.html): reusable workflow templates with inline overrides.
+- [Merging External Functions](https://curvedinf.github.io/wove/how-to/merging-external-functions.html): mapping helper callables without turning them into named tasks.
+- [Helper Functions](https://curvedinf.github.io/wove/how-to/helper-functions.html): small data-shaping tools that keep task glue readable.
+- [Error Handling](https://curvedinf.github.io/wove/how-to/error-handling.html): how task, background, and remote delivery failures surface.
+- [Debugging & Introspection](https://curvedinf.github.io/wove/how-to/debugging-introspection.html): graph, timing, mapping, and failure inspection.
+- [Background Processing](https://curvedinf.github.io/wove/how-to/background-processing.html): running a whole weave after the caller continues.
+- [Remote Task Environments](https://curvedinf.github.io/wove/how-to/remote-task-environments.html): sending selected tasks to other processes, services, queues, clusters, or schedulers.
+- [Patterns For Production](https://curvedinf.github.io/wove/how-to/patterns-for-production.html): common production workflow shapes built from Wove's core task, mapping, policy, background, and remote-execution building blocks.
 
 ## Reference
 
@@ -64,55 +70,55 @@ When you already know the workflow you want and need exact behavior, start here.
 
 Start with the core behavior references when you need to confirm which names are public, how Wove resolves execution settings, and what guarantees the runtime makes before you tune or extend it.
 
-- [Public API](docs/reference/api/wove.md): stable imports most users should rely on.
-- [Environments](docs/reference/environments/index.md): persistent execution profiles, defaults, and precedence rules.
-- [Executors](docs/reference/executors/index.md)
-- [Backend Adapters](docs/reference/backend-adapters/index.md)
+- [Public API](https://curvedinf.github.io/wove/reference/api/wove.html): stable imports most users should rely on.
+- [Environments](https://curvedinf.github.io/wove/reference/environments/): persistent execution profiles, defaults, and precedence rules.
+- [Executors](https://curvedinf.github.io/wove/reference/executors/)
+- [Backend Adapters](https://curvedinf.github.io/wove/reference/backend-adapters/)
 
 ### Runtime Modules
 
 If you are tracing a public concept back to its implementation module, the runtime module references connect the friendly API to the objects that enforce it.
 
-- [`wove.runtime`](docs/reference/api/wove.runtime.md): process-wide `wove.config(...)` behavior.
-- [`wove.environment`](docs/reference/api/wove.environment.md): executor interfaces, runtime delivery errors, and executor runtime classes.
-- [`wove.backend`](docs/reference/api/wove.backend.md): backend callback transport and dispatch payload helpers.
-- [`wove.integrations`](docs/reference/api/wove.integrations.md): adapter registry, adapter base interface, and worker entrypoints.
+- [`wove.runtime`](https://curvedinf.github.io/wove/reference/api/wove.runtime.html): process-wide `wove.config(...)` behavior.
+- [`wove.environment`](https://curvedinf.github.io/wove/reference/api/wove.environment.html): executor interfaces, runtime delivery errors, and executor runtime classes.
+- [`wove.backend`](https://curvedinf.github.io/wove/reference/api/wove.backend.html): backend callback transport and dispatch payload helpers.
+- [`wove.integrations`](https://curvedinf.github.io/wove/reference/api/wove.integrations.html): adapter registry, adapter base interface, and worker entrypoints.
 
 ### Executors
 
 Executors define how a Wove environment delivers task frames. Use these pages when the task should run locally, through a subprocess, or through a direct worker service over HTTP, gRPC, or WebSocket.
 
-- [Executors](docs/reference/executors/index.md)
-  - [Local Executor](docs/reference/executors/local-executor.md)
-  - [Stdio Executor](docs/reference/executors/stdio-executor.md)
-  - [HTTP/HTTPS Executor](docs/reference/executors/http-executor.md)
-  - [gRPC Executor](docs/reference/executors/grpc-executor.md)
-  - [WebSocket Executor](docs/reference/executors/websocket-executor.md)
-  - [Custom Executors](docs/reference/executors/custom-executors.md)
+- [Executors](https://curvedinf.github.io/wove/reference/executors/)
+  - [Local Executor](https://curvedinf.github.io/wove/reference/executors/local-executor.html)
+  - [Stdio Executor](https://curvedinf.github.io/wove/reference/executors/stdio-executor.html)
+  - [HTTP/HTTPS Executor](https://curvedinf.github.io/wove/reference/executors/http-executor.html)
+  - [gRPC Executor](https://curvedinf.github.io/wove/reference/executors/grpc-executor.html)
+  - [WebSocket Executor](https://curvedinf.github.io/wove/reference/executors/websocket-executor.html)
+  - [Custom Executors](https://curvedinf.github.io/wove/reference/executors/custom-executors.html)
 
 ### Backend Adapters
 
 Backend adapters are separate from direct executors because the existing backend owns delivery behavior: queueing, scheduling, retries, worker placement, or batch execution. Use these pages when a Wove task should enter infrastructure your project already runs.
 
-- [Backend Adapters](docs/reference/backend-adapters/index.md)
-  - [Celery](docs/reference/backend-adapters/celery.md)
-  - [Temporal](docs/reference/backend-adapters/temporal.md)
-  - [Ray](docs/reference/backend-adapters/ray.md)
-  - [RQ](docs/reference/backend-adapters/rq.md)
-  - [Taskiq](docs/reference/backend-adapters/taskiq.md)
-  - [ARQ](docs/reference/backend-adapters/arq.md)
-  - [Dask](docs/reference/backend-adapters/dask.md)
-  - [Kubernetes Jobs](docs/reference/backend-adapters/kubernetes-jobs.md)
-  - [AWS Batch](docs/reference/backend-adapters/aws-batch.md)
-  - [Slurm](docs/reference/backend-adapters/slurm.md)
-  - [Custom Backend Adapters](docs/reference/backend-adapters/custom-backend-adapters.md)
+- [Backend Adapters](https://curvedinf.github.io/wove/reference/backend-adapters/)
+  - [Celery](https://curvedinf.github.io/wove/reference/backend-adapters/celery.html)
+  - [Temporal](https://curvedinf.github.io/wove/reference/backend-adapters/temporal.html)
+  - [Ray](https://curvedinf.github.io/wove/reference/backend-adapters/ray.html)
+  - [RQ](https://curvedinf.github.io/wove/reference/backend-adapters/rq.html)
+  - [Taskiq](https://curvedinf.github.io/wove/reference/backend-adapters/taskiq.html)
+  - [ARQ](https://curvedinf.github.io/wove/reference/backend-adapters/arq.html)
+  - [Dask](https://curvedinf.github.io/wove/reference/backend-adapters/dask.html)
+  - [Kubernetes Jobs](https://curvedinf.github.io/wove/reference/backend-adapters/kubernetes-jobs.html)
+  - [AWS Batch](https://curvedinf.github.io/wove/reference/backend-adapters/aws-batch.html)
+  - [Slurm](https://curvedinf.github.io/wove/reference/backend-adapters/slurm.html)
+  - [Custom Backend Adapters](https://curvedinf.github.io/wove/reference/backend-adapters/custom-backend-adapters.html)
 
 ## Version History
 
 Wove's version history records the major and minor release series. Patch releases are not listed separately unless they change the shape of a series.
 
-- [2.0.0](docs/version-history/2.0.0.md): remote task environments and the new execution-environment layer.
-- [1.0.0](docs/version-history/1.0.0.md): stable local inline concurrency and background processing.
-- [0.3.0](docs/version-history/0.3.0.md): reusable weave classes, richer task controls, and helpers.
-- [0.2.0](docs/version-history/0.2.0.md): dynamic task mapping and executor management.
-- [0.1.0](docs/version-history/0.1.0.md): initial public release.
+- [2.0.0](https://curvedinf.github.io/wove/version-history/2.0.0.html): remote task environments and the new execution-environment layer.
+- [1.0.0](https://curvedinf.github.io/wove/version-history/1.0.0.html): stable local inline concurrency and background processing.
+- [0.3.0](https://curvedinf.github.io/wove/version-history/0.3.0.html): reusable weave classes, richer task controls, and helpers.
+- [0.2.0](https://curvedinf.github.io/wove/version-history/0.2.0.html): dynamic task mapping and executor management.
+- [0.1.0](https://curvedinf.github.io/wove/version-history/0.1.0.html): initial public release.
