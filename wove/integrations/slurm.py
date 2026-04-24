@@ -6,8 +6,8 @@ from .base import BackendAdapter, maybe_await
 
 
 class SlurmAdapter(BackendAdapter):
-    required_modules = ("pyslurm",)
-    install_hint = "pyslurm"
+    required_modules = ()
+    install_hint = ""
 
     async def submit(self, payload: Dict[str, Any], frame: Dict[str, Any]) -> Any:
         submit = self.config.get("submit")

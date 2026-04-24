@@ -140,12 +140,16 @@ Example application: parse many objects from S3, then roll them up.
 
 ```python
 from io import BytesIO
-from wove import weave
+from wove import merge, weave
 import boto3
 import duckdb
 import polars as pl
 
 s3 = boto3.client("s3")
+
+
+def normalize_frame(frame):
+    return frame.with_columns(pl.col("customer_id").cast(pl.Utf8))
 
 
 def daily_rollup(bucket: str, prefix: str):
@@ -161,8 +165,9 @@ def daily_rollup(bucket: str, prefix: str):
             return pl.read_parquet(BytesIO(raw))
 
         @w.do
-        def combined(parsed_file):
-            return pl.concat(parsed_file)
+        async def combined(parsed_file):
+            normalized = await merge(normalize_frame, parsed_file)
+            return pl.concat(normalized)
 
         @w.do
         def rollup(combined):

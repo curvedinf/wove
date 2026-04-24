@@ -36,6 +36,7 @@ def make_module(name, **attrs):
 async def test_adapter_registry_and_base_contract():
     assert get_backend_adapter_class("celery") is CeleryAdapter
     assert get_backend_adapter_dependencies()["celery"] == ("celery",)
+    assert get_backend_adapter_dependencies()["slurm"] == ()
     assert get_backend_adapter_install_hints()["dask"] == "dask[distributed]"
 
     with pytest.raises(ValueError, match="Unknown executor"):

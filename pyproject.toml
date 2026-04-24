@@ -50,7 +50,6 @@ dev-executors = [
     "dask[distributed]",
     "kubernetes",
     "boto3",
-    "pyslurm; platform_system == 'Linux'",
 ]
 examples = [
     "httpx",

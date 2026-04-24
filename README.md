@@ -121,3 +121,41 @@ Wove's version history records the major and minor release series. Patch release
 - [0.3.0](https://curvedinf.github.io/wove/version-history/0.3.0.html): reusable weave classes, richer task controls, and helpers.
 - [0.2.0](https://curvedinf.github.io/wove/version-history/0.2.0.html): dynamic task mapping and executor management.
 - [0.1.0](https://curvedinf.github.io/wove/version-history/0.1.0.html): initial public release.
+
+## Benchmarks
+
+Wove has low overhead and internally uses `asyncio`, so its performance is comparable to using `threading` or `asyncio` directly. The benchmark script below is available in the `/examples` directory.
+
+```bash
+$ python examples/benchmark.py
+ Starting performance benchmarks...
+Number of tasks: 200
+CPU load iterations per task: 100000
+I/O sleep duration per task: 0.1s
+===================================
+--- Running Threading Benchmark ---
+Threading total time: 1.6910 seconds
+-----------------------------------
+--- Running Asyncio Benchmark ---
+Asyncio total time: 1.4953 seconds
+-----------------------------------
+--- Running Wove Benchmark ---
+Wove timing details:
+  - planning: 0.0002s
+  - tier_1_execution: 1.6428s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0007s
+  - wove_task: 0.1324s
+Wove total time: 1.6585 seconds
+-----------------------------------
+--- Running Wove Async Benchmark ---
+Wove Async timing details:
+  - planning: 0.0001s
+  - tier_1_execution: 1.6366s
+  - tier_1_post_execution: 0.0000s
+  - tier_1_pre_execution: 0.0006s
+  - wove_async_task: 1.5063s
+Wove Async total time: 1.6414 seconds
+-----------------------------------
+Benchmarks finished.
+```

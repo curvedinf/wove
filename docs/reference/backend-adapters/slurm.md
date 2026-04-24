@@ -17,13 +17,13 @@ Slurm is for HPC environments where selected Wove tasks should run as scheduled 
 
 ## Dependency
 
-Install dispatch support and Slurm client bindings in the submitting process. The job environment must also include Wove with dispatch support.
+Install dispatch support in the submitting process and in the Slurm job environment. The default adapter path submits with `sbatch` and cancels with `scancel`, so those commands must be available on the host that submits jobs.
 
 ```bash
-pip install "wove[dispatch]" pyslurm
+pip install "wove[dispatch]"
 ```
 
-Wove checks for `pyslurm` so Slurm support fails clearly when the environment is not prepared. The default submission path uses `sbatch` and `scancel` because those commands are the most portable interface across clusters.
+If your project provides a custom `submit` callable that uses Python Slurm bindings such as `pyslurm`, install those bindings in the environment that runs that callable. Wove does not require `pyslurm` for the built-in `sbatch`/`scancel` path because `pyslurm` needs Slurm system libraries that are not present on many build and test hosts.
 
 ## Configure Wove
 
