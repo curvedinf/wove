@@ -13,7 +13,7 @@ ARQ is for async Redis worker deployments. Wove enqueues a named ARQ function wi
 1. Wove creates or uses an ARQ pool.
 2. Wove calls `enqueue_job(function_name, payload, ...)`.
 3. The ARQ worker function calls `await wove.integrations.worker.arun(payload)`.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

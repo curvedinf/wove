@@ -13,7 +13,7 @@ Ray is for sending Wove tasks into a Ray cluster without writing a separate back
 1. Wove initializes Ray unless `init=False`.
 2. Wove wraps `wove.integrations.worker.run` with `ray.remote(...)`.
 3. The remote function executes the payload.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

@@ -13,7 +13,7 @@ Temporal is for work that should enter an existing Temporal task queue while the
 1. Wove calls `client.start_workflow(...)` with the payload.
 2. The workflow receives the payload.
 3. The workflow runs an activity that calls `await wove.integrations.worker.arun(payload)`.
-4. The activity posts Wove event frames back to the callback URL.
+4. The activity posts Wove completion events back to the callback URL.
 
 ## Dependency
 

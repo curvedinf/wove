@@ -2,7 +2,7 @@
 
 `wove.environment` contains the executor contract and the runtime bridge that sends tasks to local, subprocess, or remote task environments.
 
-When a named environment becomes running work, this module defines the contract: executor instances, runtime delivery errors, and the interface custom executors use to plug into Wove.
+When a named environment becomes running work, `wove.environment` defines the contract: executor instances, runtime delivery errors, and the interface custom executors use to plug into Wove.
 
 ## Main Types
 

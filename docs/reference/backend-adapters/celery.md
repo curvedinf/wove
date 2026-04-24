@@ -13,7 +13,7 @@ Celery is for projects that already run broker-backed worker pools and want sele
 1. Wove submits the payload with `app.send_task(...)`.
 2. A Celery worker runs the configured task name.
 3. That task calls `wove.integrations.worker.run(payload)`.
-4. The worker posts Wove event frames back to the callback URL embedded in the payload.
+4. The worker posts Wove completion events back to the callback URL embedded in the payload.
 
 ## Dependency
 

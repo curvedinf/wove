@@ -1,8 +1,8 @@
 # Reference
 
-When you already understand the shape of a weave and need exact behavior, use reference to check public imports, configuration keys, environment resolution, executor frames, and backend adapter requirements. If you are learning Wove for the first time, start with the topic guides; come here when a name, option, or runtime contract needs to be precise.
+Reference material is for exact behavior after the shape of a weave is already clear: public imports, configuration keys, environment resolution, executor frames, and backend adapter requirements. The topic guides explain the workflow model; the reference pages pin down names, options, and runtime contracts.
 
-## Start Here
+## Core References
 
 - [Public API](api/wove.md): the import surface most users should rely on.
 - [Environments](environments/index.md): how persistent execution profiles are defined and resolved.
@@ -11,7 +11,7 @@ When you already understand the shape of a weave and need exact behavior, use re
 
 ## Public API
 
-When you need to know which names are safe to import or extend, start with the public API references. They separate the stable surface from the modules you only need when you are inspecting internals.
+The public API references separate the stable import surface from modules that mainly matter when inspecting internals.
 
 - [`wove`](api/wove.md): package entrypoints including `weave`, `Weave`, `config`, helpers, and exported exceptions.
 - [`wove.weave`](api/wove.weave.md): reusable workflow classes and inheritable weave definitions.
@@ -20,7 +20,7 @@ When you need to know which names are safe to import or extend, start with the p
 
 ## Configuration And Runtime
 
-When work is not running where you expect, use the runtime references to trace how Wove resolves project defaults, named environments, task-level overrides, and executor instances.
+Runtime references trace how Wove resolves project defaults, named environments, task-level overrides, and executor instances when work is not running where expected.
 
 - [`wove.runtime`](api/wove.runtime.md): process-wide configuration singleton and `wove.config(...)` behavior.
 - [Environments](environments/index.md): environment dictionaries, precedence, defaults, and validation rules.
@@ -29,7 +29,7 @@ When work is not running where you expect, use the runtime references to trace h
 
 ## Dispatch And Remote Execution
 
-When a task needs to cross a process or network boundary, use these references to follow the executor protocol, direct worker-service flow, backend callback flow, and adapter contract without mixing the two extension shapes together.
+Remote execution references separate the direct executor protocol, worker-service flow, backend callback flow, and adapter contract so the two extension shapes do not blur together.
 
 - [Executors](executors/index.md): frame protocol, executor lifecycle, and network executors.
 - [HTTP/HTTPS Executor](executors/http-executor.md): direct request/response transport for worker services.
@@ -44,7 +44,7 @@ When a task needs to cross a process or network boundary, use these references t
 
 ## Backend Adapters
 
-If your project already runs one of these systems, use its adapter page to see what Wove submits, what the worker must run, and which `executor_config` keys matter.
+Each adapter page shows what Wove submits to that system, what the worker must run, and which `executor_config` keys matter.
 
 - [Celery](backend-adapters/celery.md): broker-backed worker pools.
 - [Temporal](backend-adapters/temporal.md): workflow/task-queue execution.

@@ -13,7 +13,7 @@ Kubernetes Jobs are for isolated pod-per-task execution. Wove creates a Job, inj
 1. Wove builds a Kubernetes Job object.
 2. The Job receives the payload as the `WOVE_BACKEND_PAYLOAD` environment variable.
 3. The container runs `python -m wove.backend_worker`.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

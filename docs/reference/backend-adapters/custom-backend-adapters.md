@@ -49,7 +49,7 @@ Backend adapters do not execute the task directly. They submit the payload Wove 
 2. The adapter submits `payload` to the backend.
 3. A backend worker receives `payload`.
 4. The worker calls `wove.integrations.worker.run(payload)` or `await wove.integrations.worker.arun(payload)`.
-5. The worker entrypoint executes the task and posts the final event frame back to Wove's callback URL.
+5. The worker entrypoint executes the task and posts the terminal completion event back to Wove's callback URL.
 
 The callback URL is created by `BackendAdapterEnvironmentExecutor`. For workers on another host, configure `callback_url` so the worker can reach the original Wove process.
 
@@ -161,7 +161,7 @@ These keys are handled by `BackendAdapterEnvironmentExecutor` before the adapter
 | --- | --- |
 | `callback_host` | Local bind host for the callback receiver. Defaults to `127.0.0.1`. |
 | `callback_port` | Local bind port for the callback receiver. Defaults to `0`, which asks the OS for an open port. |
-| `callback_url` | Public callback URL embedded in submitted payloads. Use this when workers run on another host. |
+| `callback_url` | Public callback URL embedded in submitted payloads for workers that run on another host. |
 | `callback_token` | Token used in the callback URL path. Wove generates one when omitted. |
 
 The adapter also receives those keys in `self.config`, along with any backend-specific settings such as queue names, client objects, credentials, or scheduling options.

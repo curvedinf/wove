@@ -1,6 +1,6 @@
 # `wove.weave`
 
-`wove.weave` defines the reusable workflow class model. Use it when a workflow should be packaged as a class, inherited, extended, or reused across call sites.
+`wove.weave` defines the reusable workflow class model for workflows that should be packaged as classes, inherited, extended, or reused across call sites.
 
 `Weave` is the reference for class-based workflows: reusable task graphs, inheritable templates, and the places where class definitions differ from inline `with weave() as w:` blocks.
 

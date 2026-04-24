@@ -13,7 +13,7 @@ AWS Batch is for queueing Wove tasks onto managed Batch compute environments. Wo
 1. Wove calls `submit_job(...)` on a boto3 Batch client.
 2. The job receives the payload as the `WOVE_BACKEND_PAYLOAD` environment variable.
 3. The container runs `python -m wove.backend_worker`.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

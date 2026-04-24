@@ -13,7 +13,7 @@ Embedded mode stays inside the current Python process, so the base install is en
 pip install "wove[dispatch]"
 ```
 
-Both modes can be provided an optional `on_done` callback to be executed when the background weave is complete. The callback will receive the `WoveResult` object as its only argument.
+For both modes, `weave()` accepts an optional `on_done` callback that runs when the background weave completes. The callback receives the weave's result object, the same object available as `w.result` in foreground weaves.
 
 ```python
 import time

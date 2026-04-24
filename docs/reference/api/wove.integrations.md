@@ -2,7 +2,7 @@
 
 `wove.integrations` registers built-in backend adapters and provides the adapter base interface. Backend libraries remain optional; Wove includes adapter code but imports third-party packages only when an adapter is selected.
 
-When you want selected Wove tasks to run through an existing task system, this package provides the adapter registry, the base adapter contract, and the worker entrypoints those systems call to return results to Wove.
+When selected Wove tasks should run through an existing task system, `wove.integrations` provides the adapter registry, the base adapter contract, and the worker entrypoints those systems call to return results to Wove.
 
 All built-in backend adapters are dispatch features. Install `wove[dispatch]` plus the selected backend library in the process that submits work and in any worker environment that executes Wove payloads.
 
@@ -23,7 +23,7 @@ Built-in adapter names:
 
 ## Adapter Contract
 
-A `BackendAdapter` receives a JSON-safe payload and submits it to a backend. It does not run the task itself. The backend worker must call Wove's worker entrypoint so the result can be posted back to the callback URL.
+A `BackendAdapter` receives a JSON-safe payload and submits it to a backend. The adapter does not run the task itself. The backend worker must call Wove's worker entrypoint so the result can be posted back to the callback URL.
 
 Required method:
 

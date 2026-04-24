@@ -12,7 +12,7 @@ RQ is for Redis Queue deployments where selected Wove tasks should run in an exi
 
 1. Wove enqueues `wove.integrations.worker.run(payload)`.
 2. An RQ worker executes that function.
-3. The worker posts Wove event frames back to the callback URL.
+3. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

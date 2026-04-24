@@ -1,8 +1,8 @@
 # `wove.backend`
 
-`wove.backend` exposes the backend callback transport and dispatch payload helpers. Backend adapters use this module to serialize task payloads, run them in worker processes, and receive callback frames from backend workers.
+`wove.backend` exposes the backend callback transport and dispatch payload helpers. Backend adapters use `wove.backend` to serialize task payloads, run them in worker processes, and receive callback frames from backend workers.
 
-When a backend adapter moves work across a process or network boundary, this module is the transport layer that turns task frames into worker payloads and worker callbacks back into weave results.
+When a backend adapter moves work across a process or network boundary, `wove.backend` is the transport layer that turns task frames into worker payloads and worker callbacks back into weave results.
 
 The callback transport is a dispatch feature. Install `wove[dispatch]` in the submitting process and in worker environments that call these entrypoints.
 

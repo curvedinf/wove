@@ -2,9 +2,9 @@
 
 Production code usually needs more than one kind of work to happen at the same time: database reads, service calls, file parsing, model requests, report rendering, and work that belongs outside the request process. Wove is useful when those steps belong in one readable workflow, but should not run one after another.
 
-This page is organized by the Wove pattern, not by the application domain. An API endpoint, a report builder, and an inference pipeline can all be the same pattern if Wove is doing the same thing: running independent tasks, waiting for their results, and merging them into one value.
+Production patterns are organized by what Wove is doing, not by the application domain. An API endpoint, a report builder, and an inference pipeline can all be the same pattern if Wove is doing the same thing: running independent tasks, waiting for their results, and merging them into one value.
 
-The examples use real libraries to show where each pattern appears in production code. The imports show the concrete libraries involved. Keep the orchestration shape, then replace placeholder functions, models, and service names with objects from your project. Worker-service examples use project-owned handler names such as `handle_wove_command(...)`; the executor reference defines the frame contract those handlers must satisfy.
+The examples use real libraries to show where each pattern appears in production code. The imports show the concrete libraries involved. Keep the orchestration shape, then replace placeholder functions, models, and service names with objects from your project. Worker-service examples use project-owned handler names such as `handle_wove_command(...)`; the executor reference defines the command and event frames those handlers must satisfy.
 
 ## Fan Out Independent Work, Then Merge
 
@@ -66,7 +66,7 @@ The same pattern fits any case where the branches are different facts about the 
 
 This pattern is for a workflow shape that repeats across a project, but has one or two steps that vary by caller, tenant, test, or deployment. Wove lets you define the common task graph as a `Weave` class, then override selected tasks inline without copying the whole workflow.
 
-The important shape is the stable graph. `AccountHealthCheck` defines the shared branches and the final merge. A caller can run it as-is, or replace `account(...)` while keeping the inherited `billing(...)` and `health_check(...)` tasks.
+The important shape is the reusable dependency graph. `AccountHealthCheck` defines the shared parallel branches and the final merge step. A caller can run that graph as-is, or replace `account(...)` while keeping the inherited `billing(...)` and `health_check(...)` tasks.
 
 Example application: standardize account health checks while letting tenant-specific callers change how account data is loaded.
 
@@ -128,7 +128,7 @@ async def tenant_account_health(account_id: int, tenant_slug: str):
     return w.result.health_check
 ```
 
-Use this when the repeated workflow is valuable in its own right. If every caller overrides most of the tasks, keep the workflow inline instead; the class should preserve the shape, not hide it.
+The class-based pattern fits repeated workflows that are valuable in their own right. If every caller overrides most of the tasks, keep the workflow inline instead; the class should preserve the shape, not hide it.
 
 ## Map a Work Set, Then Reduce
 
@@ -182,7 +182,7 @@ def daily_rollup(bucket: str, prefix: str):
     return w.result.rollup
 ```
 
-When the mapped work calls a dependency that has its own limits, keep those limits visible in the mapped task. Wove controls task fanout with `workers`; the client, pool, or limiter still owns connection and rate behavior.
+When each mapped item calls an external service, database, or client with its own limits, keep those limits visible in the mapped task. Wove controls task fanout with `workers`; the client, pool, or limiter still owns connection and rate behavior.
 
 Example application: enrich customer records without overwhelming the profile service.
 
@@ -213,9 +213,9 @@ async def enrich_customers(customer_ids: list[int]):
 
 ## Detach a Workflow from the Caller
 
-This pattern is for work that belongs to the request, command, or event that triggered it, but should not make that caller wait. Wove keeps the workflow written inline and starts it in the background when the context exits.
+This pattern is for background work that belongs to a specific request, command, or event, but should not make the caller wait. Wove keeps the workflow written inline and starts the background workflow when the context exits.
 
-This is not a durability pattern. In-process background work is appropriate for follow-up work that can tolerate process loss. If the work must survive restarts or needs queue semantics, use a remote task environment instead.
+Background detachment is not a durability pattern. In-process background work is appropriate for follow-up work that can tolerate process loss. If the work must survive restarts or needs queue semantics, use a remote task environment instead.
 
 Example application: return `202 Accepted` from an HTTP endpoint while follow-up work continues.
 
@@ -255,9 +255,9 @@ def create_order(payload: dict):
 
 ## Send a Task to a Direct Worker Service
 
-This pattern is for a project that already has a service boundary and wants selected Wove tasks to run on the other side of it. Wove still builds the local dependency graph, but the selected task frame is sent through a network executor instead of being run in the weave process.
+This pattern is for a project that already has a service boundary and wants selected Wove tasks to run on the other side of that boundary. Wove still builds the local dependency graph, but the selected task frame is sent through a network executor instead of being run in the weave process.
 
-Use this when the worker service is yours and the operational behavior is simple request/response or stream delivery. If queueing, scheduling, retries, or cluster placement should be owned by Celery, Temporal, Ray, or another system, use the backend-owned execution pattern instead.
+Direct worker-service routing fits services your project owns when the operational behavior is simple request/response or stream delivery. If queueing, scheduling, retries, or cluster placement should be owned by Celery, Temporal, Ray, or another system, the backend-owned execution pattern is the better fit.
 
 Example application: keep lightweight orchestration in the caller and run report generation in an internal worker service.
 
@@ -317,7 +317,7 @@ async def wove_tasks(request: Request):
     return await handle_wove_command(body)
 ```
 
-The transport can change without changing the weave shape. Use HTTP/HTTPS for simple request/response services, gRPC when that is already the service boundary, and WebSocket when the worker needs to stream heartbeats or progress events while the task runs.
+The network executor transport can change without changing the weave shape. Use HTTP/HTTPS for simple request/response services, gRPC when that is already the service boundary, and WebSocket when the worker needs to stream heartbeats or progress events while the task runs.
 
 ```python
 # wove_config.py
@@ -350,7 +350,7 @@ WOVE_CONFIG = {
 
 This pattern is for work that should enter infrastructure your project already runs: a queue, workflow engine, cluster, batch system, or scheduler. Wove owns the inline dependency graph and result delivery back to the weave. The backend owns worker placement, queueing, scheduling, and its own operational controls.
 
-The selected task still looks like a normal Wove task. The difference is the environment: `@w.do(environment="reports")` routes that task through the configured backend adapter.
+The selected task still looks like a normal Wove task. Backend-owned execution is selected through the environment: `@w.do(environment="reports")` routes that task through the configured backend adapter.
 
 Example application: submit report rendering to Celery while keeping the rest of the weave local. The same task-routing pattern applies to Temporal, Ray, RQ, Taskiq, ARQ, Dask, Kubernetes Jobs, AWS Batch, and Slurm.
 
@@ -398,7 +398,7 @@ Backend workers must be able to reach the callback URL in the environment config
 
 This pattern is for a workflow that is important enough to alert on. In production, the useful question is not just whether the request failed; it is which task made the workflow slow, which task failed first, and whether any parallel work was cancelled as a consequence.
 
-Wove records task timings, cancelled task names, the execution plan, and the first exception on the result object. Use that data at the boundary of the workflow, where the request ID, user ID, job ID, or tenant ID is still available.
+Wove records task timings, cancelled task names, the execution plan, and the first exception on the result object. Record the result data at the boundary of the workflow, where the request ID, user ID, job ID, or tenant ID is still available.
 
 Example application: build one dashboard response and emit enough telemetry to debug the production run later.
 

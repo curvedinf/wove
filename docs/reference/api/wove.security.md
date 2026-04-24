@@ -20,7 +20,7 @@ wove.config(
 )
 ```
 
-That shorthand creates signed network executor requests. Wove signs the serialized command body with HMAC-SHA256 and sends the signature as transport-appropriate headers or metadata.
+The `security="env:WOVE_WORKER_SECRET"` shorthand creates signed network executor requests. Wove signs the serialized command body with HMAC-SHA256 and sends the signature as transport-appropriate headers or metadata.
 
 ## Security Guarantee
 

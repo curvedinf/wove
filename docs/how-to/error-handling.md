@@ -2,7 +2,7 @@
 
 If any task raises an exception, Wove halts execution, cancels all other running tasks, and re-raises the original exception from the `with weave()` block. This ensures predictable state and allows you to use standard `try...except` blocks.
 
-In background mode, you can inspect the `result.exception` attribute in the `on_done` callback. It will be `None` if no exception occurred, or it will contain the first exception that was raised.
+In background mode, you can inspect the `result.exception` attribute in the `on_done` callback. The attribute is `None` when no exception occurred, or contains the first exception that was raised.
 
 ```python
 import time
@@ -26,7 +26,7 @@ with weave(background=True, on_done=on_done_callback) as w:
 
 ## Inspect Failed Results Without Raising
 
-By default, Wove raises the task's exception again when you access a failed result. That keeps normal code honest: if `summary` failed, `w.result.summary`, `w.result["summary"]`, and `w.result.final` should not silently return a partial value.
+By default, Wove raises the task's exception again when you access a failed result. Raising on failed result access keeps normal code honest: if `summary` failed, `w.result.summary`, `w.result["summary"]`, and `w.result.final` should not silently return a partial value.
 
 When you are building a report, dashboard, or test helper, you may want to inspect failures as data instead. Set `error_mode="return"` on the weave or in project configuration. Failed task lookups will return the exception object instead of raising it.
 

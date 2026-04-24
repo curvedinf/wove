@@ -2,7 +2,7 @@
 
 Use a backend adapter when a Wove task should run inside infrastructure your project already depends on: a queue, workflow engine, cluster, batch system, or scheduler. The weave stays inline in Python, but the selected task is handed to Celery, Temporal, Ray, Kubernetes, AWS Batch, Slurm, or another supported backend for execution.
 
-That is different from a network executor. A network executor talks directly to a Wove-compatible worker service over HTTP, gRPC, or WebSocket. A backend adapter lets an existing task system own the delivery path, worker placement, scheduling behavior, and operational controls that system already provides.
+Backend adapters are different from network executors. A network executor talks directly to a Wove-compatible worker service over HTTP, gRPC, or WebSocket. A backend adapter lets an existing task system own the delivery path, worker placement, scheduling behavior, and operational controls that system already provides.
 
 ## What The Adapter Does
 
@@ -37,7 +37,7 @@ with weave() as w:
         return build_report(account)
 ```
 
-In that example, `account` runs locally and `report` is submitted through Celery. The task still appears in the same Wove result object after the backend worker returns its event frame.
+In that example, `account` runs locally and `report` is submitted through Celery. The task still appears in the same Wove result object after the backend worker reports completion to Wove.
 
 ## Execution Flow
 
@@ -65,7 +65,7 @@ The adapter code ships with Wove, but the backend libraries remain optional. If 
 
 ## Built-In Adapters
 
-Choose the page for the system your project already runs.
+Each built-in adapter page describes one supported system.
 
 | Adapter | Use when |
 | --- | --- |

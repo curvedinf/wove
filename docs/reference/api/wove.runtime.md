@@ -2,7 +2,7 @@
 
 `wove.runtime` owns process-wide configuration. It stores default environments, environment definitions, and global execution defaults used when a weave starts.
 
-When `wove.config(...)` needs to be exact, this reference covers project config discovery, environment registration, default execution options, and the runtime snapshot used when a weave starts.
+The `wove.runtime` reference covers project config discovery, environment registration, default execution options, and the runtime snapshot used when a weave starts.
 
 ## Configuration Entry Point
 

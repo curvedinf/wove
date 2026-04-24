@@ -21,7 +21,7 @@ Improvements compared to asyncio include:
 - **Minimal Boilerplate**: Get started with just the `with weave() as w:` context manager and the `@w.do` decorator.
 - **Fast**: Wove has low overhead and internally uses `asyncio`, so performance is comparable to using `threading` or `asyncio` directly.
 - **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading without changing the workflow shape.
-- **Zero Required Dispatch/Backend Dependencies**: Local Wove stays lightweight. Extra serialization and backend libraries are only needed when work leaves the current process.
+- **Zero Required Dependencies**: Core Wove installs without third-party packages. Serialization, networking, and backend libraries are only needed when a workflow opts into features that use them.
 
 ## Topics
 
@@ -40,7 +40,7 @@ The topic path starts with the smallest useful weave, then adds the things real 
 
 ## Reference
 
-Reference material pins down the public surface of Wove: imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup. It is the part of the documentation that answers what each feature accepts, returns, guarantees, and raises once the workflow shape is already clear.
+Reference material pins down the public surface of Wove: imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup. Reference pages answer what each feature accepts, returns, guarantees, and raises once the workflow shape is already clear.
 
 ### Core Behavior
 
@@ -53,7 +53,7 @@ Core behavior covers the names and runtime rules that everything else builds on:
 
 ### Runtime Modules
 
-If you are tracing a public concept back to its implementation module, the runtime module references connect the friendly API to the objects that enforce it.
+Runtime module references connect public concepts back to the objects that implement and enforce them.
 
 - [`wove.runtime`](reference/api/wove.runtime.md): process-wide `wove.config(...)` behavior.
 - [`wove.environment`](reference/api/wove.environment.md): executor interfaces, runtime delivery errors, and executor runtime classes.

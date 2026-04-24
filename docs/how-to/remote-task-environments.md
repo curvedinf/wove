@@ -4,9 +4,9 @@ Wove can keep quick work in the current Python process while sending selected lo
 
 Remote task environments route selected tasks to another execution boundary and bring their results back into the same weave.
 
-That matters when the shape of the workflow belongs inline, but production execution belongs somewhere else. A web request can keep lightweight lookups in-process, hand report generation to an internal worker service or task backend, and keep those routing choices out of task code.
+Remote task routing matters when the shape of the workflow belongs inline, but production execution belongs somewhere else. A web request can keep lightweight lookups in-process, hand report generation to an internal worker service or task backend, and keep those routing choices out of task code.
 
-Environments are the named execution profiles that make that possible. `wove.config(...)` defines which environment is the default and which environments route work through network executors or backend adapters.
+Environments are the named execution profiles that make remote task routing possible. `wove.config(...)` defines which environment is the default and which environments route work through network executors or backend adapters.
 
 ## Install What Remote Execution Needs
 
@@ -16,7 +16,7 @@ If every task runs in the current Python process, the base `wove` install is eno
 pip install "wove[dispatch]"
 ```
 
-That command only adds Wove's dispatch serializer. Some executors need an additional transport or backend package. The `http` and `https` executors use the Python standard library. The `grpc` executor needs `grpcio`; the `websocket` executor needs `websockets`. If an environment uses a backend adapter, install that backend's Python package anywhere Wove submits the task and anywhere backend workers execute Wove payloads. For Celery, that means installing both Wove dispatch support and Celery:
+The `pip install "wove[dispatch]"` command only adds Wove's dispatch serializer. Some executors need an additional transport or backend package. The `http` and `https` executors use the Python standard library. The `grpc` executor needs `grpcio`; the `websocket` executor needs `websockets`. If an environment uses a backend adapter, install that backend's Python package anywhere Wove submits the task and anywhere backend workers execute Wove payloads. For Celery, that means installing both Wove dispatch support and Celery:
 
 ```bash
 pip install "wove[dispatch]" celery
@@ -24,7 +24,7 @@ pip install "wove[dispatch]" celery
 
 ## Start with a Local Default
 
-Most projects should keep local execution as the default. That preserves the normal `with weave() as w:` workflow while giving the project one place to define shared execution policy.
+Most projects should keep local execution as the default. Setting a local default environment preserves the normal `with weave() as w:` workflow while giving the project one place to define shared execution policy.
 
 ```python
 import wove
@@ -45,7 +45,7 @@ wove.config(
 
 ## Add a Remote Task Environment
 
-A remote task environment is a named execution profile for work that should leave the current Python process. It describes which external task system matching tasks should use and what delivery policy they should follow.
+A remote task environment is a named execution profile for work that should leave the current Python process. The environment definition describes which external task system matching tasks should use and what delivery policy those tasks should follow.
 
 ```python
 import wove
@@ -68,7 +68,7 @@ wove.config(
 
 The weave code does not need to know how Temporal, Celery, Ray, or another backend is wired. It only refers to the environment name.
 
-## Route the Task That Needs It
+## Route a Remote Task
 
 Environment routing can happen at the whole-weave level or at the task level. Task-level routing is useful when most work should stay local but one step belongs on queue, workflow, cluster, batch, or scheduler infrastructure.
 
@@ -104,7 +104,7 @@ Effective task settings follow the same principle. Values closest to the task wi
 
 ## Direct Worker Services
 
-When a project already has its own worker service, a network executor lets Wove talk to that service directly. The network executor is the Wove-side transport selected by `executor="http"`, `executor="grpc"`, or `executor="websocket"`. The worker service is the remote process that receives Wove command frames, runs or forwards the task, and returns Wove event frames.
+When a project already has its own worker service, a network executor lets Wove talk to that service directly. The network executor is the Wove-side transport selected by `executor="http"`, `executor="grpc"`, or `executor="websocket"`. The worker service is the remote process that receives Wove command frames, runs or forwards the task, and returns completion event frames such as `task_result`, `task_error`, or `task_cancelled`.
 
 ```python
 wove.config(
@@ -123,13 +123,13 @@ wove.config(
 )
 ```
 
-That shape is useful when the project needs a direct service boundary, not backend-owned queueing or scheduling. The built-in network executors are `http`, `https`, `grpc`, and `websocket`. For non-local worker services, Wove expects TLS and a `security` setting unless `insecure=True` is set explicitly for development.
+Direct worker-service routing is useful when the project needs a service boundary, not backend-owned queueing or scheduling. The built-in network executors are `http`, `https`, `grpc`, and `websocket`. For non-local worker services, Wove expects TLS and a `security` setting unless `insecure=True` is set explicitly for development.
 
 ## Executor Notes
 
 The built-in executor names are `local`, `stdio`, `http`, `https`, `grpc`, `websocket`, `celery`, `temporal`, `ray`, `rq`, `taskiq`, `arq`, `dask`, `kubernetes_jobs`, `aws_batch`, and `slurm`.
 
-Choose `stdio` when you want a custom process boundary without a queue or workflow engine. Wove launches a JSON-lines worker process and sends task frames through that process boundary, so the environment running it needs the dispatch serializer from `wove[dispatch]`. If `executor_config.command` is omitted, Wove runs `python -m wove.stdio_worker`.
+Choose `stdio` when you want a custom process boundary without a queue or workflow engine. Wove launches a JSON-lines worker process and sends task frames through that process boundary, so the `stdio` environment needs the dispatch serializer from `wove[dispatch]`. If `executor_config.command` is omitted, Wove runs `python -m wove.stdio_worker`.
 
 Backend adapters use a callback shape. Wove starts a small callback receiver, submits the task payload to the backend, and waits for the backend worker to post `task_started`, `task_result`, `task_error`, or `task_cancelled` frames back to the weave.
 
@@ -162,13 +162,13 @@ wove.config(
 
 Wove checks remote execution dependencies when the environment starts. If the dispatch serializer, selected network transport package, or selected backend library is missing, startup fails with an install hint before the task is submitted. Referencing an unknown environment name raises `NameError` at runtime.
 
-Network executor setup varies by transport. Start with the transport your worker service already exposes:
+Network executor setup is organized by the transport your worker service already exposes:
 
 - [HTTP/HTTPS Executor](../reference/executors/http-executor.md): direct request/response worker services.
 - [gRPC Executor](../reference/executors/grpc-executor.md): generic unary gRPC worker services.
 - [WebSocket Executor](../reference/executors/websocket-executor.md): bidirectional worker services that stream events.
 
-Backend setup varies by system. Start with the page for the system your project already runs:
+Backend adapter setup is organized by the system your project already runs:
 
 - [Celery](../reference/backend-adapters/celery.md): broker-backed worker pools.
 - [Temporal](../reference/backend-adapters/temporal.md): workflow/task-queue execution.

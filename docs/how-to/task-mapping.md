@@ -32,7 +32,7 @@ print(w.result.final)
 
 ## Map Over Task Results
 
-Pass the dependency name as a string when the iterable is produced by another task or comes from weave initialization data. If the mapped dependency is a task, Wove waits for that upstream task to finish before starting the mapped instances.
+Pass a data dependency name as a string when the iterable is produced by another task or comes from weave initialization data. If the string matches a task result name, Wove waits for the upstream task to finish before starting the mapped instances.
 
 ```python
 import asyncio
@@ -72,9 +72,9 @@ asyncio.run(main())
 
 ## Mapping External Callables
 
-Use `merge(callable, iterable)` when the function you want to map is not a Wove task. The callable can be defined inside or outside the `weave` block, and it can be sync or async. Wove runs one copy for each item, collects the returned values into a list, and gives that list back to the task that called it.
+Use the `merge(callable, iterable)` helper to run a normal Python callable across an iterable from inside an active weave. The callable can be defined inside or outside the `weave` block, and can be either sync or async. Wove executes the callable once for each item, collects the returned values into a list, and returns that list to the task that invoked `merge(...)`.
 
-This is useful when the fanout is local glue inside one task rather than a named step that downstream tasks should depend on. `merge(...)` must be called inside a task running in an active weave because it uses that weave's executor runtime.
+`merge(...)` is useful when the fanout is local glue inside one task rather than a named step that downstream tasks should depend on. It must be called inside a task running in an active weave because it uses that weave's executor runtime.
 
 In an async task, await the merged work:
 

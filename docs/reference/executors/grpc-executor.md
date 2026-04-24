@@ -2,7 +2,7 @@
 
 `grpc` sends Wove tasks to a worker service through a generic unary gRPC method. It fits projects where worker boundaries are already expressed as gRPC services and Wove should use that network path directly instead of going through a task backend.
 
-The gRPC executor is the Wove-side transport selected by `executor="grpc"`. The worker service is the remote gRPC service that implements the configured method and returns Wove event frames.
+The gRPC executor is the Wove-side transport selected by `executor="grpc"`. The worker service is the remote gRPC service that implements the configured method and returns completion event frames such as `task_result`, `task_error`, or `task_cancelled`.
 
 ## Dependency
 
@@ -43,7 +43,7 @@ Wove uses gRPC's generic unary call support. The request body is serialized Wove
 
 By default, non-local gRPC worker services must use a secure channel and network executor authentication. Use `secure=True` plus `security="env:WOVE_WORKER_SECRET"` for the normal path. Plaintext or unauthenticated non-local targets require `executor_config.insecure=True`.
 
-That keeps Wove from requiring generated client stubs. The service implementation can be generated, manually registered, or wrapped by an adapter layer, as long as the configured method accepts the raw command bytes and returns raw event bytes.
+The generic-call design keeps Wove from requiring generated client stubs. The service implementation can be generated, manually registered, or wrapped by an adapter layer, as long as the configured method accepts the raw command bytes and returns raw event bytes.
 
 A `run_task` response should eventually include `task_result`, `task_error`, or `task_cancelled`. Long-running worker services can emit `task_started` first and return the terminal event when the unary call completes. If the worker needs continuous heartbeats or long-lived streaming, prefer the `websocket` executor.
 

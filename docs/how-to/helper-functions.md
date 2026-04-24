@@ -12,7 +12,7 @@ from wove import batch, denone, flatten, fold, merge, redict, sync_to_async, und
 
 Data-shaping helpers are for the small transformations that often sit between task outputs and downstream tasks. They are plain Python functions, so you can use them inside or outside a weave.
 
-They usually appear when a task receives a list, nested list, dictionary, batch, or optional values and needs to shape that data before the next task.
+Data-shaping helpers usually appear when a task receives a list, nested list, dictionary, batch, or optional values and needs to shape that data before the next task.
 
 ### Flatten Nested Results
 
@@ -122,4 +122,4 @@ with weave(path="notes.txt") as w:
         return await async_read_file(path)
 ```
 
-Inside a weave, `sync_to_async(...)` uses Wove's executor context instead of blindly using asyncio's default executor. That matters when Wove is embedded in frameworks that also manage thread pools.
+Inside a weave, `sync_to_async(...)` uses Wove's executor context instead of blindly using asyncio's default executor. Wove-aware executor selection matters when Wove is embedded in frameworks that also manage thread pools.

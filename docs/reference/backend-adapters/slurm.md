@@ -13,7 +13,7 @@ Slurm is for HPC environments where selected Wove tasks should run as scheduled 
 1. Wove submits a Slurm job with `sbatch` or a custom `submit` callable.
 2. The job receives the payload as `WOVE_BACKEND_PAYLOAD`.
 3. The job runs `python -m wove.backend_worker` or your configured command.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

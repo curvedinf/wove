@@ -7,10 +7,10 @@ Use helpers when a small list, dictionary, batch, or optional-value transformati
 ## Common Helpers
 
 - `flatten`: flatten nested iterables.
-- `fold`: combine values with a reducer.
-- `batch`: split an iterable into fixed-size batches.
-- `undict`: unpack dictionary values.
-- `redict`: rebuild dictionaries from key/value pairs.
+- `fold`: split an iterable into fixed-size groups.
+- `batch`: split an iterable into a fixed number of groups.
+- `undict`: turn a dictionary into key/value pairs.
+- `redict`: rebuild a dictionary from key/value pairs.
 - `denone`: remove `None` values.
 - `sync_to_async`: wrap sync functions for async contexts.
 

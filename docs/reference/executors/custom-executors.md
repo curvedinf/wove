@@ -1,8 +1,8 @@
 # Custom Executors
 
-A custom executor is for the cases where a task should leave the current weave process, but Wove should still speak directly to the thing that runs it. That direct boundary can be an internal worker service, a subprocess protocol, a proprietary scheduler, or a local runtime that does not fit one of Wove's built-in transports.
+A custom executor is for the cases where a task should leave the current weave process, but Wove should still speak directly to the runtime or service that runs the task. That direct boundary can be an internal worker service, a subprocess protocol, a proprietary scheduler, or a local runtime that does not fit one of Wove's built-in transports.
 
-The executor is the Wove-side transport. It receives command frames from the weave and returns event frames back to the weave. Once the final event arrives, the task result is reintegrated into the same local result object as every other task.
+The executor is the Wove-side transport. A custom executor receives command frames from the weave, such as `run_task` and `cancel_task`, and returns event frames such as `task_result`, `task_error`, or `task_cancelled`. Once the final event arrives, the task result is reintegrated into the same local result object as every other task.
 
 ## Interface
 
@@ -23,11 +23,11 @@ class EnvironmentExecutor:
         ...
 ```
 
-`start(...)` receives the selected environment name, the environment's `executor_config`, and the run-level Wove configuration. Use it to open clients, start worker processes, or initialize connection pools.
+`start(...)` receives the selected environment name, the environment's `executor_config`, and the run-level Wove configuration. The method opens clients, starts worker processes, or initializes connection pools.
 
 `send(frame)` receives one command frame from Wove. Most executors care about `run_task`, `cancel_task`, and `shutdown`.
 
-`recv()` returns one event frame to Wove. It should wait until an event is available.
+The `recv()` method returns one event frame to Wove and should wait until an event is available.
 
 `stop()` releases resources and should make a best effort to stop accepting work.
 
@@ -202,7 +202,7 @@ with weave(environment="local") as w:
 assert w.result.build_report["status"] == "ready"
 ```
 
-Wove passes `{"region": "us-east-1"}` to `start(...)` as `environment_config`. The weave does not know how the executor uses that configuration; it only requires the executor to return the normal event frames.
+Wove passes `{"region": "us-east-1"}` to `start(...)` as `environment_config`. The weave does not know how the executor uses that configuration; the executor only has to return the normal event frames.
 
 ## Contract Checklist
 

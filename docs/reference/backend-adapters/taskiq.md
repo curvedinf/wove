@@ -13,7 +13,7 @@ Taskiq is for async task queues where the worker task should stay explicit. Wove
 1. Wove uses `task` directly or calls `broker.find_task(task_name)`.
 2. Wove submits the payload with `.kiq(payload)`.
 3. The Taskiq worker task calls `await wove.integrations.worker.arun(payload)`.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 

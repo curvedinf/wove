@@ -37,7 +37,7 @@ wove.config(
 
 ## Executor Protocol
 
-Wove sends each command frame as one JSON WebSocket message. The worker service sends event frames back as JSON messages. A worker message may contain one event frame, a list of event frames, or an object with an `events` list.
+Wove sends each command frame as one JSON WebSocket message. The worker service returns event frames as JSON messages. A worker message may contain one event frame, a list of event frames, or an object with an `events` list.
 
 The bidirectional shape is useful when the worker service wants to emit `task_started` immediately, send `heartbeat` frames while a task is running, and later send `task_result`, `task_error`, or `task_cancelled`.
 

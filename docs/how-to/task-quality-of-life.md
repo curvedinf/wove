@@ -2,13 +2,13 @@
 
 Task quality-of-life options reduce the boilerplate that usually grows around async workflows after the first version works. A weave can start with plain `@w.do` tasks, then absorb the operational details that would normally become retry loops, timeout wrappers, semaphores, rate-limit sleeps, thread-pool handoffs, and routing branches.
 
-The important idea is that these options describe how a task should run. The task body should still describe the data it produces.
+Task quality-of-life options describe how a task should run. The task body should still describe the data it produces.
 
 ## Task Options
 
 Task options are the keyword arguments that tell Wove how to operate a task. A task often starts as a simple call to a database, API, model, parser, or renderer. As soon as that call runs in production, the surrounding code tends to grow: retry the transient failure, stop waiting after a deadline, do not launch too many copies, and send the expensive step somewhere else.
 
-With Wove, those concerns stay on the task declaration. The example maps over customer IDs and adds the relevant task options directly to `@w.do(...)`.
+With Wove, operational concerns stay on the task declaration. The following example maps over customer IDs and applies the relevant task options directly to `@w.do(...)`.
 
 ```python
 from wove import weave
@@ -52,11 +52,11 @@ with weave(account_id="acct_123") as w:
         return {"account": account, "profile": profile}
 ```
 
-That removes the wrapper code that usually appears around mixed workflows: no `asyncio.to_thread(...)` at every synchronous call site, no separate sync and async workflow versions, and no manual result passing between the two styles.
+Mixed sync/async task support removes the wrapper code that usually appears around mixed workflows: no `asyncio.to_thread(...)` at every synchronous call site, no separate sync and async workflow versions, and no manual result passing between the two styles.
 
 ## Retries And Timeouts
 
-Retries and timeouts are task-level failure controls. Keeping them on `@w.do(...)` makes the workflow easier to scan than hiding retry loops inside the function body.
+Retries and timeouts are task-level failure controls. Declaring retries and timeouts on `@w.do(...)` makes the workflow easier to scan than hiding retry loops inside the function body.
 
 ```python
 from wove import weave
@@ -137,7 +137,7 @@ The task name still describes the data produced by the weave. The environment on
 
 Delivery policy describes what Wove expects from the executor boundary. A local timeout only describes how long Wove waits for the task function. Delivery options describe how Wove handles work that has crossed into another process, worker service, queue, scheduler, or backend.
 
-Delivery policy only matters when a task leaves the local process. It appears here because these are task options: the task declares the delivery contract it needs from the executor boundary.
+Delivery policy only matters when a task leaves the local process. Delivery policy appears here because it is still task behavior: the task declares the delivery contract it needs from the executor boundary.
 
 ```python
 from wove import weave
@@ -215,4 +215,4 @@ wove.config()  # autoload
 # wove.config(config_file="/abs/path/to/custom_config.py")
 ```
 
-Task-level declarations still win when a task needs a different value. That keeps project policy out of the weave while preserving the ability to make important task behavior visible.
+Task-level declarations still win when a task needs a different value. Configuration defaults keep project-wide policy out of the inline weave while preserving the ability to make important task behavior visible where needed.

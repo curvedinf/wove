@@ -1,6 +1,6 @@
 # `wove`
 
-Most application code should import from `wove`. This page names the stable entrypoints for declaring a weave, configuring execution environments, handling public exceptions, and using the helper functions that are meant to sit inside task code.
+Most application code should import from `wove`. The package-level API names the stable entrypoints for declaring a weave, configuring execution environments, handling public exceptions, and using the helper functions that are meant to sit inside task code.
 
 ## Primary Entrypoints
 

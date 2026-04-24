@@ -1,6 +1,6 @@
 # Topics
 
-The topics are ordered as a learning path. Start with the shape of a weave, then add fanout, task-level controls, reusable workflow structure, helper utilities, failure handling, and production execution choices.
+The topics are ordered as a learning path. The path begins with the shape of a weave, then adds fanout, task-level controls, reusable workflow structure, helper utilities, failure handling, and production execution choices.
 
 - [The Basics](the-basics.md): the core `weave()` and `@w.do` workflow.
 - [Task Mapping](task-mapping.md): running one task or helper callable across many inputs and collecting the results.

@@ -4,7 +4,7 @@
 
 The executor also accepts the name `https`. That alias has the same protocol contract, but it requires the configured URL to use `https://`.
 
-This page uses two separate terms deliberately. The HTTP executor is the Wove-side transport selected by `executor="http"` or `executor="https"`. The worker service is the remote HTTP service that receives Wove frames and returns task events.
+The HTTP executor documentation uses two separate terms deliberately. The HTTP executor is the Wove-side transport selected by `executor="http"` or `executor="https"`. The worker service is the remote HTTP service that receives Wove frames and returns task events.
 
 ## Dependency
 
@@ -48,7 +48,7 @@ with weave() as w:
 
 ## Executor Protocol
 
-For each `run_task` or `cancel_task` command, Wove POSTs one JSON body to `executor_config.url`. The body is a Wove command frame with process-unsafe values moved into dispatch fields such as `callable_pickle` and `args_pickle`.
+For each `run_task` or `cancel_task` command, Wove POSTs one JSON body to `executor_config.url`. The body is a Wove command frame with Python objects that cannot be encoded directly in JSON moved into dispatch fields such as `callable_pickle` and `args_pickle`.
 
 By default, non-local HTTP worker services must use TLS and network executor authentication. Use `https://` plus `security="env:WOVE_WORKER_SECRET"` for the normal path. Plain `http://` without security is allowed only for local development endpoints unless `executor_config.insecure=True` is set explicitly.
 

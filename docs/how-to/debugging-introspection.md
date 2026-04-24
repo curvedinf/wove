@@ -33,11 +33,11 @@ The debug report includes:
 - Whether each task is `sync` or `async`.
 - Mapping information when a task is mapped over a known iterable.
 
-Start with the printed plan when a task starts later than expected. If it appears in a later tier, Wove found a dependency from the task's parameter names.
+The printed plan is most useful when a task starts later than expected. If the task appears in a later tier, Wove found a dependency from the task's parameter names.
 
 ## Inspect The Graph Programmatically
 
-After the weave exits, `w.execution_plan` contains the same graph information as structured data. Reach for it in tests, generated workflows, or debugging code where printed output is too noisy.
+After the weave exits, `w.execution_plan` contains the same graph information as structured data. Access `w.execution_plan` in tests, generated workflows, or debugging code where printed output is too noisy.
 
 ```python
 from wove import weave
@@ -58,7 +58,7 @@ print(w.execution_plan["tiers"])
 # >> [['data', 'user'], ['profile']]
 ```
 
-Use `dependencies` to answer "what does this task wait for?" Use `dependents` to answer "what will this task unblock?" Use `tiers` to understand what Wove can run in parallel.
+The `dependencies` entry answers "what does this task wait for?" The `dependents` entry answers "what will this task unblock?" The `tiers` entry shows what Wove can run in parallel.
 
 ## Find Unexpected Dependencies
 

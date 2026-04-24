@@ -13,6 +13,9 @@ Executors are the transport boundary between a weave and the place where a task 
 `executor`
 : The Wove-side object that receives task frames for an execution environment and reports task events back to the weave.
 
+`event frame`
+: A message an executor returns to Wove to report task progress, task result, task error, cancellation, or heartbeat liveness.
+
 `network executor`
 : An executor selected with `executor="http"`, `executor="https"`, `executor="grpc"`, or `executor="websocket"`. It sends Wove frames to a remote worker service instead of running the task in the weave process.
 
@@ -28,7 +31,7 @@ Executors are the transport boundary between a weave and the place where a task 
 
 ## Network Executor Names
 
-Network executors are for projects that already have a worker service boundary, but do not need Wove to submit work through a queue, workflow engine, cluster scheduler, or batch system. The remote worker service receives Wove command frames, runs or forwards the task, and sends Wove event frames back.
+Network executors are for projects that already have a worker service boundary, but do not need Wove to submit work through a queue, workflow engine, cluster scheduler, or batch system. The remote worker service receives Wove command frames, runs or forwards the task, and returns event frames to Wove.
 
 | Executor value | Worker service shape |
 | --- | --- |
@@ -84,7 +87,7 @@ Method responsibilities:
 
 ## Command Frames
 
-Wove sends these frames to executors.
+Command frames are the messages Wove sends to executors.
 
 ### `run_task`
 
@@ -125,7 +128,7 @@ Tells the executor that the runtime is shutting down.
 
 ## Event Frames
 
-Executors return these frames from `recv()`.
+Event frames are the messages executors return from `recv()`.
 
 | Frame | Meaning |
 | --- | --- |
@@ -190,7 +193,7 @@ Executor responsibility:
 
 ## Network Executor Flow
 
-Network executors send Wove's executor protocol directly to a remote worker service you own. That service is responsible for running the task or forwarding it to whatever local execution model it wants.
+Network executors send Wove's executor protocol directly to a remote worker service you own. The remote worker service is responsible for running the task or forwarding it to whatever local execution model the service owns.
 
 1. Wove serializes the `run_task` command frame.
 2. The selected network executor signs or authenticates the request when `executor_config.security` is configured.

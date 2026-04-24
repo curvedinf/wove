@@ -13,7 +13,7 @@ Dask is for distributed Python execution through an existing Dask scheduler and 
 1. Wove creates or uses a `distributed.Client`.
 2. Wove submits `wove.integrations.worker.run(payload)` with `client.submit(...)`.
 3. A Dask worker executes the payload.
-4. The worker posts Wove event frames back to the callback URL.
+4. The worker posts Wove completion events back to the callback URL.
 
 ## Dependency
 
