@@ -89,7 +89,7 @@ async def test_error_mode_return(restore_runtime):
 def test_config_autoload_from_default_file(tmp_path: Path, monkeypatch, restore_runtime):
     config_file = tmp_path / "wove_config.py"
     config_file.write_text(
-        "WOVE = {\n"
+        "WOVE_CONFIG = {\n"
         "    'default_environment': 'auto',\n"
         "    'environments': {\n"
         "        'auto': {'executor': 'local', 'retries': 7},\n"
@@ -197,7 +197,7 @@ def test_runtime_config_default_environment_auto_insert():
 
 def test_runtime_config_load_module_spec_error(tmp_path: Path, monkeypatch):
     cfg = tmp_path / "wove_config.py"
-    cfg.write_text("WOVE = {}", encoding="utf-8")
+    cfg.write_text("WOVE_CONFIG = {}", encoding="utf-8")
     rc = RuntimeConfig()
 
     monkeypatch.setattr("wove.runtime.importlib.util.spec_from_file_location", lambda *_a, **_k: None)
@@ -205,12 +205,12 @@ def test_runtime_config_load_module_spec_error(tmp_path: Path, monkeypatch):
         rc._load_settings_module(cfg)
 
 
-def test_runtime_config_wove_must_be_dict(tmp_path: Path):
+def test_runtime_config_wove_config_must_be_dict(tmp_path: Path):
     cfg = tmp_path / "wove_config.py"
-    cfg.write_text("WOVE = 123", encoding="utf-8")
+    cfg.write_text("WOVE_CONFIG = 123", encoding="utf-8")
     rc = RuntimeConfig()
 
-    with pytest.raises(TypeError, match="WOVE in config file must be a dictionary"):
+    with pytest.raises(TypeError, match="WOVE_CONFIG in config file must be a dictionary"):
         rc.configure(config_file=str(cfg))
 
 

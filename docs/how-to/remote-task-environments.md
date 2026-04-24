@@ -85,35 +85,6 @@ with weave(environment="default") as w:
         ...
 ```
 
-## Keep Configuration in `wove_config.py`
-
-Configuration can live in startup code, but larger projects usually benefit from one project-level file. Calling `wove.config()` with no arguments attempts to autoload `wove_config.py` from the current working directory or one of its parents.
-
-```python
-# wove_config.py
-WOVE = {
-    "default_environment": "default",
-    "environments": {
-        "default": {"executor": "local"},
-        "reports": {
-            "executor": "stdio",
-            "executor_config": {"command": ["python", "-m", "my_worker"]},
-            "retries": 3,
-        },
-    },
-    "max_workers": 64,
-    "delivery_timeout": 15.0,
-}
-```
-
-```python
-import wove
-
-wove.config()  # autoload
-# or:
-# wove.config(config_file="/abs/path/to/custom_config.py")
-```
-
 ## Resolution Order
 
 Wove resolves environment names from the most specific declaration outward:

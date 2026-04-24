@@ -229,10 +229,10 @@ class RuntimeConfig:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        if hasattr(module, "WOVE"):
-            data = getattr(module, "WOVE")
+        if hasattr(module, "WOVE_CONFIG"):
+            data = getattr(module, "WOVE_CONFIG")
             if not isinstance(data, dict):
-                raise TypeError("WOVE in config file must be a dictionary.")
+                raise TypeError("WOVE_CONFIG in config file must be a dictionary.")
             return data
 
         result: Dict[str, Any] = {}

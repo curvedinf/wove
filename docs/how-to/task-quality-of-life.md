@@ -4,11 +4,11 @@ Task quality-of-life options reduce the boilerplate that usually grows around as
 
 The important idea is that these options describe how a task should run. The task body should still describe the data it produces.
 
-## Keep The Function Body Clean
+## Task Options
 
-A task often starts as a simple call to a database, API, model, parser, or renderer. As soon as that call runs in production, the surrounding code tends to grow: retry the transient failure, stop waiting after a deadline, do not launch too many copies, and send the expensive step somewhere else.
+Task options are the keyword arguments that tell Wove how to operate a task. A task often starts as a simple call to a database, API, model, parser, or renderer. As soon as that call runs in production, the surrounding code tends to grow: retry the transient failure, stop waiting after a deadline, do not launch too many copies, and send the expensive step somewhere else.
 
-With Wove, those concerns stay on the task declaration. The example uses task mapping from the previous topic, then adds the task options this page introduces.
+With Wove, those concerns stay on the task declaration. The example maps over customer IDs and adds the relevant task options directly to `@w.do(...)`.
 
 ```python
 from wove import weave
@@ -30,9 +30,9 @@ with weave(raw_customer_ids=load_customer_ids(), max_pending=10_000) as w:
 
 The `profile(...)` function only says how to fetch one profile. The decorator says how Wove should operate that task: map over the customer IDs, run at most 25 at once, pace launches, retry transient failures, and stop waiting after 10 seconds.
 
-## Stop Writing Sync/Async Glue
+## Sync And Async Tasks
 
-Wove accepts `def` and `async def` tasks in the same weave. Synchronous tasks can sit beside async API calls without making the call site choose one style for the entire workflow.
+Sync and async tasks can live in the same weave. Wove accepts `def` and `async def` tasks together, so synchronous calls can sit beside async API calls without making the call site choose one style for the entire workflow.
 
 ```python
 from wove import weave
@@ -54,9 +54,9 @@ with weave(account_id="acct_123") as w:
 
 That removes the wrapper code that usually appears around mixed workflows: no `asyncio.to_thread(...)` at every synchronous call site, no separate sync and async workflow versions, and no manual result passing between the two styles.
 
-## Put Failure Policy On The Task
+## Retries And Timeouts
 
-Retries and timeouts are part of how a task is operated. Keeping them on `@w.do(...)` makes the workflow easier to scan than hiding retry loops inside the function body.
+Retries and timeouts are task-level failure controls. Keeping them on `@w.do(...)` makes the workflow easier to scan than hiding retry loops inside the function body.
 
 ```python
 from wove import weave
@@ -74,9 +74,9 @@ with weave(order_id="ord_123") as w:
 
 Use `retries` when running the task again is safe. Use `timeout` when the task has a real deadline. If a task performs a side effect, make that side effect idempotent before adding retries.
 
-## Shape Fanout Without A Semaphore
+## Fanout Controls
 
-Mapped tasks are where workflow code usually accumulates the most scaffolding. Wove already collects mapped results into a list. `workers` and `limit_per_minute` handle the common controls around that fanout.
+Fanout controls limit how mapped task instances are launched. Mapped tasks are where workflow code usually accumulates the most scaffolding. Wove already collects mapped results into a list. `workers` and `limit_per_minute` handle the common controls around that fanout.
 
 ```python
 from wove import weave
@@ -94,13 +94,13 @@ with weave(urls=sitemap_urls(), max_pending=5_000) as w:
 
 `workers` replaces the local semaphore around the mapped call. `limit_per_minute` replaces launch pacing code. `max_pending` belongs on the weave because it protects the whole run from accidentally expanding into too much queued work.
 
-## Route The Outlier, Not The Whole Workflow
+## Task Environments
 
-Most workflows have one or two tasks that are operationally different from the rest. A report render might belong in Celery, an embedding step might belong on a GPU worker, and a local fetch might still be best in the current process.
+Task environments are named execution profiles. Most workflows have one or two tasks that are operationally different from the rest. A report render might belong in Celery, an embedding step might belong on a GPU worker, and a local fetch might still be best in the current process.
 
 Use `environment=...` on the task that needs different execution. The rest of the weave stays local and readable.
 
-An environment is a named execution profile. In the example below, `local` runs tasks in the current process and `reports` sends selected work to Celery.
+In the example below, `local` runs tasks in the current process and `reports` sends selected work to Celery.
 
 ```python
 import wove
@@ -133,9 +133,9 @@ with weave(order_id="ord_123") as w:
 
 The task name still describes the data produced by the weave. The environment only changes where that task runs.
 
-## Give Remote Tasks Delivery Rules
+## Delivery Policy
 
-Remote work has one more layer of boilerplate: delivery. A local timeout only describes how long Wove waits for the task function. Delivery options describe how Wove handles the executor boundary when work has crossed into another process, worker service, queue, scheduler, or backend.
+Delivery policy describes what Wove expects from the executor boundary. A local timeout only describes how long Wove waits for the task function. Delivery options describe how Wove handles work that has crossed into another process, worker service, queue, scheduler, or backend.
 
 Delivery policy only matters when a task leaves the local process. It appears here because these are task options: the task declares the delivery contract it needs from the executor boundary.
 
@@ -163,11 +163,11 @@ with weave(order_id="ord_123") as w:
 
 Use delivery options when the way work is handed off matters to the task's contract: how long Wove waits for the remote result, how the remote job is deduped, whether cancellation needs acknowledgement, how stale workers are detected, how many remote jobs can be in flight, and what happens to pending work when the local weave is stopping.
 
-## Move Repeated Policy Into Configuration
+## Configuration Defaults
 
-Task options are clearest when they explain why one task is special. If every task in a project has the same retry, timeout, fanout, or delivery policy, make that the default once.
+Configuration defaults are the process-wide values Wove applies before task-level options. Task options are clearest when they explain why one task is special. If every task in a project has the same retry, timeout, fanout, or delivery policy, make that the default once.
 
-Project configuration is the process-wide place to define defaults before a weave runs. The example below only shows task quality-of-life defaults.
+Project configuration stores those defaults before a weave runs. The example below sets task quality-of-life defaults directly in startup code.
 
 ```python
 import wove
@@ -186,6 +186,33 @@ wove.config(
         },
     },
 )
+```
+
+The same defaults can live in `wove_config.py` when a project benefits from one configuration file. Calling `wove.config()` with no arguments attempts to autoload `wove_config.py` from the current working directory or one of its parents.
+
+```python
+# wove_config.py
+WOVE_CONFIG = {
+    "default_environment": "default",
+    "environments": {
+        "default": {"executor": "local"},
+        "reports": {
+            "executor": "stdio",
+            "executor_config": {"command": ["python", "-m", "my_worker"]},
+            "retries": 3,
+        },
+    },
+    "max_workers": 64,
+    "delivery_timeout": 15.0,
+}
+```
+
+```python
+import wove
+
+wove.config()  # autoload
+# or:
+# wove.config(config_file="/abs/path/to/custom_config.py")
 ```
 
 Task-level declarations still win when a task needs a different value. That keeps project policy out of the weave while preserving the ability to make important task behavior visible.

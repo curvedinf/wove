@@ -258,7 +258,7 @@ Example application: keep lightweight orchestration in the caller and run report
 
 ```python
 # wove_config.py
-WOVE = {
+WOVE_CONFIG = {
     "default_environment": "default",
     "environments": {
         "default": {"executor": "local"},
@@ -316,7 +316,7 @@ The transport can change without changing the weave shape. Use HTTP/HTTPS for si
 
 ```python
 # wove_config.py
-WOVE = {
+WOVE_CONFIG = {
     "default_environment": "grpc_workers",
     "environments": {
         "grpc_workers": {
@@ -351,7 +351,7 @@ Example application: submit report rendering to Celery while keeping the rest of
 
 ```python
 # wove_config.py
-WOVE = {
+WOVE_CONFIG = {
     "default_environment": "default",
     "environments": {
         "default": {"executor": "local"},

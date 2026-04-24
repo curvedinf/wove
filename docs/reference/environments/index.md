@@ -103,7 +103,7 @@ Task settings use the same principle:
 
 ```python
 # wove_config.py
-WOVE = {
+WOVE_CONFIG = {
     "default_environment": "default",
     "environments": {
         "default": {"executor": "local"},
