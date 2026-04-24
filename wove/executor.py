@@ -236,8 +236,10 @@ async def execute_plan(
                     await asyncio.gather(*pending, return_exceptions=True)
 
                 source_of_failure = None
+
                 def _exc_match(e1, e2):
-                    if e1 is None or e2 is None: return False
+                    if e1 is None or e2 is None:
+                        return False
                     return type(e1) is type(e2) and str(e1) == str(e2)
 
                 for task_name, f_or_list in tier_futures.items():

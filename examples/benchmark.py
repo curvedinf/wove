@@ -3,7 +3,6 @@ import threading
 import time
 import wove
 import logging
-from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 
 class WoveResult:
@@ -17,13 +17,13 @@ class WoveResult:
         self._error_mode = error_mode
         self._results: Dict[str, Any] = {}
         self._errors: Dict[str, Exception] = {}
-        self._cancelled: set[str] = set()
+        self._cancelled: Set[str] = set()
         self._definition_order: List[str] = []
         self.timings: Dict[str, float] = {}
-        self.exception: Exception | None = None
+        self.exception: Optional[Exception] = None
 
     @property
-    def cancelled(self) -> set[str]:
+    def cancelled(self) -> Set[str]:
         """
         Returns a set of the names of all cancelled tasks.
         """

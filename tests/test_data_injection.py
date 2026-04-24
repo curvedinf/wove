@@ -103,5 +103,5 @@ async def test_missing_dependency_error():
 async def test_reserved_data_keyword_error():
     """Tests that using 'data' as a keyword argument raises a NameError."""
     with pytest.raises(NameError, match="'data' is a reserved name"):
-        async with weave(data={"a": 1}) as w:
+        async with weave(data={"a": 1}):
             pass

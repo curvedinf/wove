@@ -28,13 +28,14 @@ dispatch = [
 ]
 dev = [
     "cloudpickle",
+    "pytest",
     "pytest-asyncio",
     "ruff",
     "pytest-cov",
 ]
 docs = [
-    "sphinx>=8.0",
-    "myst-parser>=4.0",
+    "sphinx>=8.0; python_version >= '3.10'",
+    "myst-parser>=4.0; python_version >= '3.10'",
     "shibuya>=2025.9.25; python_version >= '3.10'",
 ]
 dev-executors = [
@@ -56,3 +57,6 @@ examples = [
     "numpy",
     "requests",
 ]
+
+[tool.setuptools.package-data]
+wove = ["py.typed"]
