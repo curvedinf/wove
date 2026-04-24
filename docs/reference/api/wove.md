@@ -7,7 +7,7 @@ Most application code should import from `wove`. This page names the stable entr
 - `weave`: the context manager factory used as `with weave() as w:`.
 - `Weave`: base class for reusable and inheritable workflow definitions.
 - `config`: process-wide runtime configuration function.
-- `merge`: attaches external functions to a weave.
+- `merge`: runs external callables from inside a weave task, with the same execution options as `@w.do(...)`.
 
 ## Public Runtime Types
 

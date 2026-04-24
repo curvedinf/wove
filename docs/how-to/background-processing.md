@@ -36,3 +36,126 @@ print("Main program continues to run...")
 ```
 
 Before you fork a weave, decide how the child process should report completion. Embedded callbacks can access the current Python process, but forked callbacks run in the child process; use a database, file, queue, or other signaling system when the original process needs the result. Forked mode also serializes the local Python context around the `with` block so the child can preserve task behavior, so keep large local variables out of that scope when you do not want them copied into the fork.
+
+## Flask Result Handoff Through a Database
+
+Forked background work is detached from the Flask request process. The request can return immediately, but the result will not appear in the parent process's memory later. A database gives both sides a shared handoff point: the Flask route creates a job row, the forked `on_done` callback writes the completed data, and a later Flask request reads that data in the normal server process.
+
+This example uses SQLite so the whole shape is visible in one file. In production, the same pattern usually points at PostgreSQL, MySQL, or another database already used by the application.
+
+```python
+import json
+import sqlite3
+import time
+import uuid
+from pathlib import Path
+
+from flask import Flask, abort, jsonify, request
+from wove import weave
+
+
+app = Flask(__name__)
+DB_PATH = Path("background-results.sqlite3")
+
+
+def connect_db():
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_db():
+    with connect_db() as db:
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_jobs (
+                job_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                data_json TEXT,
+                error TEXT,
+                updated_at REAL NOT NULL
+            )
+            """
+        )
+
+
+def write_job(job_id, status, data=None, error=None):
+    data_json = None if data is None else json.dumps(data)
+    with connect_db() as db:
+        db.execute(
+            """
+            INSERT INTO report_jobs (job_id, status, data_json, error, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(job_id) DO UPDATE SET
+                status = excluded.status,
+                data_json = excluded.data_json,
+                error = excluded.error,
+                updated_at = excluded.updated_at
+            """,
+            (job_id, status, data_json, error, time.time()),
+        )
+
+
+def read_job(job_id):
+    with connect_db() as db:
+        return db.execute(
+            "SELECT job_id, status, data_json, error FROM report_jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+
+
+init_db()
+
+
+@app.post("/reports")
+def create_report():
+    report_spec = request.get_json(force=True)
+    job_id = uuid.uuid4().hex
+    write_job(job_id, "running")
+
+    def record_result(result):
+        if result.exception is not None:
+            write_job(job_id, "failed", error=str(result.exception))
+            return
+
+        write_job(job_id, "complete", data=result.final)
+
+    with weave(
+        background=True,
+        fork=True,
+        on_done=record_result,
+        report_spec=report_spec,
+    ) as w:
+        @w.do
+        def fetch_report_rows(report_spec):
+            time.sleep(2)
+            return [
+                {"sku": "A-100", "units": report_spec.get("units", 1)},
+                {"sku": "B-200", "units": 4},
+            ]
+
+        @w.do
+        def summarize_report(fetch_report_rows):
+            return {
+                "row_count": len(fetch_report_rows),
+                "total_units": sum(row["units"] for row in fetch_report_rows),
+            }
+
+    return jsonify({"job_id": job_id, "status_url": f"/reports/{job_id}"}), 202
+
+
+@app.get("/reports/<job_id>")
+def get_report(job_id):
+    row = read_job(job_id)
+    if row is None:
+        abort(404)
+
+    response = {"job_id": row["job_id"], "status": row["status"]}
+    if row["data_json"] is not None:
+        response["report"] = json.loads(row["data_json"])
+    if row["error"] is not None:
+        response["error"] = row["error"]
+    return jsonify(response)
+```
+
+The callback opens its own database connection because it runs in the forked process. The later `GET /reports/<job_id>` route is back in the Flask server process; it uses the stored row rather than trying to communicate with the detached child directly.

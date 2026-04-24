@@ -94,6 +94,7 @@ class WoveContextManager:
         self._on_done_callback = on_done
         self._executor: Optional[ThreadPoolExecutor] = None
         self._executor_runtime: Optional[ExecutorRuntime] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()
         self.result = WoveResult(error_mode=self._error_mode)
         self.execution_plan: Optional[Dict[str, Any]] = None
@@ -213,6 +214,7 @@ class WoveContextManager:
         asyncio.run(_runner())
 
     async def __aenter__(self) -> "WoveContextManager":
+        self._loop = asyncio.get_running_loop()
         self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
         self._executor_token = executor_context.set(self._executor)
         self._merge_token = merge_context.set(self._merge)
@@ -244,6 +246,7 @@ class WoveContextManager:
         self._executor_token = None
         self._merge_token = None
         self._executor_runtime = None
+        self._loop = None
 
         with tempfile.NamedTemporaryFile(delete=False) as f:
             dispatch_dump(
@@ -348,3 +351,4 @@ class WoveContextManager:
                 executor_context.reset(self._executor_token)
             if self._merge_token:
                 merge_context.reset(self._merge_token)
+            self._loop = None

@@ -51,10 +51,9 @@ The full documentation includes topic guides, API reference pages, executor setu
 The topic path starts with the smallest useful weave, then adds the things real workflows need as they grow: fanout, task policy, reuse, helper glue, failure handling, observability, background work, remote execution, and production patterns.
 
 - [The Basics](https://curvedinf.github.io/wove/how-to/the-basics.html): the core `weave()` and `@w.do` workflow.
-- [Task Mapping](https://curvedinf.github.io/wove/how-to/task-mapping.html): running one task across many inputs and collecting the results.
+- [Task Mapping](https://curvedinf.github.io/wove/how-to/task-mapping.html): running one task or helper callable across many inputs and collecting the results.
 - [Task Quality of Life](https://curvedinf.github.io/wove/how-to/task-quality-of-life.html): task options that replace retry, timeout, fanout, and routing boilerplate.
 - [Inheritable Weaves](https://curvedinf.github.io/wove/how-to/inheritable-weaves.html): reusable workflow templates with inline overrides.
-- [Merging External Functions](https://curvedinf.github.io/wove/how-to/merging-external-functions.html): mapping helper callables without turning them into named tasks.
 - [Helper Functions](https://curvedinf.github.io/wove/how-to/helper-functions.html): small data-shaping tools that keep task glue readable.
 - [Error Handling](https://curvedinf.github.io/wove/how-to/error-handling.html): how task, background, and remote delivery failures surface.
 - [Debugging & Introspection](https://curvedinf.github.io/wove/how-to/debugging-introspection.html): graph, timing, mapping, and failure inspection.

@@ -3,10 +3,9 @@
 The topics are ordered as a learning path. Start with the shape of a weave, then add fanout, task-level controls, reusable workflow structure, helper utilities, failure handling, and production execution choices.
 
 - [The Basics](the-basics.md): the core `weave()` and `@w.do` workflow.
-- [Task Mapping](task-mapping.md): running one task across many inputs and collecting the results.
+- [Task Mapping](task-mapping.md): running one task or helper callable across many inputs and collecting the results.
 - [Task Quality of Life](task-quality-of-life.md): task options that replace retry, timeout, fanout, and routing boilerplate.
 - [Inheritable Weaves](inheritable-weaves.md): reusable workflow templates with inline overrides.
-- [Merging External Functions](merging-external-functions.md): mapping helper callables without turning them into named tasks.
 - [Helper Functions](helper-functions.md): small data-shaping tools that keep task glue readable.
 - [Error Handling](error-handling.md): how task, background, and remote delivery failures surface.
 - [Debugging & Introspection](debugging-introspection.md): graph, timing, mapping, and failure inspection.
@@ -22,7 +21,6 @@ the-basics
 task-mapping
 task-quality-of-life
 inheritable-weaves
-merging-external-functions
 helper-functions
 error-handling
 debugging-introspection

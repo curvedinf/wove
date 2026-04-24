@@ -938,9 +938,28 @@ class ExecutorRuntime:
         self._pending: Dict[str, Dict[str, asyncio.Future]] = {}
         self._run_metadata: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._inflight_semaphores: Dict[Tuple[str, int], asyncio.Semaphore] = {}
+        self._environment_lock: Optional[asyncio.Lock] = None
 
     async def start(self) -> None:
         for environment_name, definition in self._environment_definitions.items():
+            await self.ensure_environment(environment_name, definition)
+
+    async def ensure_environment(
+        self,
+        environment_name: str,
+        definition: Dict[str, Any],
+    ) -> None:
+        if environment_name in self._executors:
+            return
+
+        if self._environment_lock is None:
+            self._environment_lock = asyncio.Lock()
+
+        async with self._environment_lock:
+            if environment_name in self._executors:
+                return
+
+            self._environment_definitions[environment_name] = definition
             executor = coerce_executor(definition.get("executor", "local"))
             executor_config = definition.get("executor_config") or {}
             await executor.start(

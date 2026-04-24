@@ -123,30 +123,3 @@ with weave(path="notes.txt") as w:
 ```
 
 Inside a weave, `sync_to_async(...)` uses Wove's executor context instead of blindly using asyncio's default executor. That matters when Wove is embedded in frameworks that also manage thread pools.
-
-## Mapping External Callables
-
-Use `merge(callable, iterable)` when the function you want to map is not a Wove task. It returns a list of results and is awaited from an async task.
-
-```python
-from wove import flatten, merge, weave
-
-
-def split_words(value):
-    return value.split()
-
-
-with weave() as w:
-    @w.do
-    def lines():
-        return ["hello world", "wove helpers"]
-
-    @w.do
-    async def words(lines):
-        return flatten(await merge(split_words, lines))
-
-print(w.result.words)
-# >> ['hello', 'world', 'wove', 'helpers']
-```
-
-Use `@w.do(iterable)` when the mapped function is part of the weave graph. Use `merge(...)` when the callable is an external helper and you only need its returned list inside one task.

@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import copy_context
 from functools import wraps
 from typing import Any, Callable, Coroutine, TypeVar
 
@@ -30,7 +31,11 @@ def sync_to_async(func: Callable[..., R]) -> Callable[..., Coroutine[Any, Any, R
         # Get the executor from the context. If not in a weave context,
         # it will be None, and asyncio will use its default executor.
         executor = executor_context.get()
-        return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
+        context = copy_context()
+        return await loop.run_in_executor(
+            executor,
+            lambda: context.run(lambda: func(*args, **kwargs)),
+        )
 
     return run_in_executor
 
