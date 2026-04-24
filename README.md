@@ -128,34 +128,36 @@ Wove has low overhead and internally uses `asyncio`, so its performance is compa
 
 ```bash
 $ python examples/benchmark.py
- Starting performance benchmarks...
+Starting performance benchmarks...
 Number of tasks: 200
 CPU load iterations per task: 100000
 I/O sleep duration per task: 0.1s
 ===================================
 --- Running Threading Benchmark ---
-Threading total time: 1.6910 seconds
+Threading total time: 0.6978 seconds
 -----------------------------------
 --- Running Asyncio Benchmark ---
-Asyncio total time: 1.4953 seconds
+Asyncio total time: 0.6831 seconds
 -----------------------------------
 --- Running Wove Benchmark ---
 Wove timing details:
-  - planning: 0.0002s
-  - tier_1_execution: 1.6428s
+  - data: 0.5908s
+  - planning: 0.0001s
+  - tier_1_execution: 0.6902s
   - tier_1_post_execution: 0.0000s
-  - tier_1_pre_execution: 0.0007s
-  - wove_task: 0.1324s
-Wove total time: 1.6585 seconds
+  - tier_1_pre_execution: 0.0004s
+  - wove_task: 0.6882s
+Wove total time: 0.6937 seconds
 -----------------------------------
 --- Running Wove Async Benchmark ---
 Wove Async timing details:
-  - planning: 0.0001s
-  - tier_1_execution: 1.6366s
+  - data: 0.5515s
+  - planning: 0.0000s
+  - tier_1_execution: 0.6550s
   - tier_1_post_execution: 0.0000s
-  - tier_1_pre_execution: 0.0006s
-  - wove_async_task: 1.5063s
-Wove Async total time: 1.6414 seconds
+  - tier_1_pre_execution: 0.0004s
+  - wove_async_task: 0.6534s
+Wove Async total time: 0.6571 seconds
 -----------------------------------
 Benchmarks finished.
 ```
