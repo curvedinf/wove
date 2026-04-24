@@ -40,6 +40,20 @@ Improvements compared to asyncio include:
 - **Free Threading Compatible**: Running a modern GIL-less Python? Build true multithreading without changing the workflow shape.
 - **Zero Required Dependencies**: Core Wove installs without third-party packages. Serialization, networking, and backend libraries are only needed when a workflow opts into features that use them.
 
+## Install
+
+Install Wove with `uv`:
+
+```bash
+uv add wove
+```
+
+Or with `pip`:
+
+```bash
+pip install wove
+```
+
 ## Documentation
 
 The full documentation includes topic guides, API reference pages, executor setup, backend adapter setup, and version history.

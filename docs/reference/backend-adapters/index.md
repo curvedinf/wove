@@ -10,6 +10,7 @@ A backend adapter is the small Wove layer that submits one selected task to one 
 
 ```python
 import wove
+from myapp.reports import build_report, load_account
 from wove import weave
 
 wove.config(

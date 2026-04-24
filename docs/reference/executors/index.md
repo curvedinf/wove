@@ -94,12 +94,16 @@ Command frames are the messages Wove sends to executors.
 Requests execution for one task.
 
 ```python
+def greet(name):
+    return f"Hello, {name}"
+
+
 {
     "type": "run_task",
     "run_id": "task_name:uuid",
-    "task_id": "task_name",
-    "callable": task_func,
-    "args": {"name": value},
+    "task_id": "greet",
+    "callable": greet,
+    "args": {"name": "Ada"},
     "delivery": {
         "delivery_timeout": 30.0,
         "delivery_cancel_mode": "best_effort",

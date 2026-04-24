@@ -50,6 +50,9 @@ wove.config(
 Use `submit` when the cluster needs project-specific `sbatch` options, modules, containers, partitions, or accounting flags.
 
 ```python
+import wove
+
+
 async def submit_to_slurm(payload, frame, config):
     ...
 

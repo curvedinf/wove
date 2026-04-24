@@ -11,6 +11,7 @@ Task options are the keyword arguments that tell Wove how to operate a task. A t
 With Wove, operational concerns stay on the task declaration. The following example maps over customer IDs and applies the relevant task options directly to `@w.do(...)`.
 
 ```python
+from myapp.customers import load_customer_ids, profile_service
 from wove import weave
 
 
@@ -35,6 +36,7 @@ The `profile(...)` function only says how to fetch one profile. The decorator sa
 Sync and async tasks can live in the same weave. Wove accepts `def` and `async def` tasks together, so synchronous calls can sit beside async API calls without making the call site choose one style for the entire workflow.
 
 ```python
+from myapp.accounts import fetch_profile, load_account_from_database
 from wove import weave
 
 
@@ -59,6 +61,7 @@ Mixed sync/async task support removes the wrapper code that usually appears arou
 Retries and timeouts are task-level failure controls. Declaring retries and timeouts on `@w.do(...)` makes the workflow easier to scan than hiding retry loops inside the function body.
 
 ```python
+from myapp.orders import orders_api, render_receipt
 from wove import weave
 
 
@@ -79,6 +82,7 @@ Use `retries` when running the task again is safe. Use `timeout` when the task h
 Fanout controls limit how mapped task instances are launched. Mapped tasks are where workflow code usually accumulates the most scaffolding. Wove already collects mapped results into a list. `workers` and `limit_per_minute` handle the common controls around that fanout.
 
 ```python
+from myapp.crawler import fetch_page, sitemap_urls
 from wove import weave
 
 
@@ -104,6 +108,7 @@ In the example below, `local` runs tasks in the current process and `reports` se
 
 ```python
 import wove
+from myapp.orders import load_order, render_pdf_report
 from wove import weave
 
 
@@ -140,6 +145,7 @@ Delivery policy describes what Wove expects from the executor boundary. A local 
 Delivery policy only matters when a task leaves the local process. Delivery policy appears here because it is still task behavior: the task declares the delivery contract it needs from the executor boundary.
 
 ```python
+from myapp.orders import load_order, render_pdf_report
 from wove import weave
 
 

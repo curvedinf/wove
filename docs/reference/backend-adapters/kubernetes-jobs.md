@@ -57,6 +57,9 @@ python -m wove.backend_worker
 Use `job_factory` when the cluster needs custom labels, service accounts, resource limits, volumes, sidecars, or scheduling settings.
 
 ```python
+import wove
+
+
 def make_job(payload, frame, config):
     ...
 

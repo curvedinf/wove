@@ -7,6 +7,8 @@
 Use an environment variable when the submitting process and worker service share a secret:
 
 ```python
+import wove
+
 wove.config(
     environments={
         "workers": {
@@ -33,18 +35,20 @@ The nonce cache rejects replayed signed requests within the configured clock-ske
 A worker service should verify the request before decoding dispatched callables or arguments.
 
 ```python
+from fastapi import Request
 from wove.security import NetworkExecutorSecurity
 
 security = NetworkExecutorSecurity.from_config("env:WOVE_WORKER_SECRET")
 
-# HTTP handler example
-raw_body = request.body
-security.verify_headers(
-    headers=request.headers,
-    transport="http",
-    target=request.path,
-    body=raw_body,
-)
+
+async def wove_tasks(request: Request):
+    raw_body = await request.body()
+    security.verify_headers(
+        headers=request.headers,
+        transport="http",
+        target=request.url.path,
+        body=raw_body,
+    )
 ```
 
 For gRPC, use `verify_metadata(...)` with the method path as the target.

@@ -70,19 +70,23 @@ The weave code does not need to know how Temporal, Celery, Ray, or another backe
 
 ## Route a Remote Task
 
-Environment routing can happen at the whole-weave level or at the task level. Task-level routing is useful when most work should stay local but one step belongs on queue, workflow, cluster, batch, or scheduler infrastructure.
+Environment routing can happen at the whole-weave level or at the task level. Task-level routing is useful when most work should stay local but one step, or one mapped set of steps, belongs on queue, workflow, cluster, batch, or scheduler infrastructure.
 
 ```python
 from wove import weave
 
 with weave(environment="default") as w:
     @w.do
-    def fast_lookup():
-        ...
+    def account_ids():
+        return ["acct_1", "acct_2", "acct_3"]
 
-    @w.do(environment="reports")
-    def long_running_step(fast_lookup):
-        ...
+    @w.do("account_ids", workers=4, environment="reports")
+    def report(item):
+        return {"account_id": item, "status": "ready"}
+
+    @w.do
+    def report_index(report):
+        return {row["account_id"]: row for row in report}
 ```
 
 ## Resolution Order
@@ -107,6 +111,8 @@ Effective task settings follow the same principle. Values closest to the task wi
 When a project already has its own worker service, a network executor lets Wove talk to that service directly. The network executor is the Wove-side transport selected by `executor="http"`, `executor="grpc"`, or `executor="websocket"`. The worker service is the remote process that receives Wove command frames, runs or forwards the task, and returns completion event frames such as `task_result`, `task_error`, or `task_cancelled`.
 
 ```python
+import wove
+
 wove.config(
     default_environment="default",
     environments={
@@ -156,6 +162,8 @@ The value returned by the backend's own job system is not how Wove receives the 
 `callback_host` and `callback_port` describe where Wove listens. `callback_url` describes the address workers should call. Those addresses are often different in containers, private networks, or cloud jobs: Wove might bind to `0.0.0.0:9010`, while workers call `http://web:9010/wove/events/shared-secret`.
 
 ```python
+import wove
+
 wove.config(
     default_environment="reports",
     environments={

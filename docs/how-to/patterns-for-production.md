@@ -115,6 +115,7 @@ async def account_health(account_id: int):
 
 ```python
 # tenant-specific caller
+from myapp.tenants import load_tenant_account
 from wove import weave
 from .workflows import AccountHealthCheck
 
@@ -221,6 +222,12 @@ Example application: return `202 Accepted` from an HTTP endpoint while follow-up
 
 ```python
 from fastapi import FastAPI, status
+from myapp.orders import (
+    mark_order_followup_complete,
+    save_order,
+    send_confirmation_email,
+    write_audit_event,
+)
 from wove import weave
 import httpx
 
@@ -259,7 +266,9 @@ This pattern is for a project that already has a service boundary and wants sele
 
 Direct worker-service routing fits services your project owns when the operational behavior is simple request/response or stream delivery. If queueing, scheduling, retries, or cluster placement should be owned by Celery, Temporal, Ray, or another system, the backend-owned execution pattern is the better fit.
 
-Example application: keep lightweight orchestration in the caller and run report generation in an internal worker service.
+Mapped tasks work the same way across the service boundary. Each mapped item becomes its own remote task frame, and Wove collects the returned values into the mapped task's list result.
+
+Example application: keep lightweight orchestration in the caller and fan report rendering out to an internal worker service.
 
 ```python
 # wove_config.py
@@ -282,23 +291,29 @@ WOVE_CONFIG = {
 ```python
 # submitting process
 import wove
+from myapp.reports import build_report, load_accounts
 from wove import weave
 
 wove.config()
 
 with weave() as w:
     @w.do
-    def account():
-        return load_account()
+    def accounts():
+        return load_accounts()
 
-    @w.do(environment="workers")
-    def report(account):
-        return build_report(account)
+    @w.do("accounts", workers=8, environment="workers")
+    def report(item):
+        return build_report(item)
+
+    @w.do
+    def report_index(report):
+        return {row["account_id"]: row for row in report}
 ```
 
 ```python
 # worker service sketch
 from fastapi import FastAPI, Request
+from myapp.workers import handle_wove_command
 from wove.security import NetworkExecutorSecurity
 
 app = FastAPI()
@@ -350,9 +365,9 @@ WOVE_CONFIG = {
 
 This pattern is for work that should enter infrastructure your project already runs: a queue, workflow engine, cluster, batch system, or scheduler. Wove owns the inline dependency graph and result delivery back to the weave. The backend owns worker placement, queueing, scheduling, and its own operational controls.
 
-The selected task still looks like a normal Wove task. Backend-owned execution is selected through the environment: `@w.do(environment="reports")` routes that task through the configured backend adapter.
+The selected task still looks like a normal Wove task. Backend-owned execution is selected through the environment. When the task is mapped, each mapped item becomes its own backend submission and Wove collects the returned values back into one list.
 
-Example application: submit report rendering to Celery while keeping the rest of the weave local. The same task-routing pattern applies to Temporal, Ray, RQ, Taskiq, ARQ, Dask, Kubernetes Jobs, AWS Batch, and Slurm.
+Example application: submit one report render per account to Celery while keeping the rest of the weave local. The same task-routing pattern applies to Temporal, Ray, RQ, Taskiq, ARQ, Dask, Kubernetes Jobs, AWS Batch, and Slurm.
 
 ```python
 # wove_config.py
@@ -378,18 +393,23 @@ WOVE_CONFIG = {
 ```python
 # submitting process
 import wove
+from myapp.reports import load_report_accounts, render_report
 from wove import weave
 
 wove.config()
 
 with weave() as w:
     @w.do
-    def account():
-        return load_account()
+    def report_accounts():
+        return load_report_accounts()
 
-    @w.do(environment="reports")
-    def report(account):
-        return render_report(account)
+    @w.do("report_accounts", workers=4, environment="reports")
+    def report(item):
+        return render_report(item)
+
+    @w.do
+    def completed_reports(report):
+        return {row["account_id"]: row["url"] for row in report}
 ```
 
 Backend workers must be able to reach the callback URL in the environment config. The adapter pages in the reference section show the worker entrypoint for each backend.
@@ -403,6 +423,7 @@ Wove records task timings, cancelled task names, the execution plan, and the fir
 Example application: build one dashboard response and emit enough telemetry to debug the production run later.
 
 ```python
+from myapp.dashboard import load_permissions, load_profile
 from opentelemetry import trace
 from prometheus_client import Histogram
 from wove import weave

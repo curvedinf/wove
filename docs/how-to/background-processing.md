@@ -37,11 +37,11 @@ print("Main program continues to run...")
 
 Before you fork a weave, decide how the child process should report completion. Embedded callbacks can access the current Python process, but forked callbacks run in the child process; use a database, file, queue, or other signaling system when the original process needs the result. Forked mode also serializes the local Python context around the `with` block so the child can preserve task behavior, so keep large local variables out of that scope when you do not want them copied into the fork.
 
-## Flask Result Handoff Through a Database
+## Persist Forked Results For Later Requests
 
-Forked background work is detached from the Flask request process. The request can return immediately, but the result will not appear in the parent process's memory later. A database gives both sides a shared handoff point: the Flask route creates a job row, the forked `on_done` callback writes the completed data, and a later Flask request reads that data in the normal server process.
+Forked background work has one important consequence: completion happens outside the request process that started it. This section shows how to hand the result through shared storage instead of parent-process memory. The request creates a durable job record, the forked `on_done` callback writes the final result or error, and a later request reads the stored job state.
 
-This example uses SQLite so the whole shape is visible in one file. In production, the same pattern usually points at PostgreSQL, MySQL, or another database already used by the application.
+SQLite keeps the handoff small enough to read in one file. The useful shape is the same with PostgreSQL, MySQL, or the database already backing the application.
 
 ```python
 import json
@@ -158,4 +158,4 @@ def get_report(job_id):
     return jsonify(response)
 ```
 
-The callback opens its own database connection because it runs in the forked process. The later `GET /reports/<job_id>` route is back in the Flask server process; it uses the stored row rather than trying to communicate with the detached child directly.
+The important boundary is process memory. The callback opens its own database connection because it runs in the forked process. The later `GET /reports/<job_id>` route runs in the Flask server process and reads the stored row instead of trying to communicate with the detached child directly.

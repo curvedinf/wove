@@ -65,6 +65,8 @@ The `dependencies` entry answers "what does this task wait for?" The `dependents
 A task depends on another task when one of its parameter names matches that task's name. If a task is running later than expected, inspect its function signature first.
 
 ```python
+from wove import weave
+
 with weave(debug=True) as w:
     @w.do
     def token():
@@ -78,6 +80,8 @@ with weave(debug=True) as w:
 `request_headers` waits for `token` because it has a `token` parameter. If the parameter was meant to be normal initialization data, pass it into `weave(...)` instead of accidentally naming it after a task.
 
 ```python
+from wove import weave
+
 with weave(token="abc", debug=True) as w:
     @w.do
     def request_headers(token):
@@ -108,6 +112,8 @@ The report includes a line like:
 When a task maps over another task's result, Wove may not know the item count until that upstream task has run. In that case the debug report shows the map source name, and the execution tiers show that the mapped task waits for the producer.
 
 ```python
+from wove import weave
+
 with weave(debug=True) as w:
     @w.do
     def ids():
@@ -164,6 +170,8 @@ except ValueError:
 When you need to inspect failures without raising on result access, use `error_mode="return"`.
 
 ```python
+from wove import weave
+
 with weave(error_mode="return") as w:
     @w.do
     def broken():

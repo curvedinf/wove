@@ -129,6 +129,7 @@ Custom adapters are selected by wrapping them in `BackendAdapterEnvironmentExecu
 
 ```python
 import wove
+from myapp.wove_adapters import AcmeQueueAdapter
 from wove import BackendAdapterEnvironmentExecutor, weave
 
 executor = BackendAdapterEnvironmentExecutor(

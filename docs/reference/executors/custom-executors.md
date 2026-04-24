@@ -36,6 +36,10 @@ The `recv()` method returns one event frame to Wove and should wait until an eve
 Wove sends a `run_task` frame when a task is ready to execute.
 
 ```python
+from myapp.reports import build_report
+
+account = {"id": "acct_123"}
+
 {
     "type": "run_task",
     "run_id": "build_report:uuid",
@@ -176,6 +180,10 @@ class InlineExecutor(EnvironmentExecutor):
 Custom executors are configured by passing an executor instance in the environment definition.
 
 ```python
+import wove
+from myapp.executors import InlineExecutor
+from wove import weave
+
 remote_executor = InlineExecutor()
 
 wove.config(

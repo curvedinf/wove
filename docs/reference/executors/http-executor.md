@@ -38,6 +38,7 @@ wove.config(
 The weave only names the environment:
 
 ```python
+from myapp.reports import build_report
 from wove import weave
 
 with weave() as w:

@@ -2,6 +2,20 @@
 
 The core of Wove's functionality is the `weave` context manager. A `weave` block collects task functions and runs them when Python exits the block. Wove builds a dependency graph from task function signatures: when a task parameter has the same name as another task, Wove passes that upstream task's result into the parameter. Independent tasks run concurrently, dependent tasks wait for their named inputs, and the final task result is available at `w.result.final`.
 
+## Install
+
+Install Wove with `uv`:
+
+```bash
+uv add wove
+```
+
+Or with `pip`:
+
+```bash
+pip install wove
+```
+
 ```python
 import time
 from wove import weave

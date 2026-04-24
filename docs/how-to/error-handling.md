@@ -92,8 +92,8 @@ Custom executors should report task failures with a `task_error` frame. Include 
 ```python
 {
     "type": "task_error",
-    "run_id": run_id,
-    "task_id": task_id,
+    "run_id": "build_report:uuid",
+    "task_id": "build_report",
     "error": {
         "kind": "TimeoutError",
         "message": "Task timed out",
