@@ -106,7 +106,7 @@ from wove import merge, weave
 
 
 async def fetch_score(customer_id):
-    return await scores_api.fetch(customer_id)
+    return {"customer_id": customer_id, "score": customer_id % 100}
 
 
 with weave(customer_ids=[101, 102, 103]) as w:
@@ -119,6 +119,10 @@ with weave(customer_ids=[101, 102, 103]) as w:
 
 ```python
 from wove import merge, weave
+
+
+def render_report(report_id):
+    return {"report_id": report_id, "status": "rendered"}
 
 
 with weave(report_ids=[10, 20, 30]) as w:
