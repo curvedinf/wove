@@ -40,16 +40,16 @@ The topic path starts with the smallest useful weave, then adds the things real 
 
 ## Reference
 
-When you already know the workflow you want and need exact behavior, start here. Wove's reference material pins down public imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup.
+Reference material pins down the public surface of Wove: imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup. It is the part of the documentation that answers what each feature accepts, returns, guarantees, and raises once the workflow shape is already clear.
 
 ### Core Behavior
 
-Start with the core behavior references when you need to confirm which names are public, how Wove resolves execution settings, and what guarantees the runtime makes before you tune or extend it.
+Core behavior covers the names and runtime rules that everything else builds on: stable imports, environment resolution, and the guarantees Wove keeps before any executor-specific or adapter-specific behavior is involved.
 
 - [Public API](reference/api/wove.md): stable imports most users should rely on.
 - [Environments](reference/environments/index.md): persistent execution profiles, defaults, and precedence rules.
-- [Executors](reference/executors/index.md)
-- [Backend Adapters](reference/backend-adapters/index.md)
+- [Executors](reference/executors/index.md): delivery interfaces for local, subprocess, and direct network execution.
+- [Backend Adapters](reference/backend-adapters/index.md): bridges from Wove tasks into existing task systems, queues, clusters, and schedulers.
 
 ### Runtime Modules
 
@@ -62,7 +62,7 @@ If you are tracing a public concept back to its implementation module, the runti
 
 ### Executors
 
-Executors define how a Wove environment delivers task frames. Use these pages when the task should run locally, through a subprocess, or through a direct worker service over HTTP, gRPC, or WebSocket.
+Executors are the delivery layer for Wove environments. They carry task frames to local execution, subprocess workers, or direct worker services over HTTP, gRPC, and WebSocket while keeping result collection attached to the weave.
 
 - [Executors](reference/executors/index.md)
   - [Local Executor](reference/executors/local-executor.md)
@@ -74,7 +74,7 @@ Executors define how a Wove environment delivers task frames. Use these pages wh
 
 ### Backend Adapters
 
-Backend adapters are separate from direct executors because the existing backend owns delivery behavior: queueing, scheduling, retries, worker placement, or batch execution. Use these pages when a Wove task should enter infrastructure your project already runs.
+Backend adapters are separate from direct executors because an existing task system owns delivery behavior: queueing, scheduling, retries, worker placement, or batch execution. They let a Wove task enter infrastructure the project already runs while Wove keeps the task result attached to the local weave.
 
 - [Backend Adapters](reference/backend-adapters/index.md)
   - [Celery](reference/backend-adapters/celery.md)
