@@ -41,8 +41,6 @@ Before you fork a weave, decide how the child process should report completion. 
 
 Forked background work has one important consequence: completion happens outside the request process that started it. This section shows how to hand the result through shared storage instead of parent-process memory. The request creates a durable job record, the forked `on_done` callback writes the final result or error, and a later request reads the stored job state.
 
-SQLite keeps the handoff small enough to read in one file. The useful shape is the same with PostgreSQL, MySQL, or the database already backing the application.
-
 ```python
 import json
 import sqlite3
