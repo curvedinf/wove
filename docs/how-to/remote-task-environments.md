@@ -2,6 +2,8 @@
 
 Wove can keep quick work in the current Python process while sending selected long-running or infrastructure-sensitive work to a worker service, queue, workflow engine, cluster, or scheduler.
 
+Remote task environments route selected tasks to another execution boundary and bring their results back into the same weave.
+
 That matters when the shape of the workflow belongs inline, but production execution belongs somewhere else. A web request can keep lightweight lookups in-process, hand report generation to an internal worker service or task backend, and keep those routing choices out of task code.
 
 Environments are the named execution profiles that make that possible. `wove.config(...)` defines which environment is the default and which environments route work through network executors or backend adapters.

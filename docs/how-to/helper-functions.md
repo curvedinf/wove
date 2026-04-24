@@ -12,6 +12,8 @@ from wove import batch, denone, flatten, fold, merge, redict, sync_to_async, und
 
 Data-shaping helpers are for the small transformations that often sit between task outputs and downstream tasks. They are plain Python functions, so you can use them inside or outside a weave.
 
+They usually appear when a task receives a list, nested list, dictionary, batch, or optional values and needs to shape that data before the next task.
+
 ### Flatten Nested Results
 
 Use `flatten(...)` when mapped or merged work returns lists and the downstream task wants one flat list.
@@ -147,4 +149,4 @@ print(w.result.words)
 # >> ['hello', 'world', 'wove', 'helpers']
 ```
 
-Use `@w.do(iterable)` when the mapped function is part of the weave graph. Use `merge(...)` when the callable is an external helper and you only need its returned list inside one task. See [Merging External Functions](merging-external-functions.md) for the full walkthrough.
+Use `@w.do(iterable)` when the mapped function is part of the weave graph. Use `merge(...)` when the callable is an external helper and you only need its returned list inside one task.

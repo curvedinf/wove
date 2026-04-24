@@ -25,16 +25,19 @@ Improvements compared to asyncio include:
 
 ## Topics
 
-- [The Basics](how-to/the-basics.md)
-- [Task Mapping](how-to/task-mapping.md)
-- [Inheritable Weaves](how-to/inheritable-weaves.md)
-- [Merging External Functions](how-to/merging-external-functions.md)
-- [Helper Functions](how-to/helper-functions.md)
-- [Error Handling](how-to/error-handling.md)
-- [Debugging & Introspection](how-to/debugging-introspection.md)
-- [Background Processing](how-to/background-processing.md)
-- [Remote Task Environments](how-to/remote-task-environments.md)
-- [Patterns For Production](how-to/patterns-for-production.md)
+The topic path starts with the smallest useful weave, then adds the things real workflows need as they grow: fanout, task policy, reuse, helper glue, failure handling, observability, background work, remote execution, and production patterns.
+
+- [The Basics](how-to/the-basics.md): the core `weave()` and `@w.do` workflow.
+- [Task Mapping](how-to/task-mapping.md): running one task across many inputs and collecting the results.
+- [Task Quality of Life](how-to/task-quality-of-life.md): task options that replace retry, timeout, fanout, and routing boilerplate.
+- [Inheritable Weaves](how-to/inheritable-weaves.md): reusable workflow templates with inline overrides.
+- [Merging External Functions](how-to/merging-external-functions.md): mapping helper callables without turning them into named tasks.
+- [Helper Functions](how-to/helper-functions.md): small data-shaping tools that keep task glue readable.
+- [Error Handling](how-to/error-handling.md): how task, background, and remote delivery failures surface.
+- [Debugging & Introspection](how-to/debugging-introspection.md): graph, timing, mapping, and failure inspection.
+- [Background Processing](how-to/background-processing.md): running a whole weave after the caller continues.
+- [Remote Task Environments](how-to/remote-task-environments.md): sending selected tasks to other processes, services, queues, clusters, or schedulers.
+- [Patterns For Production](how-to/patterns-for-production.md): common production workflow shapes built from Wove's core task, mapping, policy, background, and remote-execution building blocks.
 
 ## Reference
 

@@ -103,4 +103,4 @@ Custom executors should report task failures with a `task_error` frame. Include 
 }
 ```
 
-Wove turns normalized backend error payloads into `EnvironmentExecutionError` when no concrete exception object is available. See [Executors](../reference/executors/index.md) for the full frame contract.
+Wove turns normalized backend error payloads into `EnvironmentExecutionError` when no concrete exception object is available.

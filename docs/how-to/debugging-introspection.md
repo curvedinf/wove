@@ -173,8 +173,6 @@ print(w.result.broken)
 # >> bad input
 ```
 
-See [Error Handling](error-handling.md) for the full behavior of failed result access, background failures, and backend delivery exceptions.
-
 ## Debug Background Work
 
 Background weaves do not raise failures at the call site because execution continues after the `with` block exits. Use `on_done` to inspect the result when the background weave finishes.

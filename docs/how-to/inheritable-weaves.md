@@ -2,6 +2,8 @@
 
 You can define reusable, overridable workflows by inheriting from `wove.Weave`.
 
+Use inheritable weaves when the graph itself is valuable enough to share. Inline task declaration is still the simplest shape for one-off workflows; inheritable weaves move a reusable shape into a class so callers can run it as-is or override selected tasks.
+
 ```python
 # In reports.py
 from wove import Weave
@@ -58,3 +60,5 @@ print(w.result.summary)
 # >> Fetching data for ADMIN 456...
 # >> Report for Admin
 ```
+
+The same task options apply to inherited tasks and inline overrides.

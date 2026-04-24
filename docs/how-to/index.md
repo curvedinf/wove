@@ -1,15 +1,18 @@
 # Topics
 
-- [The Basics](the-basics.md)
-- [Task Mapping](task-mapping.md)
-- [Inheritable Weaves](inheritable-weaves.md)
-- [Merging External Functions](merging-external-functions.md)
-- [Helper Functions](helper-functions.md)
-- [Error Handling](error-handling.md)
-- [Debugging & Introspection](debugging-introspection.md)
-- [Background Processing](background-processing.md)
-- [Remote Task Environments](remote-task-environments.md)
-- [Patterns For Production](patterns-for-production.md)
+The topics are ordered as a learning path. Start with the shape of a weave, then add fanout, task-level controls, reusable workflow structure, helper utilities, failure handling, and production execution choices.
+
+- [The Basics](the-basics.md): the core `weave()` and `@w.do` workflow.
+- [Task Mapping](task-mapping.md): running one task across many inputs and collecting the results.
+- [Task Quality of Life](task-quality-of-life.md): task options that replace retry, timeout, fanout, and routing boilerplate.
+- [Inheritable Weaves](inheritable-weaves.md): reusable workflow templates with inline overrides.
+- [Merging External Functions](merging-external-functions.md): mapping helper callables without turning them into named tasks.
+- [Helper Functions](helper-functions.md): small data-shaping tools that keep task glue readable.
+- [Error Handling](error-handling.md): how task, background, and remote delivery failures surface.
+- [Debugging & Introspection](debugging-introspection.md): graph, timing, mapping, and failure inspection.
+- [Background Processing](background-processing.md): running a whole weave after the caller continues.
+- [Remote Task Environments](remote-task-environments.md): sending selected tasks to other processes, services, queues, clusters, or schedulers.
+- [Patterns For Production](patterns-for-production.md): common production workflow shapes built from Wove's core task, mapping, policy, background, and remote-execution building blocks.
 
 ```{toctree}
 :maxdepth: 1
@@ -17,6 +20,7 @@
 
 the-basics
 task-mapping
+task-quality-of-life
 inheritable-weaves
 merging-external-functions
 helper-functions
