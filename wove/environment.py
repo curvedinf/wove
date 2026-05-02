@@ -15,6 +15,7 @@ from asyncio.subprocess import Process
 from typing import Any, Dict, Optional, Set, Tuple, Type
 from uuid import uuid4
 
+from ._compat import to_thread
 from .integrations import (
     get_backend_adapter_class,
     get_backend_adapter_dependencies,
@@ -504,7 +505,7 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
 
     async def _post_frame(self, frame: Dict[str, Any], tracking_id: str) -> None:
         try:
-            response = await asyncio.to_thread(self._post_json, frame)
+            response = await to_thread(self._post_json, frame)
             if not response:
                 if frame.get("type") == "run_task":
                     raise RuntimeError("HTTP worker service returned an empty response.")

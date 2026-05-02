@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import cloudpickle
 import pytest
 
+from wove._compat import to_thread
 from wove.environment import (
     GrpcEnvironmentExecutor,
     HttpEnvironmentExecutor,
@@ -105,7 +106,7 @@ async def test_http_executor_posts_frames_to_worker_service():
     assert seen[0][2]["type"] == "run_task"
 
     await executor.stop()
-    await asyncio.to_thread(server.shutdown)
+    await to_thread(server.shutdown)
     server.server_close()
 
 

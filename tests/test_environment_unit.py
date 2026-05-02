@@ -3,6 +3,7 @@ from contextlib import suppress
 
 import pytest
 
+from wove._compat import to_thread
 from wove.environment import (
     BackendAdapterEnvironmentExecutor,
     DeliveryOrphanedError,
@@ -160,7 +161,7 @@ async def test_backend_callback_server_receives_frames():
     await server.start()
     assert server.callback_url is not None
 
-    await asyncio.to_thread(
+    await to_thread(
         post_event,
         server.callback_url,
         {"type": "task_result", "run_id": "r1", "task_id": "t1", "result": {"ok": True}},

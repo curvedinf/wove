@@ -3,6 +3,7 @@ import threading
 import time
 import wove
 import logging
+from wove._compat import to_thread
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -49,7 +50,7 @@ def run_threading_benchmark():
 # --- Asyncio Implementation ---
 async def async_combined_task(dummy_param: int):
     """Async version of the combined task."""
-    await asyncio.to_thread(cpu_bound_task)
+    await to_thread(cpu_bound_task)
     await asyncio.sleep(IO_SLEEP_DURATION)
 
 async def run_asyncio_benchmark_async():

@@ -6,7 +6,7 @@ import urllib.request
 import pytest
 
 from wove import backend_worker
-from wove.integrations import worker
+from wove._compat import to_thread
 from wove.backend import (
     BackendCallbackServer,
     build_backend_payload,
@@ -17,6 +17,7 @@ from wove.backend import (
     run_backend_payload_async,
     serialize_frame,
 )
+from wove.integrations import worker
 
 
 def make_payload(callback_url, func, args=None, run_id="run"):
@@ -78,12 +79,12 @@ async def test_callback_server_rejects_wrong_path_and_bad_json():
     bad_path = server.callback_url.replace("/wove/events/token", "/wrong")
     bad_path_request = urllib.request.Request(bad_path, data=b"{}", method="POST")
     with pytest.raises(urllib.error.HTTPError) as not_found:
-        await asyncio.to_thread(urllib.request.urlopen, bad_path_request)
+        await to_thread(urllib.request.urlopen, bad_path_request)
     assert not_found.value.code == 404
 
     bad_json_request = urllib.request.Request(server.callback_url, data=b"not-json", method="POST")
     with pytest.raises(urllib.error.HTTPError) as bad_json:
-        await asyncio.to_thread(urllib.request.urlopen, bad_json_request)
+        await to_thread(urllib.request.urlopen, bad_json_request)
     assert bad_json.value.code == 400
 
     await server.stop()
@@ -124,12 +125,12 @@ async def test_sync_worker_entrypoints_and_backend_worker_main(monkeypatch):
     assert server.callback_url is not None
 
     payload = make_payload(server.callback_url, lambda value: value * 3, {"value": 4})
-    assert await asyncio.to_thread(run_backend_payload, payload) == 12
+    assert await to_thread(run_backend_payload, payload) == 12
     assert (await server.recv())["type"] == "task_started"
     assert (await server.recv())["result"] == 12
 
     payload = make_payload(server.callback_url, lambda: "worker-run", run_id="worker-run")
-    assert await asyncio.to_thread(worker.run, payload) == "worker-run"
+    assert await to_thread(worker.run, payload) == "worker-run"
     assert (await server.recv())["type"] == "task_started"
     assert (await server.recv())["result"] == "worker-run"
 
@@ -140,14 +141,14 @@ async def test_sync_worker_entrypoints_and_backend_worker_main(monkeypatch):
 
     payload = make_payload(server.callback_url, lambda: "main", run_id="main")
     monkeypatch.setattr(sys, "argv", ["wove.backend_worker", payload_to_b64(payload)])
-    assert await asyncio.to_thread(backend_worker.main) == 0
+    assert await to_thread(backend_worker.main) == 0
     assert (await server.recv())["type"] == "task_started"
     assert (await server.recv())["result"] == "main"
 
     payload = make_payload(server.callback_url, lambda: "env", run_id="env")
     monkeypatch.setattr(sys, "argv", ["wove.backend_worker"])
     monkeypatch.setenv("WOVE_BACKEND_PAYLOAD", payload_to_b64(payload))
-    assert await asyncio.to_thread(backend_worker.main) == 0
+    assert await to_thread(backend_worker.main) == 0
     assert (await server.recv())["type"] == "task_started"
     assert (await server.recv())["result"] == "env"
 

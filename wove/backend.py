@@ -8,6 +8,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
+from ._compat import to_thread
 from .serialization import dispatch_dumps, dispatch_loads
 
 
@@ -105,7 +106,7 @@ async def run_backend_payload_async(payload: Dict[str, Any]) -> Any:
     callback_url = payload["callback_url"]
     run_id = payload["run_id"]
     task_id = payload["task_id"]
-    await asyncio.to_thread(
+    await to_thread(
         post_event,
         callback_url,
         {"type": "task_started", "run_id": run_id, "task_id": task_id},
@@ -121,7 +122,7 @@ async def run_backend_payload_async(payload: Dict[str, Any]) -> Any:
             result = maybe_result
     except asyncio.CancelledError:
         frame = {"type": "task_cancelled", "run_id": run_id, "task_id": task_id}
-        await asyncio.to_thread(post_event, callback_url, frame)
+        await to_thread(post_event, callback_url, frame)
         return frame
     except Exception as exc:
         from .environment import normalize_exception
@@ -133,11 +134,11 @@ async def run_backend_payload_async(payload: Dict[str, Any]) -> Any:
             "exception": exc,
             "error": normalize_exception(exc, source="task"),
         }
-        await asyncio.to_thread(post_event, callback_url, frame)
+        await to_thread(post_event, callback_url, frame)
         return frame
 
     frame = {"type": "task_result", "run_id": run_id, "task_id": task_id, "result": result}
-    await asyncio.to_thread(post_event, callback_url, frame)
+    await to_thread(post_event, callback_url, frame)
     return result
 
 
@@ -232,7 +233,7 @@ class BackendCallbackServer:
     async def stop(self) -> None:
         if self._server is None:
             return
-        await asyncio.to_thread(self._server.shutdown)
+        await to_thread(self._server.shutdown)
         self._server.server_close()
         if self._thread is not None:
             self._thread.join(timeout=1.0)
