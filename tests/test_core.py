@@ -4,6 +4,30 @@ import time
 from wove import weave
 
 
+class AsyncOverlapTracker:
+    def __init__(self, *, parties=2):
+        self._lock = asyncio.Lock()
+        self._ready = asyncio.Event()
+        self._parties = parties
+        self._active = 0
+        self.max_active = 0
+
+    async def run(self, result):
+        async with self._lock:
+            self._active += 1
+            self.max_active = max(self.max_active, self._active)
+            if self._active >= self._parties:
+                self._ready.set()
+
+        try:
+            await asyncio.wait_for(self._ready.wait(), timeout=1.0)
+            await asyncio.sleep(0.01)
+            return result
+        finally:
+            async with self._lock:
+                self._active -= 1
+
+
 @pytest.mark.asyncio
 async def test_dependency_execution_order():
     """Tests that tasks execute in the correct dependency order."""
@@ -58,22 +82,19 @@ async def test_sync_and_async_tasks():
 @pytest.mark.asyncio
 async def test_concurrent_execution():
     """Tests that independent tasks run concurrently."""
-    start_time = time.time()
+    tracker = AsyncOverlapTracker()
+
     async with weave() as w:
 
         @w.do
         async def task_1():
-            await asyncio.sleep(0.1)
-            return 1
+            return await tracker.run(1)
 
         @w.do
         async def task_2():
-            await asyncio.sleep(0.1)
-            return 2
+            return await tracker.run(2)
 
-    end_time = time.time()
-    # If run sequentially, it would take > 0.2s. Concurrently, < 0.2s (but not too much less)
-    assert (end_time - start_time) < 0.15
+    assert tracker.max_active > 1
     assert w.result.task_1 == 1
     assert w.result.task_2 == 2
 

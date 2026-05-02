@@ -1,7 +1,33 @@
 import pytest
 import asyncio
+import threading
 import time
 from wove import weave
+
+
+class SyncOverlapTracker:
+    def __init__(self, *, parties=2):
+        self._lock = threading.Lock()
+        self._ready = threading.Event()
+        self._parties = parties
+        self._active = 0
+        self.max_active = 0
+
+    def run(self, result):
+        with self._lock:
+            self._active += 1
+            self.max_active = max(self.max_active, self._active)
+            if self._active >= self._parties:
+                self._ready.set()
+
+        try:
+            if not self._ready.wait(timeout=1.0):
+                raise TimeoutError("Mapped sync tasks did not overlap.")
+            time.sleep(0.01)
+            return result
+        finally:
+            with self._lock:
+                self._active -= 1
 
 
 @pytest.mark.asyncio
@@ -55,18 +81,15 @@ async def test_mapping_over_empty_list():
 @pytest.mark.asyncio
 async def test_sync_function_mapping():
     """Tests mapping over an iterable with a synchronous function."""
-    items = [0.01, 0.01, 0.01]
-    start_time = time.time()
+    tracker = SyncOverlapTracker()
+
     async with weave() as w:
 
-        @w.do(items)
+        @w.do([True, True, True])
         def sync_process(item):
-            time.sleep(item)
-            return True
+            return tracker.run(item)
 
-    duration = time.time() - start_time
-    # If run in series, would be > 0.03. Concurrently in threads, should be less.
-    assert duration < 0.03
+    assert tracker.max_active > 1
     assert w.result.sync_process == [True, True, True]
 
 
