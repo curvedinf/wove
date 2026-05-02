@@ -5,6 +5,7 @@ import inspect
 import importlib
 import importlib.util
 import json
+import os
 import shlex
 import sys
 import time
@@ -37,6 +38,17 @@ _BACKEND_ADAPTER_INSTALL_HINTS: Dict[str, str] = get_backend_adapter_install_hin
 _KNOWN_ORPHAN_POLICIES: Set[str] = {"fail", "cancel", "requeue", "detach"}
 _KNOWN_CANCEL_MODES: Set[str] = {"best_effort", "require_ack"}
 _GRPC_DEFAULT_METHOD = "/wove.network_executor.WorkerService/Send"
+
+
+def _split_command_string(command: str, *, platform: Optional[str] = None) -> list:
+    platform = os.name if platform is None else platform
+    parts = shlex.split(command, posix=platform != "nt")
+    if platform == "nt":
+        parts = [
+            part[1:-1] if len(part) >= 2 and part[0] == part[-1] and part[0] in {"'", '"'} else part
+            for part in parts
+        ]
+    return parts
 
 
 class EnvironmentExecutionError(RuntimeError):
@@ -335,7 +347,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
             command = [sys.executable, "-m", "wove.stdio_worker"]
 
         if isinstance(command, str):
-            command = shlex.split(command)
+            command = _split_command_string(command)
         if not isinstance(command, list) or not command:
             raise TypeError("executor_config.command must be a non-empty list or command string.")
 

@@ -12,6 +12,7 @@ from wove.environment import (
     ExecutorRuntime,
     LocalEnvironmentExecutor,
     StdioEnvironmentExecutor,
+    _split_command_string,
     build_executor_from_name,
     coerce_executor,
     normalize_exception,
@@ -99,6 +100,25 @@ def test_environment_error_and_normalize_exception_helpers():
     assert payload["kind"] == "ValueError"
     assert payload["retryable"] is True
     assert payload["source"] == "transport"
+
+
+def test_split_command_string_keeps_windows_paths_intact():
+    assert _split_command_string(
+        r"C:\hostedtoolcache\windows\Python\3.12.13\x64\python.exe -m wove.stdio_worker",
+        platform="nt",
+    ) == [
+        r"C:\hostedtoolcache\windows\Python\3.12.13\x64\python.exe",
+        "-m",
+        "wove.stdio_worker",
+    ]
+    assert _split_command_string(
+        r'"C:\Program Files\Python\python.exe" -m wove.stdio_worker',
+        platform="nt",
+    ) == [
+        r"C:\Program Files\Python\python.exe",
+        "-m",
+        "wove.stdio_worker",
+    ]
 
 
 @pytest.mark.asyncio

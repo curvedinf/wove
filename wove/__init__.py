@@ -37,7 +37,7 @@ from .helpers import (
 
 # The main context manager factory. Using the class itself makes it re-entrant.
 weave = WoveContextManager
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 __all__ = [
     "__version__",
     "weave",
