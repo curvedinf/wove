@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "Wove"
 author = "curvedinf"
 copyright = f"{datetime.now().year}, {author}"
-release = "2.0.1"
+release = "2.0.2"
 
 extensions = [
     "myst_parser",

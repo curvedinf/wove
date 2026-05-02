@@ -1,6 +1,7 @@
 import pytest
 import asyncio
 import copy
+import threading
 import time
 from functools import partial
 
@@ -166,16 +167,29 @@ async def test_merge_async_mapping():
     Tests that `merge` can map an async function over an iterable concurrently.
     """
     items = [1, 2, 3]
-    start_time = time.time()
+    active = 0
+    max_active = 0
+    lock = asyncio.Lock()
+
+    async def overlapping_async_func(item):
+        nonlocal active, max_active
+        async with lock:
+            active += 1
+            max_active = max(max_active, active)
+        try:
+            await asyncio.sleep(0.02)
+            return item * 2
+        finally:
+            async with lock:
+                active -= 1
+
     async with weave() as w:
 
         @w.do
         async def main_task():
-            return await merge(mapped_async_func, items)
+            return await merge(overlapping_async_func, items)
 
-    duration = time.time() - start_time
-    # If run serially, would be > 0.06s. Concurrently, should be just over 0.02s.
-    assert duration < 0.05
+    assert max_active > 1
     assert w.result.main_task == [2, 4, 6]
 
 
@@ -185,16 +199,29 @@ async def test_merge_sync_mapping():
     Tests that `merge` can map a sync function over an iterable concurrently.
     """
     items = [1, 2, 3]
-    start_time = time.time()
+    active = 0
+    max_active = 0
+    lock = threading.Lock()
+
+    def overlapping_sync_func(item):
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+        try:
+            time.sleep(0.02)
+            return item * 2
+        finally:
+            with lock:
+                active -= 1
+
     async with weave() as w:
 
         @w.do
         async def main_task():
-            return await merge(mapped_sync_func, items)
+            return await merge(overlapping_sync_func, items)
 
-    duration = time.time() - start_time
-    # If run serially, would be > 0.06s. Concurrently in threads, should be just over 0.02s.
-    assert duration < 0.05
+    assert max_active > 1
     assert w.result.main_task == [2, 4, 6]
 
 
