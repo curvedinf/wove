@@ -243,7 +243,7 @@ class LocalEnvironmentExecutor(EnvironmentExecutor):
     """
 
     def __init__(self) -> None:
-        self._events: asyncio.Queue = asyncio.Queue()
+        self._events: Optional[asyncio.Queue] = None
         self._active_runs: Dict[str, asyncio.Task] = {}
 
     async def start(
@@ -254,8 +254,12 @@ class LocalEnvironmentExecutor(EnvironmentExecutor):
         run_config: Dict[str, Any],
     ) -> None:
         del environment_name, environment_config, run_config
+        self._events = asyncio.Queue()
 
     async def send(self, frame: Dict[str, Any]) -> None:
+        if self._events is None:
+            raise RuntimeError("Local executor is not started.")
+
         frame_type = frame.get("type")
         if frame_type == "run_task":
             run_id = frame["run_id"]
@@ -283,6 +287,8 @@ class LocalEnvironmentExecutor(EnvironmentExecutor):
         raise ValueError(f"Unsupported frame type: {frame_type}")
 
     async def recv(self) -> Dict[str, Any]:
+        if self._events is None:
+            raise RuntimeError("Local executor is not started.")
         return await self._events.get()
 
     async def stop(self) -> None:
@@ -291,6 +297,7 @@ class LocalEnvironmentExecutor(EnvironmentExecutor):
         if self._active_runs:
             await asyncio.gather(*self._active_runs.values(), return_exceptions=True)
         self._active_runs.clear()
+        self._events = None
 
     async def _execute_task(
         self,
@@ -300,6 +307,9 @@ class LocalEnvironmentExecutor(EnvironmentExecutor):
         task_func: Any,
         task_args: Dict[str, Any],
     ) -> None:
+        if self._events is None:
+            raise RuntimeError("Local executor is not started.")
+
         await self._events.put({"type": "task_started", "run_id": run_id, "task_id": task_id})
         try:
             maybe_result = task_func(**task_args)
@@ -332,7 +342,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
 
     def __init__(self) -> None:
         self._process: Optional[Process] = None
-        self._write_lock = asyncio.Lock()
+        self._write_lock: Optional[asyncio.Lock] = None
 
     async def start(
         self,
@@ -352,6 +362,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
             raise TypeError("executor_config.command must be a non-empty list or command string.")
 
         require_dispatch("the stdio executor serializes task frames across a worker process.")
+        self._write_lock = asyncio.Lock()
         self._process = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE,
@@ -360,7 +371,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
         )
 
     async def send(self, frame: Dict[str, Any]) -> None:
-        if self._process is None or self._process.stdin is None:
+        if self._process is None or self._process.stdin is None or self._write_lock is None:
             raise RuntimeError("Stdio executor is not started.")
         payload = self._serialize_frame(frame)
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8") + b"\n"
@@ -391,6 +402,7 @@ class StdioEnvironmentExecutor(EnvironmentExecutor):
                 self._process.terminate()
                 await self._process.wait()
         self._process = None
+        self._write_lock = None
 
     def _serialize_frame(self, frame: Dict[str, Any]) -> Dict[str, Any]:
         payload = dict(frame)
@@ -442,7 +454,7 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
         self._headers: Dict[str, str] = {}
         self._security = NetworkExecutorSecurity()
         self._timeout: Optional[float] = None
-        self._events: asyncio.Queue = asyncio.Queue()
+        self._events: Optional[asyncio.Queue] = None
         self._requests: Dict[str, asyncio.Task] = {}
 
     async def start(
@@ -477,6 +489,7 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
         self._headers = _normalize_headers(environment_config.get("headers"))
         timeout = environment_config.get("timeout")
         self._timeout = float(timeout) if timeout is not None else None
+        self._events = asyncio.Queue()
 
     async def send(self, frame: Dict[str, Any]) -> None:
         if self._url is None:
@@ -497,7 +510,7 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
         raise ValueError(f"Unsupported frame type: {frame_type}")
 
     async def recv(self) -> Dict[str, Any]:
-        if self._url is None:
+        if self._url is None or self._events is None:
             raise RuntimeError(f"{self._name} executor is not started.")
         return await self._events.get()
 
@@ -508,6 +521,7 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
             await asyncio.gather(*self._requests.values(), return_exceptions=True)
         self._requests.clear()
         self._url = None
+        self._events = None
 
     def _request_tracking_id(self, frame: Dict[str, Any]) -> str:
         run_id = frame.get("run_id")
@@ -522,12 +536,14 @@ class HttpEnvironmentExecutor(EnvironmentExecutor):
                 if frame.get("type") == "run_task":
                     raise RuntimeError("HTTP worker service returned an empty response.")
                 return
+            if self._events is None:
+                raise RuntimeError(f"{self._name} executor is not started.")
             for event in _load_network_executor_events(response, reason=_network_dispatch_reason(self._name)):
                 await self._events.put(event)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            if frame.get("run_id"):
+            if frame.get("run_id") and self._events is not None:
                 await self._events.put(_transport_error_frame(frame, exc))
         finally:
             self._requests.pop(tracking_id, None)
@@ -572,7 +588,7 @@ class GrpcEnvironmentExecutor(EnvironmentExecutor):
         self._timeout: Optional[float] = None
         self._metadata: Tuple[Tuple[str, str], ...] = ()
         self._security = NetworkExecutorSecurity()
-        self._events: asyncio.Queue = asyncio.Queue()
+        self._events: Optional[asyncio.Queue] = None
         self._requests: Dict[str, asyncio.Task] = {}
 
     async def start(
@@ -622,6 +638,7 @@ class GrpcEnvironmentExecutor(EnvironmentExecutor):
             request_serializer=lambda value: value,
             response_deserializer=lambda value: value,
         )
+        self._events = asyncio.Queue()
 
     async def send(self, frame: Dict[str, Any]) -> None:
         if self._rpc is None:
@@ -642,7 +659,7 @@ class GrpcEnvironmentExecutor(EnvironmentExecutor):
         raise ValueError(f"Unsupported frame type: {frame_type}")
 
     async def recv(self) -> Dict[str, Any]:
-        if self._rpc is None:
+        if self._rpc is None or self._events is None:
             raise RuntimeError("grpc executor is not started.")
         return await self._events.get()
 
@@ -659,6 +676,7 @@ class GrpcEnvironmentExecutor(EnvironmentExecutor):
                 await close_result
         self._channel = None
         self._rpc = None
+        self._events = None
 
     def _request_tracking_id(self, frame: Dict[str, Any]) -> str:
         run_id = frame.get("run_id")
@@ -687,12 +705,14 @@ class GrpcEnvironmentExecutor(EnvironmentExecutor):
                 if frame.get("type") == "run_task":
                     raise RuntimeError("gRPC worker service returned an empty response.")
                 return
+            if self._events is None:
+                raise RuntimeError("grpc executor is not started.")
             for event in _load_network_executor_events(response, reason=_network_dispatch_reason("grpc")):
                 await self._events.put(event)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            if frame.get("run_id"):
+            if frame.get("run_id") and self._events is not None:
                 await self._events.put(_transport_error_frame(frame, exc))
         finally:
             self._requests.pop(tracking_id, None)
@@ -709,7 +729,7 @@ class WebSocketEnvironmentExecutor(EnvironmentExecutor):
         self._url: Optional[str] = None
         self._headers: Dict[str, str] = {}
         self._security = NetworkExecutorSecurity()
-        self._events: asyncio.Queue = asyncio.Queue()
+        self._events: Optional[asyncio.Queue] = None
 
     async def start(
         self,
@@ -745,9 +765,10 @@ class WebSocketEnvironmentExecutor(EnvironmentExecutor):
         self._url = url
         self._headers = _normalize_headers(environment_config.get("headers"))
         await self._connect(environment_config)
+        self._events = asyncio.Queue()
 
     async def send(self, frame: Dict[str, Any]) -> None:
-        if self._websocket is None:
+        if self._websocket is None or self._events is None:
             raise RuntimeError("websocket executor is not started.")
 
         frame_type = frame.get("type")
@@ -775,6 +796,7 @@ class WebSocketEnvironmentExecutor(EnvironmentExecutor):
                 await close_result
         self._websocket = None
         self._url = None
+        self._events = None
 
     async def _connect(self, environment_config: Dict[str, Any]) -> None:
         connect_kwargs: Dict[str, Any] = {}

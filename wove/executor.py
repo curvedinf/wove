@@ -14,6 +14,15 @@ from typing import (
 from .helpers import sync_to_async
 
 
+def _record_task_failure(exc: BaseException) -> None:
+    current_task = asyncio.current_task()
+    if current_task is None:
+        return
+
+    current_task._wove_failure_time = time.monotonic_ns()
+    current_task._wove_failure_exception = exc
+
+
 async def retry_timeout_wrapper(
     task_name: str,
     task_func: Callable,
@@ -48,6 +57,7 @@ async def retry_timeout_wrapper(
                 raise
             except Exception as e:
                 last_exception = e
+        _record_task_failure(last_exception)
         raise last_exception from None
     finally:
         end_time = time.monotonic()
@@ -203,19 +213,31 @@ async def execute_plan(
                 continue
 
             done, pending = await asyncio.wait(current_tier_futures, return_when=asyncio.FIRST_EXCEPTION)
+            future_order = {future: index for index, future in enumerate(current_tier_futures)}
+
+            def _failure_key(future: asyncio.Future):
+                return (
+                    getattr(future, "_wove_failure_time", float("inf")),
+                    future_order[future],
+                )
+
+            ordered_done = sorted(done, key=_failure_key)
 
             exception_found = None
-            for f in done:
+            exception_future = None
+            for f in ordered_done:
                 exc = _future_exception(f)
                 if exc and not isinstance(exc, asyncio.CancelledError):
                     exception_found = exc
+                    exception_future = f
                     break
 
             if not exception_found:
-                for f in done:
+                for f in ordered_done:
                     exc = _future_exception(f)
                     if exc:
                         exception_found = exc
+                        exception_future = f
                         break
 
             if exception_found:
@@ -235,24 +257,7 @@ async def execute_plan(
                 if pending:
                     await asyncio.gather(*pending, return_exceptions=True)
 
-                source_of_failure = None
-
-                def _exc_match(e1, e2):
-                    if e1 is None or e2 is None:
-                        return False
-                    return type(e1) is type(e2) and str(e1) == str(e2)
-
-                for task_name, f_or_list in tier_futures.items():
-                    if isinstance(f_or_list, list):
-                        for i, f in enumerate(f_or_list):
-                            if _exc_match(_future_exception(f), exception_found):
-                                source_of_failure = task_name
-                                break
-                    else:
-                        if _exc_match(_future_exception(f_or_list), exception_found):
-                            source_of_failure = task_name
-                    if source_of_failure:
-                        break
+                source_of_failure = future_to_task_name[exception_future]
 
                 if source_of_failure:
                     if isinstance(exception_found, asyncio.CancelledError):

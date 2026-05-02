@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import cloudpickle
 import pytest
 
+import wove.environment as environment_module
 from wove._compat import to_thread
 from wove.environment import (
     GrpcEnvironmentExecutor,
@@ -178,7 +179,12 @@ async def test_http_executor_validation_transport_error_and_shutdown(monkeypatch
     await executor.stop()
 
 
-def test_network_executor_name_resolution():
+def test_network_executor_name_resolution(monkeypatch):
+    def fail_if_constructed_without_running_loop(*_args, **_kwargs):
+        raise RuntimeError("There is no current event loop in thread 'MainThread'.")
+
+    monkeypatch.setattr(environment_module.asyncio, "Queue", fail_if_constructed_without_running_loop)
+
     assert isinstance(build_executor_from_name("http"), HttpEnvironmentExecutor)
     assert isinstance(build_executor_from_name("https"), HttpEnvironmentExecutor)
     assert isinstance(build_executor_from_name("grpc"), GrpcEnvironmentExecutor)
