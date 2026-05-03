@@ -96,7 +96,7 @@ The full documentation includes topic guides, API reference pages, and more.
 
 ## Topics
 
-The topic path starts with the smallest useful weave, then adds the things real workflows need as they grow: fanout, task policy, reuse, helper glue, failure handling, observability, background work, remote execution, and production patterns.
+Start with the smallest useful weave, then add the things real workflows need as they grow: fanout, task policy, reuse, helper glue, failure handling, observability, background work, remote execution, and production patterns.
 
 - [The Basics](https://curvedinf.github.io/wove/how-to/the-basics.html): the core `weave()` and `@w.do` workflow.
 - [Task Mapping](https://curvedinf.github.io/wove/how-to/task-mapping.html): running one task or helper callable across many inputs and collecting the results.
@@ -111,11 +111,11 @@ The topic path starts with the smallest useful weave, then adds the things real 
 
 ## Reference
 
-Reference material pins down the public surface of Wove: imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup. Reference pages answer what each feature accepts, returns, guarantees, and raises once the workflow shape is already clear.
+Definitions of the public surface of Wove: imports, configuration shape, environment resolution, executor contracts, network executors, and backend adapter setup. Reference pages answer what each feature accepts, returns, guarantees, and raises.
 
 ### Core Behavior
 
-Core behavior covers the names and runtime rules that everything else builds on: stable imports, environment resolution, and the guarantees Wove keeps before any executor-specific or adapter-specific behavior is involved.
+Core behavior covers the names and runtime rules that everything else builds on: imports, environment resolution, and the guarantees Wove keeps before any executor-specific or adapter-specific behavior is involved.
 
 - [Public API](https://curvedinf.github.io/wove/reference/api/wove.html): stable imports most users should rely on.
 - [Environments](https://curvedinf.github.io/wove/reference/environments/): persistent execution profiles, defaults, and precedence rules.
