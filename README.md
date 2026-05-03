@@ -54,9 +54,43 @@ Or with `pip`:
 pip install wove
 ```
 
-## Documentation
+## Streamline Your Async
 
-The full documentation includes topic guides, API reference pages, executor setup, backend adapter setup, and version history.
+The core of Wove's functionality is the `weave` context manager. A `weave` block collects task functions and runs them when Python exits the block. Wove builds a dependency graph from task function signatures: when a task parameter has the same name as another task, Wove passes that upstream task's result into the parameter. Independent tasks run concurrently, dependent tasks wait for their named inputs, and the final task result is available at `w.result.final`.
+
+```python
+import time
+from wove import weave
+
+with weave() as w:
+    # These first two tasks run concurrently.
+    @w.do
+    def magic_number():
+        time.sleep(1.0)
+        return 42
+
+    @w.do
+    def important_text():
+        time.sleep(1.0)
+        return "The meaning of life"
+
+    # This task depends on the first two. It runs only after both are complete.
+    @w.do
+    def combined(important_text, magic_number):
+        return f"{important_text} is {magic_number}!"
+
+    # When the `with` block closes, all tasks are executed.
+print(w.result.final)
+# >> The meaning of life is 42!
+print(f"The magic number was {w.result.magic_number}")
+# >> The magic number was 42
+print(f'The important text was "{w.result["important_text"]}"')
+# >> The important text was "The meaning of life"
+```
+
+## There's Much More Inside
+
+The full documentation includes topic guides, API reference pages, and more.
 
 [View Documentation](https://curvedinf.github.io/wove/)
 
