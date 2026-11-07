@@ -58,5 +58,8 @@ examples = [
     "requests",
 ]
 
+[tool.setuptools.packages.find]
+include = ["wove*"]
+
 [tool.setuptools.package-data]
 wove = ["py.typed"]

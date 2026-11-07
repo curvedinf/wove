@@ -3,7 +3,7 @@
   "timers": {
     "maintain-scratch": {
       "interval_days": 7,
-      "last_completed_at": null
+      "last_completed_at": "2026-11-07T23:19:08Z"
     }
   }
 }

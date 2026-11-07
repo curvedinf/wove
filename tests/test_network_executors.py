@@ -7,6 +7,7 @@ import cloudpickle
 import pytest
 
 import wove.environment as environment_module
+from wove import serialization
 from wove._compat import to_thread
 from wove.environment import (
     GrpcEnvironmentExecutor,
@@ -378,7 +379,8 @@ async def test_grpc_executor_validation_missing_dependency_and_transport_error(m
     def missing(name):
         raise ImportError(name)
 
-    monkeypatch.setattr("wove.environment.importlib.import_module", missing)
+    monkeypatch.setattr(serialization, "_cloudpickle", cloudpickle)
+    monkeypatch.setattr(environment_module.importlib, "import_module", missing)
     with pytest.raises(RuntimeError, match="grpc executor requested"):
         await executor.start(environment_name="grpc", environment_config={"target": "x"}, run_config={})
 
@@ -400,7 +402,7 @@ async def test_grpc_executor_validation_missing_dependency_and_transport_error(m
     class FakeGrpc:
         aio = FakeAio()
 
-    monkeypatch.setattr("wove.environment.importlib.import_module", lambda name: FakeGrpc())
+    monkeypatch.setattr(environment_module.importlib, "import_module", lambda name: FakeGrpc())
     with pytest.raises(TypeError, match="target"):
         await executor.start(environment_name="grpc", environment_config={}, run_config={})
 
@@ -535,7 +537,8 @@ async def test_websocket_executor_validation_and_missing_dependency(monkeypatch)
     def missing(name):
         raise ImportError(name)
 
-    monkeypatch.setattr("wove.environment.importlib.import_module", missing)
+    monkeypatch.setattr(serialization, "_cloudpickle", cloudpickle)
+    monkeypatch.setattr(environment_module.importlib, "import_module", missing)
     with pytest.raises(RuntimeError, match="websocket executor requested"):
         await executor.start(environment_name="websocket", environment_config={"url": "ws://x"}, run_config={})
 
@@ -544,7 +547,7 @@ async def test_websocket_executor_validation_and_missing_dependency(monkeypatch)
             del url, kwargs
             return object()
 
-    monkeypatch.setattr("wove.environment.importlib.import_module", lambda name: FakeWebsockets())
+    monkeypatch.setattr(environment_module.importlib, "import_module", lambda name: FakeWebsockets())
     with pytest.raises(TypeError, match="url"):
         await executor.start(environment_name="websocket", environment_config={}, run_config={})
     with pytest.raises(ValueError, match="ws://"):
