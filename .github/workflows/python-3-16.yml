@@ -9,6 +9,9 @@ on:
 
 jobs:
   test:
+    # Pre-release canary: optional dependencies (e.g. cloudpickle) may not
+    # support 3.16 yet, so failures here must not block the branch.
+    continue-on-error: true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
