@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "timers": {
+    "maintain-scratch": {
+      "interval_days": 7,
+      "last_completed_at": null
+    }
+  }
+}

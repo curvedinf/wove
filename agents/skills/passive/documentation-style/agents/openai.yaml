@@ -1,0 +1,5 @@
+interface:
+  display_name: "Documentation Style"
+  short_description: "Use concrete voice and reader-oriented structure"
+policy:
+  allow_implicit_invocation: true

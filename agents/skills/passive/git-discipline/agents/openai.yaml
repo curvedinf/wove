@@ -1,0 +1,5 @@
+interface:
+  display_name: "Git Discipline"
+  short_description: "Preserve working state and verify scoped publication"
+policy:
+  allow_implicit_invocation: true

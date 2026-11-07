@@ -1,0 +1,5 @@
+interface:
+  display_name: "Evidence Discipline"
+  short_description: "Keep claims proportional to observed evidence"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Design Validation"
+  short_description: "Map acceptance claims to meaningful checks"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Contract Discipline"
+  short_description: "Preserve agreed outcomes, scope, and ownership"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Diagnose and Repair"
+  short_description: "Trace a failure, repair its cause, verify the result"
+policy:
+  allow_implicit_invocation: false

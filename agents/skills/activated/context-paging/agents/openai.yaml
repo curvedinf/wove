@@ -1,0 +1,5 @@
+interface:
+  display_name: "Context Paging"
+  short_description: "Offload and recover exact context via a per-project SQLite store"
+policy:
+  allow_implicit_invocation: false

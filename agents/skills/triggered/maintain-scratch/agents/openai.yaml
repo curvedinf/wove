@@ -1,0 +1,5 @@
+interface:
+  display_name: "Maintain Scratch"
+  short_description: "Compact durable scratch notes on a weekly startup check"
+policy:
+  allow_implicit_invocation: true

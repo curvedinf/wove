@@ -1,0 +1,5 @@
+interface:
+  display_name: "Operate Workflow"
+  short_description: "Execute and resume from verified operational state"
+policy:
+  allow_implicit_invocation: false

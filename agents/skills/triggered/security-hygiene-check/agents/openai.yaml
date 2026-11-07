@@ -1,0 +1,5 @@
+interface:
+  display_name: "Security Hygiene Check"
+  short_description: "Check proposed commits for privacy and secret leaks"
+policy:
+  allow_implicit_invocation: true

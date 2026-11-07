@@ -1,0 +1,5 @@
+interface:
+  display_name: "Design Skill"
+  short_description: "Normalize agent defaults with minimal process skills"
+policy:
+  allow_implicit_invocation: false

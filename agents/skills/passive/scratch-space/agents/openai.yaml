@@ -1,0 +1,5 @@
+interface:
+  display_name: "Scratch Space"
+  short_description: "Preserve progress, evidence, and decisions across sessions"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Context Compaction Procedure"
+  short_description: "Always read at session start; on compaction with paging enabled, write a minimal search-oriented statement"
+policy:
+  allow_implicit_invocation: true

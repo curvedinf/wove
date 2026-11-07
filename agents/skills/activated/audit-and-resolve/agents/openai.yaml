@@ -1,0 +1,5 @@
+interface:
+  display_name: "Audit and Resolve"
+  short_description: "Substantiate findings and verify their resolution"
+policy:
+  allow_implicit_invocation: false

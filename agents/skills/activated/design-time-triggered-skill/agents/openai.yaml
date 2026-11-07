@@ -1,0 +1,5 @@
+interface:
+  display_name: "Design Time-Triggered Skill"
+  short_description: "Design periodic workflows using shared scratch timers"
+policy:
+  allow_implicit_invocation: false

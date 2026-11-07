@@ -1,0 +1,5 @@
+interface:
+  display_name: "Indefinite Loop"
+  short_description: "Continuously improve metrics through measured experiments"
+policy:
+  allow_implicit_invocation: false

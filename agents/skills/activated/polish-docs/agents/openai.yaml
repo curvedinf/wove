@@ -1,0 +1,5 @@
+interface:
+  display_name: "Polish Docs"
+  short_description: "Turn project docs into a clear first-use experience"
+policy:
+  allow_implicit_invocation: false

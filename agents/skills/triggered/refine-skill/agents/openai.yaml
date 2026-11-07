@@ -1,0 +1,5 @@
+interface:
+  display_name: "Refine Skill"
+  short_description: "Refine shared procedures from observed workflow lessons"
+policy:
+  allow_implicit_invocation: true

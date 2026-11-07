@@ -1,0 +1,5 @@
+interface:
+  display_name: "Coordinate Work"
+  short_description: "Define handoffs and verify integrated results"
+policy:
+  allow_implicit_invocation: false

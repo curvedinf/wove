@@ -1,0 +1,5 @@
+interface:
+  display_name: "Install Dev Skills"
+  short_description: "Install project-wide or agent-wide skills and guidance"
+policy:
+  allow_implicit_invocation: false

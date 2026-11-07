@@ -1,0 +1,5 @@
+interface:
+  display_name: "Testing Doctrine"
+  short_description: "Match validation to iteration, integration, and release"
+policy:
+  allow_implicit_invocation: true

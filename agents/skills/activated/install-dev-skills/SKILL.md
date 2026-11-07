@@ -1,0 +1,38 @@
+---
+name: install-dev-skills
+description: Install dev-skills, project-wide skills, agent-wide skills, merge AGENTS.md. First ask project-wide (1) or agent-wide (2) and wait for an explicit answer; then install and finish with self-improvement opt-in.
+metadata:
+  category: activated
+---
+
+# Install dev-skills
+
+Install from [curvedinf/dev-skills](https://github.com/curvedinf/dev-skills), preserving existing instructions and customizations.
+
+## Required opening: ask, then wait
+
+After reading this skill, your first response to an unscoped installation request must ask:
+
+> Where would you like Dev Skills installed?
+>
+> 1. **Project-wide** — in the target repository, shared with collaborators.
+> 2. **Agent-wide** — in your agent’s personal skill library, available across projects.
+>
+> Reply **1** or **2**. This installer requires your choice before proceeding.
+
+Ask through an interactive question tool or a normal reply. **Stop here until the user answers.** Sending a question is not receiving a choice: do not inspect destinations, clone/download the collection, copy files, or modify instructions while waiting. A tool returning no answer, a preselected option, or elapsed time leaves the choice pending.
+
+Do not infer scope from the working directory, an open repository, the agent host, an existing installation, or the phrase “install dev-skills.” Skip the question only if the user has explicitly selected **project-wide**, **agent-wide**, **1**, or **2** for this installation; acknowledge that selection before proceeding. If the answer is ambiguous, clarify it. Record the selected scope in the installation record.
+
+## After the scope is selected
+
+1. **Inspect the destination.** For option 1, read applicable project instructions, skills, and Git state; resolve the project root and existing layout, defaulting to `agents/skills/<passive|activated|triggered>/<name>/`. For option 2, resolve the selected host’s configured user-wide skill directory, discovery format, and existing conventions skills. Do not mistake the current project’s `agents/` for a global directory; resolve host ambiguity before writing.
+2. **Acquire and reconcile.** Fetch the requested revision, otherwise upstream `main`, and record the resolved commit. Read source `AGENTS.md`; copy complete skill folders, adapters, supporting resources, and license attribution. Exclude upstream `.git`, scratch history, and temporary files. Preserve category layout where supported; when flattening, map destinations and repair inter-skill links. Merge updates against the prior source revision and local customizations; inspect unknown same-name collisions before replacement. Keep changes recoverable and reinstallations idempotent.
+3. **Integrate guidance for the chosen scope.** Apply the destination rules below. Merge by topic, preserve explicit target policy, deduplicate equivalent guidance, and report unresolved conflicts. Adapt repository-specific assumptions and repair imported relative links, using revision-pinned source permalinks for uncopied material. Keep activated workflows deliberate and link passive conventions within their scopes. Wire triggered `security-hygiene-check` before every project commit, including amendments and merges: inspect the final candidate and apply the consuming project’s natural-language scratch disclosure policy and wait for explicit user disposition of uncovered findings before committing; never import upstream disclosure permissions, independently of self-improvement opt-in. Wire triggered `maintain-scratch` into the first-project-context event: once per fresh session check its seven-day entry in shared `agents/scratch/timers.json`, compact if due, and stamp only completion. Preserve all existing timer entries; initialize missing entries from declared defaults with null completion. Migrate a legacy `maintenance.json` into the `maintain-scratch` entry without losing its interval or timestamp; remove the legacy file only after verifying migration, and reconcile conflicts if both exist. Never import upstream completion history. Agent-wide installation creates timers only in consuming projects. Always load triggered `refine-skill` as a metaskill and wire its check to completed skill use, coalescing related uses before the final response; preserve existing enablement until the final choice, never inherit upstream’s opt-in. For a project-wide installation, also insert the harness opt-in section declared in `context-paging` into the project `AGENTS.md` and execute it during installation: skip when its `cp_subscribed.py` gate exits 0 or `agents/tmp/context-paging.json` records `"harness_install": "declined"`; otherwise ask the user, and on yes code and install the harness plugin per that skill this session, subscribing last. Agent-wide installations neither insert the section nor subscribe; each project’s own opt-in governs. Wire triggered `context-compaction-procedure` into the same fresh-session startup that loads `maintain-scratch`: project `AGENTS.md` directs reading it once per session before substantive work, where it overrides harness compaction instructions when context-paging is enabled.
+4. **Verify and record.** Check inventory, frontmatter, invocation settings, resources, links, and request-term routing. Verify host discovery where available; distinguish installation from proven loading and report reload requirements. Record source URL/commit, destination mapping, adaptations, and conflicts in project `agents/scratch/dev-skills-install.md` for option 1, or a maintenance reference beside the conventions skill for option 2. Installing Git guidance does not itself authorize committing or publishing the installation; follow existing authorization.
+5. **Ask the final setup question.** After installation and verification, ask: “Would you like skill self-improvement enabled? It refines skills from corrections and reusable lessons after skill use.” Name the scope and exact `AGENTS.md` to update; explain this installer requires the final opt-in choice. For option 1 use the project file; for option 2 use a host-supported agent-wide `AGENTS.md`, or ask which project file should hold the choice if no global file is loaded. Set `Self-improvement: enabled.` for yes or `Self-improvement: disabled.` for no. Retain the installed `refine-skill` link and skill-completion check, reconcile duplicate declarations, and verify the saved choice. Project declarations override agent-wide defaults. No answer preserves the prior setting and leaves the choice pending; an explicit choice already supplied satisfies the question.
+
+## Destination rules
+
+- **Project-wide:** create or merge the project’s `AGENTS.md` with request-term routing, scoped passive defaults, authoring conventions, scratch policy, and reference libraries. Preserve project commands and constraints. Explicit skill links work without assuming native host discovery. Initialize or reuse Git-versioned `agents/scratch/` and its index; add `/agents/tmp/` and `/agents/context-paging/` to the root `.gitignore` without altering unrelated rules.
+- **Agent-wide:** merge source AGENTS guidance into existing agent-level conventions/routing skills, or create passive `dev-skills-conventions` when no owner exists. Link procedures rather than copying them. Configure supported discovery/startup references; if automatic loading is unavailable, provide explicit activation instructions. Keep project-specific precedence and unrelated policy intact. Project scratch remains Git-versioned `agents/scratch/`, with ignored `agents/tmp/`, never global session history. Project opt-in alone does not authorize global skill edits.

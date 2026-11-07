@@ -1,0 +1,5 @@
+interface:
+  display_name: "Run Experiment"
+  short_description: "Compare alternatives with reproducible evidence"
+policy:
+  allow_implicit_invocation: false
