@@ -16,6 +16,9 @@
 [![Python 3.13](https://github.com/curvedinf/wove/actions/workflows/python-3-13.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-13.yml)
 [![Python 3.14](https://github.com/curvedinf/wove/actions/workflows/python-3-14.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-14.yml)
 [![Python 3.14 (free-threaded)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-14t.yml)
+[![Python 3.15](https://github.com/curvedinf/wove/actions/workflows/python-3-15.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-15.yml)
+[![Python 3.15 (free-threaded)](https://github.com/curvedinf/wove/actions/workflows/python-3-15t.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-15t.yml)
+[![Python 3.16](https://github.com/curvedinf/wove/actions/workflows/python-3-16.yml/badge.svg)](https://github.com/curvedinf/wove/actions/workflows/python-3-16.yml)
 
 Beautiful Python async.
 
