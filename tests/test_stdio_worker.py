@@ -132,19 +132,33 @@ async def test_execute_task_emits_heartbeat_and_handles_cancellation(monkeypatch
 
     monkeypatch.setattr(rt, "_emit", capture_emit)
 
+    blocker = asyncio.Event()
+
+    async def blocked():
+        await blocker.wait()
+        return "ok"
+
     async def slow():
         await asyncio.sleep(0.03)
         return "ok"
 
-    await rt._execute_task(
-        run_id="run-heartbeat",
-        task_id="task-heartbeat",
-        task_callable=slow,
-        task_args={},
-        delivery={"delivery_heartbeat_seconds": 0.01},
+    executing = asyncio.create_task(
+        rt._execute_task(
+            run_id="run-heartbeat",
+            task_id="task-heartbeat",
+            task_callable=blocked,
+            task_args={},
+            delivery={"delivery_heartbeat_seconds": 0.01},
+        )
     )
 
-    assert any(frame.get("type") == "heartbeat" for frame in emitted)
+    deadline = asyncio.get_running_loop().time() + 5.0
+    while not any(frame.get("type") == "heartbeat" for frame in emitted):
+        if asyncio.get_running_loop().time() > deadline:
+            pytest.fail("heartbeat was not emitted while the task was running")
+        await asyncio.sleep(0.001)
+    blocker.set()
+    await executing
 
     emitted.clear()
     pending = asyncio.create_task(
